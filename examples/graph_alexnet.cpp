@@ -21,6 +21,15 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+
+//Ehsan
+#include<chrono>
+#include <sys/types.h>
+#include <dirent.h>
+//#include<unistd.h>
+//#include<sched.h>
+
+
 #include "arm_compute/graph.h"
 #ifdef ARM_COMPUTE_CL
 #include "arm_compute/runtime/CL/Utils.h"
@@ -34,6 +43,24 @@ using namespace arm_compute;
 using namespace arm_compute::utils;
 using namespace arm_compute::graph::frontend;
 using namespace arm_compute::graph_utils;
+
+
+//Ehsan 
+typedef std::vector<std::string> stringvec;
+void read_directory(const std::string& name, stringvec& v)
+{
+    DIR* dirp = opendir(name.c_str());
+    struct dirent * dp;
+    while ((dp = readdir(dirp)) != NULL) {
+        if(arm_compute::utility::endswith(dp->d_name, ".ppm"))
+           v.push_back(name+(dp->d_name));
+    }
+    closedir(dirp);
+}
+
+//Ehsan
+size_t image_index=0;
+stringvec images_list;
 
 /** Example demonstrating how to implement AlexNet's network using the Compute Library's graph API */
 class GraphAlexnetExample : public Example
@@ -51,6 +78,11 @@ public:
 
         // Consume common parameters
         common_params = consume_common_graph_parameters(common_opts);
+        
+	//Ehsan
+	read_directory(common_params.image,images_list);
+	std::cout<<images_list.size()<<" Input images are read from "<<common_params.image<<std::endl;
+	common_params.image=images_list[image_index];
 
         // Return when help menu is requested
         if(common_params.help)
@@ -182,11 +214,38 @@ public:
 
         return true;
     }
+
     void do_run() override
     {
         // Run graph
-        graph.run();
+        //Ehsan
+        std::cout<<"start running graph ...\n";
+        auto tstart=std::chrono::high_resolution_clock::now();
+        ImageAccessor *im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
+        for(int i=0;i<20;i++){
+		if(image_index>=images_list.size())
+			image_index=image_index%images_list.size();
+		std::cout<<"inferencing image: "<<image_index<<":"<<images_list[image_index]<<std::endl;
+		//std::unique_ptr<ImageAccessor> im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
+		im_acc->set_filename(images_list[image_index++]);
+                graph.run();
+        }
+        auto tfinish=std::chrono::high_resolution_clock::now();
+        double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+        double Cost=cost0/20;
+        std::cout<<"Cost:"<<Cost<<std::endl;
+        /*
+	tstart=std::chrono::high_resolution_clock::now();
+        for(int i=0;i<100;i++)
+                graph.run();
+        tfinish=std::chrono::high_resolution_clock::now();
+        double cost100 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+        Cost=cost100/20;
+        std::cout<<"Cost:"<<Cost<<std::endl;
+	*/
     }
+
+	
 
 private:
     CommandLineParser  cmd_parser;
@@ -213,5 +272,15 @@ private:
  */
 int main(int argc, char **argv)
 {
+    //Ehsan
+    /*
+    cpu_set_t cpuset;
+    CPU_ZERO(&cpuset);
+    CPU_SET(4, &cpuset);
+    int e = sched_setaffinity(getpid(), sizeof(cpuset), &cpuset);
+    if(e !=0)
+        std::cout << "Error in setting sched_setaffinity \n";
+    */
+
     return arm_compute::utils::run_example<GraphAlexnetExample>(argc, argv);
 }
