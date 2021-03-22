@@ -384,14 +384,22 @@ void get_cpu_configuration(CPUInfo &cpuinfo)
 
     const unsigned int max_cpus = get_max_cpus();
     cpuinfo.set_cpu_num(max_cpus);
+    //Ehsan
+    //std::cout<<"CPUUtils.cpp, max_cpus: "<<max_cpus<<std::endl;
+
     std::vector<CPUModel> percpu(max_cpus, CPUModel::GENERIC);
     if(cpuid)
     {
         populate_models_cpuid(percpu);
+	//Ehsan
+	//std::cout<<"CPUUtils.cpp, cpuid"<<std::endl;
     }
     else
     {
         populate_models_cpuinfo(percpu);
+	//Ehsan
+	//std::cout<<"CPUUtils.cpp, cpuinfo:\n";
+	
     }
     int j(0);
     // Update dot product and FP16 support if one of the CPUs support these features
@@ -403,6 +411,8 @@ void get_cpu_configuration(CPUInfo &cpuinfo)
         one_supports_dot  = one_supports_dot || model_supports_dot(v);
         one_supports_fp16 = one_supports_fp16 || model_supports_fp16(v);
         cpuinfo.set_cpu_model(j++, v);
+	//Ehsan
+	//std::cout<<"CPUUtils.cpp, j: "<<j-1<<" model: "<<static_cast<std::underlying_type<CPUModel>::type>(v)<<std::endl;
     }
     cpuinfo.set_dotprod(one_supports_dot || hwcaps_dot_support);
     cpuinfo.set_fp16(one_supports_fp16 || hwcaps_fp16_support);
@@ -455,6 +465,9 @@ unsigned int get_threads_hint()
     auto min_common_cores = std::min_element(cpu_part_occurrence_map.begin(), cpu_part_occurrence_map.end(),
                                              [](const std::pair<std::string, unsigned int> &p1, const std::pair<std::string, unsigned int> &p2)
     {
+	//Ehsan
+	//std::cout<<"CPUUtils.cpp, p1<p2\n"<<(p1.second < p2.second)<<" p1:"<<p1.second<<" p2: "<<p2.second<<std::endl;
+
         return p1.second < p2.second;
     });
 
@@ -462,7 +475,17 @@ unsigned int get_threads_hint()
     num_threads_hint = cpu_part_occurrence_map.empty() ? std::thread::hardware_concurrency() : min_common_cores->second;
 #endif /* !defined(BARE_METAL) */
 
+	//Ehsan
+    //std::cout<<"CPUUtils.cpp, num_threads_hint: "<<num_threads_hint<<std::endl;
+    //Ehsan
+    for (auto it=cpu_part_occurrence_map.begin(); it!=cpu_part_occurrence_map.end(); ++it){
+        std::cout<<it->first<<"-->"<<it->second<<std::endl;
+    }
+
+
+
     return num_threads_hint;
+    //return 6;
 }
 } // namespace cpu
 } // namespace utils
