@@ -242,10 +242,15 @@ public:
 
     // Inherited methods overriden:
     bool access_tensor(ITensor &tensor) override;
+    //Ehsan
+    bool set_filename(std::string);
 
 private:
     bool                           _already_loaded;
-    const std::string              _filename;
+    //Ehsan
+    //const std::string              _filename;
+    std::string			   _filename;
+
     const bool                     _bgr;
     std::unique_ptr<IPreprocessor> _preprocessor;
 };
