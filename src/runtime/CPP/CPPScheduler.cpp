@@ -29,6 +29,8 @@
 #include "arm_compute/core/Utils.h"
 #include "src/runtime/CPUUtils.h"
 #include "support/Mutex.h"
+//Ehsan
+//#include "arm_compute/gl_vs.h"
 
 #include <atomic>
 #include <condition_variable>
@@ -284,6 +286,8 @@ CPPScheduler &CPPScheduler::get()
 CPPScheduler::CPPScheduler()
     : _impl(std::make_unique<Impl>(num_threads_hint()))
 {
+	//Ehsan
+	//int mapped_core_index=0;
 }
 
 CPPScheduler::~CPPScheduler() = default;
