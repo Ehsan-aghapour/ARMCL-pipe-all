@@ -37,6 +37,11 @@ IScheduler::IScheduler()
     utils::cpu::get_cpu_configuration(_cpu_info);
     // Work out the best possible number of execution threads
     _num_threads_hint = utils::cpu::get_threads_hint();
+
+
+	//Ehsan
+	//std::cout<<"IScheduler.cpp, cpu_num: "<<_cpu_info.get_cpu_num()<<" _num_threads_hint: "<<_num_threads_hint<<std::endl;
+	
 }
 
 CPUInfo &IScheduler::cpu_info()
