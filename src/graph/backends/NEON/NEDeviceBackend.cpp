@@ -46,6 +46,9 @@
 
 #include "support/ToolchainSupport.h"
 
+//Ehsan
+//#include "arm_compute/gl_vs.h"
+
 namespace arm_compute
 {
 namespace graph
@@ -76,7 +79,9 @@ void NEDeviceBackend::setup_backend_context(GraphContext &ctx)
     // Set number of threads
     if(ctx.config().num_threads >= 0)
     {
-        Scheduler::get().set_num_threads(ctx.config().num_threads);
+	//Ehsan
+        //Scheduler::get().set_num_threads(ctx.config().num_threads);
+	Scheduler::get().set_num_threads_with_affinity(ctx.config().num_threads,[](int t_id,int max_cores){std::cout<<"**********max_cores: "<<max_cores<<std::endl;return (5-(t_id%6));});
     }
 
     // Create function level memory manager
