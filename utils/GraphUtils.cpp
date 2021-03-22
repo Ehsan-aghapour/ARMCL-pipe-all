@@ -255,10 +255,22 @@ ImageAccessor::ImageAccessor(std::string filename, bool bgr, std::unique_ptr<IPr
 {
 }
 
+
+//Ehsan
+bool ImageAccessor::set_filename(std::string filename){
+	_filename=filename;
+	std::cout<<"already value: "<<_already_loaded<<std::endl;
+	_already_loaded=false;
+	return _already_loaded;
+}
+
 bool ImageAccessor::access_tensor(ITensor &tensor)
 {
     if(!_already_loaded)
     {
+	//Ehsan
+        std::cout<<"\n\n\n\naccess_tensor is called!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!******************\n\n\n";
+
         auto image_loader = utils::ImageLoaderFactory::create(_filename);
         ARM_COMPUTE_EXIT_ON_MSG(image_loader == nullptr, "Unsupported image type");
 
@@ -294,8 +306,12 @@ bool ImageAccessor::access_tensor(ITensor &tensor)
         }
     }
 
-    _already_loaded = !_already_loaded;
-    return _already_loaded;
+    //Ehsan
+    //_already_loaded = !_already_loaded;
+    //return _already_loaded;
+
+     _already_loaded=false;    
+    return true;
 }
 
 ValidationInputAccessor::ValidationInputAccessor(const std::string             &image_list,
