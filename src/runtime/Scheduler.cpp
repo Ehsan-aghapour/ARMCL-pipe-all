@@ -114,6 +114,8 @@ IScheduler &Scheduler::get()
         auto it = _schedulers.find(_scheduler_type);
         if(it != _schedulers.end())
         {
+		//Ehsan
+	    //std::cout<<"scheduler.cpp, scheduler type: "<<static_cast<std::underlying_type<Type>::type>(_scheduler_type)<<std::endl;
             return *it->second;
         }
         else
