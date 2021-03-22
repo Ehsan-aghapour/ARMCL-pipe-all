@@ -24,6 +24,9 @@
 #ifndef ARM_COMPUTE_RUNTIME_CPU_UTILS_H
 #define ARM_COMPUTE_RUNTIME_CPU_UTILS_H
 
+//Ehsan
+#include<iostream>
+
 namespace arm_compute
 {
 class CPUInfo;
