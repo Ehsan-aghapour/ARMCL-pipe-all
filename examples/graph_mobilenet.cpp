@@ -21,6 +21,12 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+//Ehsan
+#include<chrono>
+#include <sys/types.h>
+#include <dirent.h>
+
+
 #include "arm_compute/graph.h"
 #include "support/ToolchainSupport.h"
 #include "utils/CommonGraphOptions.h"
@@ -31,6 +37,24 @@ using namespace arm_compute;
 using namespace arm_compute::utils;
 using namespace arm_compute::graph::frontend;
 using namespace arm_compute::graph_utils;
+
+
+//Ehsan 
+typedef std::vector<std::string> stringvec;
+void read_directory(const std::string& name, stringvec& v)
+{
+    DIR* dirp = opendir(name.c_str());
+    struct dirent * dp;
+    while ((dp = readdir(dirp)) != NULL) {
+        if(arm_compute::utility::endswith(dp->d_name, ".ppm"))
+           v.push_back(name+(dp->d_name));
+    }
+    closedir(dirp);
+}
+
+//Ehsan
+size_t image_index=0;
+stringvec images_list;
 
 /** Example demonstrating how to implement MobileNet's network using the Compute Library's graph API */
 class GraphMobilenetExample : public Example
@@ -54,6 +78,12 @@ public:
 
         // Consume common parameters
         common_params = consume_common_graph_parameters(common_opts);
+
+	//Ehsan
+	read_directory(common_params.image,images_list);
+	std::cout<<images_list.size()<<" Input images are read from "<<common_params.image<<std::endl;
+	common_params.image=images_list[image_index];
+
 
         // Return when help menu is requested
         if(common_params.help)
@@ -110,7 +140,22 @@ public:
     void do_run() override
     {
         // Run graph
-        graph.run();
+        //Ehsan
+        std::cout<<"start running graph ...\n";        
+        ImageAccessor *im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
+	auto tstart=std::chrono::high_resolution_clock::now();
+        for(int i=0;i<20;i++){
+		if(image_index>=images_list.size())
+			image_index=image_index%images_list.size();
+		std::cout<<"inferencing image: "<<image_index<<":"<<images_list[image_index]<<std::endl;
+		//std::unique_ptr<ImageAccessor> im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
+		im_acc->set_filename(images_list[image_index++]);
+                graph.run();
+        }
+        auto tfinish=std::chrono::high_resolution_clock::now();
+        double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+        double Cost=cost0/20;
+        std::cout<<"Cost:"<<Cost<<std::endl;
     }
 
 private:

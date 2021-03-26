@@ -21,6 +21,10 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+
+//Ehsan
+#include<chrono>
+
 #include "arm_compute/graph/GraphManager.h"
 
 #include "arm_compute/graph/Graph.h"
@@ -114,23 +118,32 @@ void GraphManager::execute_graph(Graph &graph)
     // Check if graph is finalized
     auto it = _workloads.find(graph.id());
     ARM_COMPUTE_ERROR_ON_MSG(it == std::end(_workloads), "Graph is not registered!");
-
+//Ehsan measure input, task and output timings:
     while(true)
     {
         // Call input accessors
+	auto tstart=std::chrono::high_resolution_clock::now();
         if(!detail::call_all_input_node_accessors(it->second))
         {
             return;
         }
-
+	auto tfinish=std::chrono::high_resolution_clock::now();
+	double Cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+	std::cout<<"Input accessor duration: "<<Cost0<<std::endl;
         // Run graph
         detail::call_all_tasks(it->second);
-
+	tstart=std::chrono::high_resolution_clock::now();
+	Cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tstart-tfinish).count();
+	std::cout<<"task duration: "<<Cost0<<std::endl;
         // Call output accessors
         if(!detail::call_all_output_node_accessors(it->second))
         {
             return;
         }
+	tfinish=std::chrono::high_resolution_clock::now();
+	Cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+	std::cout<<"Output accessor duration: "<<Cost0<<std::endl;
+	
     }
 }
 

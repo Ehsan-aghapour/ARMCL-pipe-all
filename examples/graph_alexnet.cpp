@@ -219,9 +219,9 @@ public:
     {
         // Run graph
         //Ehsan
-        std::cout<<"start running graph ...\n";
-        auto tstart=std::chrono::high_resolution_clock::now();
+        std::cout<<"start running graph ...\n";        
         ImageAccessor *im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
+	auto tstart=std::chrono::high_resolution_clock::now();
         for(int i=0;i<20;i++){
 		if(image_index>=images_list.size())
 			image_index=image_index%images_list.size();

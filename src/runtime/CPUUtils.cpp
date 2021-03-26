@@ -478,9 +478,9 @@ unsigned int get_threads_hint()
 	//Ehsan
     //std::cout<<"CPUUtils.cpp, num_threads_hint: "<<num_threads_hint<<std::endl;
     //Ehsan
-    for (auto it=cpu_part_occurrence_map.begin(); it!=cpu_part_occurrence_map.end(); ++it){
+    /*for (auto it=cpu_part_occurrence_map.begin(); it!=cpu_part_occurrence_map.end(); ++it){
         std::cout<<it->first<<"-->"<<it->second<<std::endl;
-    }
+    }*/
 
 
 
