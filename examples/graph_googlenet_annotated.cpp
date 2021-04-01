@@ -176,18 +176,18 @@ public:
         double in=0;
         double task=0;
         double out=0;
-	ANNOTATE_CHANNEL_COLOR(1,ANNOTATE_RED,"20_runs");
+	//ANNOTATE_CHANNEL_COLOR(1,ANNOTATE_RED,"20_runs");
         auto tstart=std::chrono::high_resolution_clock::now();
-        for(int i=0;i<20;i++){
+        for(int i=0;i<1;i++){
                 if(image_index>=images_list.size())
                         image_index=image_index%images_list.size();
                 std::cout<<"\n\ninferencing image: "<<image_index<<":"<<images_list[image_index]<<std::endl;
                 //std::unique_ptr<ImageAccessor> im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
                 im_acc->set_filename(images_list[image_index++]);
-                graph.run(in,task,out);
+                graph.run(in,task,out,1);
         }
         auto tfinish=std::chrono::high_resolution_clock::now();
-	ANNOTATE_CHANNEL_END(1);
+	//ANNOTATE_CHANNEL_END(1);
         double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
         double Cost=cost0/20;
         in=in/20;
@@ -196,7 +196,7 @@ public:
         double tot=in+task+out;
         std::cout<<"Cost:"<<Cost<<std::endl;
         std::cout<<"input_time:"<<in<<"\ntask_time:"<<task<<"\noutput_time:"<<out<<"\ntotal_time:"<<tot<<std::endl;
-	ANNOTATE_MARKER_STR("20_runs_completed");
+	//ANNOTATE_MARKER_STR("20_runs_completed");
     }
 
 
@@ -285,6 +285,6 @@ private:
  */
 int main(int argc, char **argv)
 {
-    ANNOTATE_SETUP;
+    //ANNOTATE_SETUP;
     return arm_compute::utils::run_example<GraphGooglenetExample>(argc, argv);
 }

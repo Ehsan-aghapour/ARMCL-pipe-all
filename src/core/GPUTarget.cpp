@@ -140,6 +140,9 @@ const std::string &string_from_target(GPUTarget target)
 
 GPUTarget get_target_from_name(const std::string &device_name)
 {
+    //Ehsan
+    //std::cout<<"device name: "<< device_name<<std::endl;
+
     std::regex  mali_regex(R"(Mali-(.*))");
     std::smatch name_parts;
     const bool  found_mali = std::regex_search(device_name, name_parts, mali_regex);
@@ -188,6 +191,8 @@ GPUTarget get_target_from_name(const std::string &device_name)
 
 GPUTarget get_arch_from_target(GPUTarget target)
 {
+    //Ehsan
+    //std::cout<<"target: "<<std::hex<<static_cast<std::underlying_type<GPUTarget>::type>(target)<<std::endl;
     return (target & GPUTarget::GPU_ARCH_MASK);
 }
 } // namespace arm_compute

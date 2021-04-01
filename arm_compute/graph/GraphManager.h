@@ -71,7 +71,10 @@ public:
      *
      * @param[in] graph Graph to execute
      */
+    //Ehsan
     void execute_graph(Graph &graph);
+    void execute_graph(Graph &graph, double &in, double &task, double &out);
+    void execute_graph(Graph &graph, double &in, double &task, double &out, bool annotate);
     /** Invalidates the graph execution workload
      *
      * @param[in] graph Graph to invalidate

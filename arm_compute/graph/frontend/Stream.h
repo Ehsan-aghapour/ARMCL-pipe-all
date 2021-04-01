@@ -62,8 +62,10 @@ public:
      */
     void finalize(Target target, const GraphConfig &config);
     /** Executes the stream **/
+    //Ehsan
     void run();
-
+    void run(double &in, double &task, double &out);
+    void run(double &in, double &task, double &out, bool annotate);
     // Inherited overridden methods
     void add_layer(ILayer &layer) override;
     Graph       &graph() override;

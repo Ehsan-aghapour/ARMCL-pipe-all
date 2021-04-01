@@ -51,7 +51,9 @@ CLSymbols &CLSymbols::get()
 bool CLSymbols::load_default()
 {
     static const std::vector<std::string> libraries{ "libOpenCL.so", "libGLES_mali.so", "libmali.so" };
-
+    //Ehsan
+    //std::cout<<"load_default in OpenCL.cpp, _loaded.first:"<<_loaded.first<<std::endl;
+    
     if(_loaded.first)
     {
         return _loaded.second;
@@ -59,15 +61,25 @@ bool CLSymbols::load_default()
 
     // Indicate that default loading has been tried
     _loaded.first = true;
+    //Ehsan
+    //std::string te;
+    //std::cin>>te;
 
     for(const auto &lib : libraries)
     {
         if(load(lib))
         {
+
+            //Ehsan
+            //std::cout<<"load_default Opencl.cpp, lib:"<<lib<<std::endl;
+
             ARM_COMPUTE_ERROR_ON_MSG(this->clBuildProgram_ptr == nullptr, "Failed to load OpenCL symbols from shared library");
             return true;
         }
     }
+    
+    //Ehsan
+    //std::cout<<"NOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO!\n";
 
     std::cerr << "Couldn't find any OpenCL library.\n";
     return false;
@@ -152,6 +164,13 @@ bool CLSymbols::load(const std::string &library)
 bool opencl_is_available()
 {
     CLSymbols::get().load_default();
+    //Ehsan
+    //std::cout<<"build program of symbols in opencl_is_available() of OpenCL.cpp\n";
+    //bool r=(CLSymbols::get().clBuildProgram_ptr != nullptr);
+    //std::string te;
+    //std::cin>>te;
+    //std::cout<<"build program opencl is called, return:"<<r<<std::endl;
+    //return r;
     return CLSymbols::get().clBuildProgram_ptr != nullptr;
 }
 } // namespace arm_compute

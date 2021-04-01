@@ -108,6 +108,8 @@ void CLDeviceBackend::setup_backend_context(GraphContext &ctx)
     _context_count++;
     if(_context_count == 1)
     {
+        //Ehsan
+	//std::cout<<"*********context is one\n";
         initialize_backend();
     }
 
@@ -125,7 +127,15 @@ void CLDeviceBackend::setup_backend_context(GraphContext &ctx)
 
     // Attempt to load mlgo heuristics
     ARM_COMPUTE_ERROR_ON(CLScheduler::get().gemm_heuristics() == nullptr);
+    //Ehsan
+    //std::cout<<"MLGO file :"<<ctx.config().mlgo_file<<std::endl;
+
     CLScheduler::get().gemm_heuristics()->reload_from_file(ctx.config().mlgo_file);
+
+    //Ehsan
+    //std::cout<<"**********************Here!*******************\n";
+    //std::string te;
+    //std::cin>>te;
 
     // Setup a management backend
     if(ctx.memory_management_ctx(Target::CL) == nullptr)

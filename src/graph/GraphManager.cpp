@@ -24,6 +24,7 @@
 
 //Ehsan
 #include<chrono>
+#include"annotate/Sr_ann.c"
 
 #include "arm_compute/graph/GraphManager.h"
 
@@ -47,6 +48,7 @@ GraphManager::GraphManager()
 {
 }
 
+
 void GraphManager::finalize_graph(Graph &graph, GraphContext &ctx, PassManager &pm, Target target)
 {
     // Check if graph has been registered
@@ -63,9 +65,14 @@ void GraphManager::finalize_graph(Graph &graph, GraphContext &ctx, PassManager &
     Target forced_target = target;
     if(!is_target_supported(target))
     {
+	//Ehsan
+	//std::cout<<"target is not supported."<<std::endl;
+
         forced_target = get_default_target();
         ARM_COMPUTE_LOG_GRAPH_INFO("Switching target from " << target << " to " << forced_target << std::endl);
     }
+    //Ehsan
+    std::cout<<"*********force target is :"<<target<<std::endl;
     force_target_to_graph(graph, forced_target);
 
     // Setup backend context
@@ -112,6 +119,7 @@ void GraphManager::finalize_graph(Graph &graph, GraphContext &ctx, PassManager &
     _workloads.insert(std::make_pair(graph.id(), std::move(workload)));
     ARM_COMPUTE_LOG_GRAPH_VERBOSE("Created workload for graph with ID : " << graph.id() << std::endl);
 }
+//Ehsan
 
 void GraphManager::execute_graph(Graph &graph)
 {
@@ -122,30 +130,150 @@ void GraphManager::execute_graph(Graph &graph)
     while(true)
     {
         // Call input accessors
+        //double tot=0;
+
+        //auto tstart=std::chrono::high_resolution_clock::now();
+        if(!detail::call_all_input_node_accessors(it->second))
+        {
+            return;
+        }
+        //auto tfinish=std::chrono::high_resolution_clock::now();
+        //in += std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+        //std::cout<<"Input accessor duration: "<<Cost0<<std::endl;
+        // Run graph
+        detail::call_all_tasks(it->second);
+        //tstart=std::chrono::high_resolution_clock::now();
+        //task += std::chrono::duration_cast<std::chrono::duration<double>>(tstart-tfinish).count();
+
+        //std::cout<<"task duration: "<<Cost0<<std::endl;
+        // Call output accessors
+        if(!detail::call_all_output_node_accessors(it->second))
+        {
+            //tfinish=std::chrono::high_resolution_clock::now();
+            //out = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+            //std::cout<<"__Output accessor duration: "<<Cost0<<std::endl;
+            //std::cout<<"tot_(input+tasks+output):"<<tot<<std::endl;
+            return;
+        }
+        //tfinish=std::chrono::high_resolution_clock::now();
+        //out = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+        //tot = in+task+out;
+        //std::cout<<"Output accessor duration: "<<Cost0<<std::endl;
+        //std::cout<<"tot_:"<<tot<<std::endl;
+
+    }
+}
+
+
+void GraphManager::execute_graph(Graph &graph,double &in, double &task, double &out)
+{
+    // Check if graph is finalized
+    auto it = _workloads.find(graph.id());
+    ARM_COMPUTE_ERROR_ON_MSG(it == std::end(_workloads), "Graph is not registered!");
+    //Ehsan measure input, task and output timings:
+    while(true)
+    {
+        // Call input accessors
+	//double tot=0;
+	//ANNOTATE_CHANNEL_COLOR(1,ANNOTATE_GREEN,"input");
 	auto tstart=std::chrono::high_resolution_clock::now();
         if(!detail::call_all_input_node_accessors(it->second))
         {
             return;
         }
 	auto tfinish=std::chrono::high_resolution_clock::now();
-	double Cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
-	std::cout<<"Input accessor duration: "<<Cost0<<std::endl;
+	//ANNOTATE_CHANNEL_END(1);
+	//ANNOTATE_CHANNEL_COLOR(2,ANNOTATE_YELLOW,"task");
+	in += std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+	//std::cout<<"Input accessor duration: "<<Cost0<<std::endl;
         // Run graph
         detail::call_all_tasks(it->second);
 	tstart=std::chrono::high_resolution_clock::now();
-	Cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tstart-tfinish).count();
-	std::cout<<"task duration: "<<Cost0<<std::endl;
+
+        //std::cout<<"task_previous:"<<task<<std::endl;
+
+	//ANNOTATE_CHANNEL_END(2);
+	//ANNOTATE_CHANNEL_COLOR(3,ANNOTATE_BLACK,"output");
+	task += std::chrono::duration_cast<std::chrono::duration<double>>(tstart-tfinish).count();
+
+	//std::cout<<"task duration: "<<task<<std::endl;
         // Call output accessors
         if(!detail::call_all_output_node_accessors(it->second))
         {
+	    tfinish=std::chrono::high_resolution_clock::now();
+	    out += std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+            // std::cout<<"__Output accessor duration: "<<out<<std::endl;
+	    //std::cout<<"tot_(input+tasks+output):"<<tot<<std::endl;
+	    //ANNOTATE_CHANNEL_END(3);
             return;
         }
 	tfinish=std::chrono::high_resolution_clock::now();
-	Cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
-	std::cout<<"Output accessor duration: "<<Cost0<<std::endl;
+	out += std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+	//tot = in+task+out;
+	//std::cout<<"Output accessor duration: "<<out<<std::endl;
+	//std::cout<<"tot_:"<<tot<<std::endl;
 	
     }
 }
+
+
+//Ehsan
+void GraphManager::execute_graph(Graph &graph,double &in, double &task, double &out, bool anotate)
+{
+    // Check if graph is finalized
+    auto it = _workloads.find(graph.id());
+    ARM_COMPUTE_ERROR_ON_MSG(it == std::end(_workloads), "Graph is not registered!");
+    //Ehsan measure input, task and output timings:
+    ANNOTATE_SETUP;
+    if(anotate)
+        ANNOTATE_MARKER_STR("start_running");
+    while(true)
+    {
+        // Call input accessors
+        //double tot=0;
+        ANNOTATE_CHANNEL_COLOR(1,ANNOTATE_GREEN,"input");
+        auto tstart=std::chrono::high_resolution_clock::now();
+        if(!detail::call_all_input_node_accessors(it->second))
+        {
+            return;
+        }
+        auto tfinish=std::chrono::high_resolution_clock::now();
+        ANNOTATE_CHANNEL_END(1);
+        ANNOTATE_CHANNEL_COLOR(2,ANNOTATE_YELLOW,"task");
+        in += std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+        //std::cout<<"Input accessor duration: "<<Cost0<<std::endl;
+        // Run graph
+        detail::call_all_tasks(it->second);
+        tstart=std::chrono::high_resolution_clock::now();
+
+        //std::cout<<"task_previous:"<<task<<std::endl;
+
+        ANNOTATE_CHANNEL_END(2);
+        ANNOTATE_CHANNEL_COLOR(3,ANNOTATE_BLACK,"output");
+        task += std::chrono::duration_cast<std::chrono::duration<double>>(tstart-tfinish).count();
+
+        //std::cout<<"task duration: "<<task<<std::endl;
+        // Call output accessors
+        if(!detail::call_all_output_node_accessors(it->second))
+        {
+            tfinish=std::chrono::high_resolution_clock::now();
+            out += std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+            // std::cout<<"__Output accessor duration: "<<out<<std::endl;
+            //std::cout<<"tot_(input+tasks+output):"<<tot<<std::endl;
+            ANNOTATE_CHANNEL_END(3);
+	    ANNOTATE_MARKER_STR("Finished...");
+            return;
+        }
+        tfinish=std::chrono::high_resolution_clock::now();
+	//ANNOTATE_MARKER_STR("Finished");
+        out += std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+        //tot = in+task+out;
+        //std::cout<<"Output accessor duration: "<<out<<std::endl;
+        //std::cout<<"tot_:"<<tot<<std::endl;
+
+    }
+}
+
 
 void GraphManager::invalidate_graph(Graph &graph)
 {
