@@ -11,4 +11,15 @@
 	merge = refs/heads/master
 [remote "origin"]
 	url = https://github.com/Ehsan-aghapour/ComputeLibrary.git
+	#url = https://github.com/Ehsan-aghapour/ARMCL-V21.02.git
 	fetch = +refs/heads/*:refs/remotes/origin/*
+[remote "shared"]
+	url = https://github.com/Ehsan-aghapour/ARMCL-V21.02.git
+	fetch = +refs/heads/*:refs/remotes/shared/*
+[remote "all"]
+	url = https://github.com/Ehsan-aghapour/ComputeLibrary.git
+	fetch = +refs/heads/*:refs/remotes/all/*
+	url = https://github.com/Ehsan-aghapour/ARMCL-V21.02.git
+[branch "Working_branch_v21.02"]
+	remote = shared
+	merge = refs/heads/Working_branch_v21.02
