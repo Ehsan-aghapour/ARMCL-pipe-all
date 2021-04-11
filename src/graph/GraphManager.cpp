@@ -80,6 +80,11 @@ void GraphManager::finalize_graph(Graph &graph, GraphContext &ctx, PassManager &
     setup_requested_backend_context(ctx, forced_target);
 
     // Configure all tensors
+    /*Ehsan:
+     * set TensforHandle for all tensors which TensorInfo of TensorAllocator for each TensorHandle is set based on information of each tensor such as shape,datatype,
+     * quantinfo and ...
+     * strides in bytes for all dimensions also is set in tensorInfo
+     */
     detail::configure_all_tensors(graph);
 
     // Apply backend mutating passes

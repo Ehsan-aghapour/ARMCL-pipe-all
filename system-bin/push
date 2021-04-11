@@ -1,0 +1,11 @@
+
+echo "1: $1"
+echo "2: $2"
+
+full_dir="data/data/com.termux/files/home/ARMCL-Khadas/$2"
+
+#_dir=$(dirname $full_dir)
+
+adb shell mkdir -p $full_dir
+
+adb push $1 $full_dir

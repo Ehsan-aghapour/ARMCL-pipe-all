@@ -1,0 +1,17 @@
+
+_path="data/data/com.termux/files/home/ARMCL-Khadas/"
+
+full_dir="$_path/$2" 
+
+#_dir=$(dirname $full_dir) 
+
+adb shell mkdir -p $full_dir 
+
+adb push $1 $full_dir 
+
+_file=$(basename $1)
+#echo "file:$_file"
+_file="$full_dir/$_file"
+
+_test="$_path/test.sh"
+adb shell $_test $_file $3
