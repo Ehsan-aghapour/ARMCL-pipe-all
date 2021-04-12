@@ -143,6 +143,34 @@ ExecutionWorkload configure_all_nodes(Graph &g, GraphContext &ctx, const std::ve
     for(auto &node_id : node_order)
     {
         auto node = g.node(node_id);
+        //Ehsan
+        /*std::cout<<"\n*******************************\nnode name: "<<node->name()<<" ID: "<<node->id()<<" num inputs: "<<node->num_inputs()<<std::endl<<std::flush;
+        for(int k=0; k < node->num_inputs(); k++){
+        	INode *cc=node->input_edge(k)->producer();
+        	std::cout<<"\ninput "<<k<<" node_name: "<<cc->name()<<" ID: "<<cc->id()<<std::endl<<std::flush;
+        	TensorShape shape=node->input(k)->desc().shape;
+            for(int i=0;i<shape.num_dimensions();i++) std::cout<<shape[i]<<'\t'<<std::flush;
+            //std::cout<<"Padding: "<<_padding.left<<_padding.right<<_padding.top<<_padding.bottom<<std::endl;
+        }*/
+
+        /*
+         ARM_COMPUTE_LOG_GRAPH_INFO("Instantiated "
+                               << node.name()
+                               << " Type: " << node.type()
+                               << " Target: " << CLTargetInfo::TargetType
+                               << " Data Type: " << input0->info()->data_type()
+                               << " Input0 shape: " << input0->info()->tensor_shape()
+                               << " Input1 shape: " << input1->info()->tensor_shape()
+                               << " Input2 shape: " << input2->info()->tensor_shape()
+                               << " Output0 shape: " << output0->info()->tensor_shape()
+                               << " Output1 shape: " << output1->info()->tensor_shape()
+                               << " Output2 shape: " << output2->info()->tensor_shape()
+                               << " Output3 shape: " << output3->info()->tensor_shape()
+                               << " DetectionPostProcessLayer info: " << detect_info
+                               << std::endl);
+         */
+
+
         if(node != nullptr)
         {
             Target                     assigned_target = node->assigned_target();
@@ -160,12 +188,18 @@ ExecutionWorkload configure_all_nodes(Graph &g, GraphContext &ctx, const std::ve
     {
         if(node != nullptr && node->type() == NodeType::Input)
         {
+        	//Ehsan
+        	//std::cout<<"\ninput node name and ID: "<<node->name()<<'_'<<node->id()<<std::endl;
+
             workload.inputs.push_back(node->output(0));
         }
 
         if(node != nullptr && node->type() == NodeType::Output)
         {
             workload.outputs.push_back(node->input(0));
+            //Ehsan
+            //std::cout<<"\noutput node name and ID: "<<node->name()<<'_'<<node->id()<<std::endl;
+
             continue;
         }
     }
@@ -200,6 +234,8 @@ void call_all_const_node_accessors(Graph &g)
         {
             if(!node->output(0)->bound_edges().empty())
             {
+            	//Ehsan
+            	std::cout<<"ExecutionHelpers, call all const node tensors, node name and ID: "<<node->name()<<'_'<<node->id()<<std::endl;
                 call_tensor_accessor(node->output(0));
             }
         }
@@ -211,7 +247,8 @@ bool call_all_input_node_accessors(ExecutionWorkload &workload)
     bool is_valid = true;
     std::for_each(std::begin(workload.inputs), std::end(workload.inputs), [&](Tensor * input_tensor)
     {
-        bool valid_input = (input_tensor != nullptr) && input_tensor->call_accessor();
+    	std::cout<<"input accessor"<<std::endl;
+        bool valid_input = (input_tensor != nullptr) && input_tensor->my_call_accessor();
         is_valid         = is_valid && valid_input;
     });
     return is_valid;

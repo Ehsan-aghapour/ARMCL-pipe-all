@@ -58,9 +58,41 @@ void CLConvolutionLayer::configure(const CLCompileContext &compile_context, ICLT
     ARM_COMPUTE_ERROR_ON_NULLPTR(input, weights, output);
     ARM_COMPUTE_ERROR_THROW_ON(CLConvolutionLayer::validate(input->info(), weights->info(), ((biases != nullptr) ? biases->info() : nullptr), output->info(), conv_info, weights_info, dilation, act_info,
                                                             enable_fast_math, num_groups));
+    //Ehsan
+    std::string cnmethods[]=
+    {
+        "GEMM",        /**< Convolution using GEMM */
+        "GEMM_CONV2D", /**< Direct 2D GEMM convolution */
+        "DIRECT",      /**< Direct convolution */
+        "WINOGRAD",    /**< Convolution using Winograd */
+        "FFT"          /**< Convolution using FFT */
+    };
 
-    switch(CLConvolutionLayer::get_convolution_method(input->info(), weights->info(), output->info(), conv_info,
-                                                      weights_info, act_info, CLScheduler::get().target(), dilation, enable_fast_math))
+
+    //Ehsan
+    ConvolutionMethod cnmtd=CLConvolutionLayer::get_convolution_method(input->info(), weights->info(), output->info(), conv_info, weights_info, act_info, CLScheduler::get().target(), dilation, enable_fast_math);
+    std::string mtd=cnmethods[int(cnmtd)];
+
+    const size_t in_idx_w = get_data_layout_dimension_index(input->info()->data_layout(), DataLayoutDimension::WIDTH);
+    const size_t in_idx_h = get_data_layout_dimension_index(input->info()->data_layout(), DataLayoutDimension::HEIGHT);
+    const size_t in_idx_c = get_data_layout_dimension_index(input->info()->data_layout(), DataLayoutDimension::CHANNEL);
+
+    const size_t w_idx_w = get_data_layout_dimension_index(weights->info()->data_layout(), DataLayoutDimension::WIDTH);
+    const size_t w_idx_h = get_data_layout_dimension_index(weights->info()->data_layout(), DataLayoutDimension::HEIGHT);
+    const size_t w_idx_c = get_data_layout_dimension_index(weights->info()->data_layout(), DataLayoutDimension::CHANNEL);
+
+    const size_t o_idx_w = get_data_layout_dimension_index(output->info()->data_layout(), DataLayoutDimension::WIDTH);
+    const size_t o_idx_h = get_data_layout_dimension_index(output->info()->data_layout(), DataLayoutDimension::HEIGHT);
+    const size_t o_idx_c = get_data_layout_dimension_index(output->info()->data_layout(), DataLayoutDimension::CHANNEL);
+    std::cout<<"\nCLConvolutionLayere_configure\n";
+    //simply can use input->info()->tensor_shape(); instead of printing all dimensions seperately;
+    std::cout<<"input dimensions:    "<<input->info()->dimension(in_idx_c)<<','<<input->info()->dimension(in_idx_w)<<','<<input->info()->dimension(in_idx_h)<<std::endl;
+    std::cout<<"weights deimensions: "<<weights->info()->dimension(w_idx_c)<<','<<weights->info()->dimension(w_idx_w)<<','<<weights->info()->dimension(w_idx_h)<<std::endl;
+    std::cout<<"output dimensions:   "<<output->info()->dimension(o_idx_c)<<','<<output->info()->dimension(o_idx_w)<<','<<output->info()->dimension(o_idx_h)<<std::endl;
+    std::cout<<"Convolution Method:  "<<mtd<<std::endl;
+
+
+    switch(cnmtd)
     {
         case ConvolutionMethod::WINOGRAD:
         {
@@ -105,6 +137,10 @@ Status CLConvolutionLayer::validate(const ITensorInfo *input, const ITensorInfo 
     ARM_COMPUTE_RETURN_ERROR_ON_MSG((num_groups != 1) && (input->data_layout() != DataLayout::NCHW), "Grouping (num_groups != 1) with NHWC data layout is not supported");
 
     const GPUTarget gpu_target = CLScheduler::get().target();
+
+
+
+
 
     switch(CLConvolutionLayer::get_convolution_method(input, weights, output, conv_info, weights_info, act_info, gpu_target, dilation, enable_fast_math))
     {

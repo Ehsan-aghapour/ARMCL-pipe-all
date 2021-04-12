@@ -98,6 +98,34 @@ bool Tensor::call_accessor()
     return retval;
 }
 
+//Ehsan
+bool Tensor::my_call_accessor()
+{
+    // Early exit guard
+    if(!_accessor || !_handle)
+    {
+        return false;
+    }
+
+    // Map tensor
+    _handle->map(true);
+
+    // Return in case of null backend buffer
+    if(_handle->tensor().buffer() == nullptr)
+    {
+        return false;
+    }
+
+    // Call accessor
+    bool retval = _accessor->access_tensor(_handle->tensor());
+
+    // Unmap tensor
+    _handle->unmap();
+
+    return retval;
+}
+
+
 void Tensor::bind_edge(EdgeID eid)
 {
     _bound_edges.insert(eid);

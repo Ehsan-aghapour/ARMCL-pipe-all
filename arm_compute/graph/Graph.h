@@ -242,6 +242,10 @@ inline NodeID Graph::add_node(Ts &&... args)
     node->set_graph(this);
     node->set_id(nid);
 
+
+    //Ehsan
+    //std::cout<<"nid: "<<nid<<" name: "<<node->name()<<" type: "<<int(node->type())<<"num outputs: "<<node->num_outputs()<<" num inputs: "<<node->num_inputs()<<std::endl;
+
     // Keep track of input nodes
     _tagged_nodes[node->type()].push_back(nid);
 

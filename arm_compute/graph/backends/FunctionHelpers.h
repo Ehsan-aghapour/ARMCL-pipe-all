@@ -486,6 +486,22 @@ std::unique_ptr<IFunction> create_convolution_layer(ConvolutionLayerNode &node, 
     std::unique_ptr<IFunction>      func;
     std::string                     func_name;
 
+    //Ehsan
+
+
+    std::string cnmethods[]=
+    {
+        "Default", /**< Default approach using internal heuristics */
+        "GEMM",    /**< GEMM based convolution */
+        "Direct",  /**< Deep direct convolution */
+        "Winograd" /**< Winograd based convolution */
+    };
+
+    std::string mtd=cnmethods[int(conv_algorithm)];
+    std::cout<<"function helpers create convolution layer, node "<<node.name()<<" Convolution method: "<<mtd<<std::endl;
+
+
+
     if(conv_algorithm == ConvolutionMethod::Winograd)
     {
         ARM_COMPUTE_ERROR_ON_MSG(num_groups != 1, "WinogradConvolutionLayer does not support grouping!");
@@ -535,6 +551,20 @@ std::unique_ptr<IFunction> create_convolution_layer(ConvolutionLayerNode &node, 
                                << qss.str()
                                << (fused_act.enabled() ? " " + to_string(fused_act.activation()) : "")
                                << std::endl);
+
+    //Ehsan
+    std::cout<<"function helper conv layer func Instantiated "
+                               << node.name()
+                               << " Type: " << func_name
+                               << " Target: " << TargetInfo::TargetType
+                               << " Data Type: " << input->info()->data_type()
+                               << " Groups: " << num_groups
+                               << " Input shape: " << input->info()->tensor_shape()
+                               << " Weights shape: " << weights->info()->tensor_shape()
+                               << " Output shape: " << output->info()->tensor_shape()
+                               << qss.str()
+                               << (fused_act.enabled() ? " " + to_string(fused_act.activation()) : "")
+                               << std::endl;
     return std::move(func);
 }
 

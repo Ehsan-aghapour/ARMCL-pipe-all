@@ -235,11 +235,15 @@ std::unique_ptr<IFunction> CLFunctionFactory::create(INode *node, GraphContext &
     }
 
     NodeType type = node->type();
+
+    //Ehsan
+    std::cout<<"\nnode name: "<< node->name()<<'_'<<node->id()<<" node type in function factory: "<<int(type)<<std::endl;
     switch(type)
     {
         case NodeType::ActivationLayer:
             return detail::create_activation_layer<CLActivationLayer, CLTargetInfo>(*polymorphic_downcast<ActivationLayerNode *>(node));
         case NodeType::ArgMinMaxLayer:
+        	std::cout<<"*******************************________________We have argminmax function________________**************************_______________*************\n";
             return detail::create_arg_min_max_layer<CLArgMinMaxLayer, CLTargetInfo>(*polymorphic_downcast<ArgMinMaxLayerNode *>(node));
         case NodeType::BatchNormalizationLayer:
             return detail::create_batch_normalization_layer<CLBatchNormalizationLayer, CLTargetInfo>(*polymorphic_downcast<BatchNormalizationLayerNode *>(node));
@@ -316,6 +320,8 @@ std::unique_ptr<IFunction> CLFunctionFactory::create(INode *node, GraphContext &
         case NodeType::StridedSliceLayer:
             return detail::create_strided_slice_layer<CLStridedSlice, CLTargetInfo>(*polymorphic_downcast<StridedSliceLayerNode *>(node));
         default:
+        	//Ehsan
+        	std::cout<<"Node Type which is not in function factory cases: "<<int(type)<<std::endl;
             return nullptr;
     }
 }

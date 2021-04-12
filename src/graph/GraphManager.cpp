@@ -25,6 +25,7 @@
 //Ehsan
 #include<chrono>
 #include"annotate/Sr_ann.c"
+#include "arm_compute/graph/printers/DotGraphPrinter.h"
 
 #include "arm_compute/graph/GraphManager.h"
 
@@ -72,7 +73,7 @@ void GraphManager::finalize_graph(Graph &graph, GraphContext &ctx, PassManager &
         ARM_COMPUTE_LOG_GRAPH_INFO("Switching target from " << target << " to " << forced_target << std::endl);
     }
     //Ehsan
-    std::cout<<"*********force target is :"<<target<<std::endl;
+    std::cout<<"*********force target is: "<<target<<std::endl;
     force_target_to_graph(graph, forced_target);
 
     // Setup backend context
@@ -104,12 +105,20 @@ void GraphManager::finalize_graph(Graph &graph, GraphContext &ctx, PassManager &
     detail::allocate_const_tensors(graph);
     detail::call_all_const_node_accessors(graph);
 
+
+    //Ehsan
+    DotGraphPrinter p;
+    p.print(graph,std::cout);
+
     // Prepare graph
     detail::prepare_all_tasks(workload);
 
     // Setup tensor memory (Allocate all tensors or setup transition manager)
     if(ctx.config().use_transition_memory_manager)
     {
+    	//Ehsan
+    	std::cout<<"transition memory mangaer is used\n";
+
         detail::configure_transition_manager(graph, ctx, workload);
     }
     else
