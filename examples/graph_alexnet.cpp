@@ -228,8 +228,9 @@ public:
         double in=0;
         double task=0;
         double out=0;
+        int tt=1;
         auto tstart=std::chrono::high_resolution_clock::now();
-        for(int i=0;i<20;i++){
+        for(int i=0;i<tt;i++){
 		if(imgs){
 		        if(image_index>=images_list.size())
 		                image_index=image_index%images_list.size();
@@ -237,14 +238,14 @@ public:
 		        //std::unique_ptr<ImageAccessor> im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
 		        im_acc->set_filename(images_list[image_index++]);
 		}
-                graph.run(in,task,out);
+                graph.run(in,task,out,1);
         }
         auto tfinish=std::chrono::high_resolution_clock::now();
         double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
-        double Cost=cost0/20;
-        in=in/20;
-        task=task/20;
-        out=out/20;
+        double Cost=cost0/tt;
+        in=in/tt;
+        task=task/tt;
+        out=out/tt;
         double tot=in+task+out;
         std::cout<<"Cost:"<<Cost<<std::endl;
         std::cout<<"input_time:"<<in<<"\ntask_time:"<<task<<"\noutput_time:"<<out<<"\ntotal_time:"<<tot<<std::endl;

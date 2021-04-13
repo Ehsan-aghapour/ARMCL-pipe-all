@@ -307,11 +307,12 @@ bool ImageAccessor::access_tensor(ITensor &tensor)
     }
 
     //Ehsan
-    //_already_loaded = !_already_loaded;
-    //return _already_loaded;
+    //_already_loaded=false;
+    _already_loaded = !_already_loaded;
+    return _already_loaded;
 
-     _already_loaded=false;    
-    return true;
+
+    //return true;
 }
 
 ValidationInputAccessor::ValidationInputAccessor(const std::string             &image_list,

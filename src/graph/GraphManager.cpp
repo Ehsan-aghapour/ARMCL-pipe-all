@@ -241,46 +241,67 @@ void GraphManager::execute_graph(Graph &graph,double &in, double &task, double &
     ANNOTATE_SETUP;
     if(anotate)
         ANNOTATE_MARKER_STR("start_running");
+    static int test=0;
+    static int cc=0;
     while(true)
     {
         // Call input accessors
         //double tot=0;
-        ANNOTATE_CHANNEL_COLOR(1,ANNOTATE_GREEN,"input");
+
+        ANNOTATE_CHANNEL_COLOR(cc,ANNOTATE_GREEN,"input");
+        std::cout<<"test is: "<<test++<<std::endl;
         auto tstart=std::chrono::high_resolution_clock::now();
         if(!detail::call_all_input_node_accessors(it->second))
         {
+            auto tfinish=std::chrono::high_resolution_clock::now();
+            ANNOTATE_CHANNEL_END(cc++);
+            std::cout<<"in: "<<in<<'\t';
+            in += std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+            std::cout<<"updated in: "<<in<<std::endl;
+            std::cout<<"input exit\n";
             return;
         }
         auto tfinish=std::chrono::high_resolution_clock::now();
-        ANNOTATE_CHANNEL_END(1);
-        ANNOTATE_CHANNEL_COLOR(2,ANNOTATE_YELLOW,"task");
+        ANNOTATE_CHANNEL_END(cc++);
+
+        std::cout<<"in: "<<in<<'\t';
         in += std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+        std::cout<<"updated in: "<<in<<std::endl;
         //std::cout<<"Input accessor duration: "<<Cost0<<std::endl;
         // Run graph
+        ANNOTATE_CHANNEL_COLOR(cc,ANNOTATE_YELLOW,"task");
+        tfinish=std::chrono::high_resolution_clock::now();
         detail::call_all_tasks(it->second);
         tstart=std::chrono::high_resolution_clock::now();
 
         //std::cout<<"task_previous:"<<task<<std::endl;
 
-        ANNOTATE_CHANNEL_END(2);
-        ANNOTATE_CHANNEL_COLOR(3,ANNOTATE_BLACK,"output");
+        ANNOTATE_CHANNEL_END(cc++);
+        ANNOTATE_CHANNEL_COLOR(cc,ANNOTATE_BLACK,"output");
+        std::cout<<"task: "<<task<<'\t';
         task += std::chrono::duration_cast<std::chrono::duration<double>>(tstart-tfinish).count();
-
+        std::cout<<"updated task: "<<task<<std::endl;
         //std::cout<<"task duration: "<<task<<std::endl;
         // Call output accessors
+        tstart=std::chrono::high_resolution_clock::now();
         if(!detail::call_all_output_node_accessors(it->second))
         {
             tfinish=std::chrono::high_resolution_clock::now();
+            std::cout<<"out: "<<out<<'\t';
             out += std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
-            // std::cout<<"__Output accessor duration: "<<out<<std::endl;
+            std::cout<<"updated out: "<<out<<std::endl;
+             std::cout<<"__Output accessor duration: "<<out<<std::endl;
             //std::cout<<"tot_(input+tasks+output):"<<tot<<std::endl;
-            ANNOTATE_CHANNEL_END(3);
+            ANNOTATE_CHANNEL_END(cc++);
 	    ANNOTATE_MARKER_STR("Finished...");
             return;
         }
         tfinish=std::chrono::high_resolution_clock::now();
+        ANNOTATE_CHANNEL_END(cc++);
 	//ANNOTATE_MARKER_STR("Finished");
+        std::cout<<"out: "<<out<<'\t';
         out += std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+        std::cout<<"updated out: "<<out<<std::endl;
         //tot = in+task+out;
         //std::cout<<"Output accessor duration: "<<out<<std::endl;
         //std::cout<<"tot_:"<<tot<<std::endl;

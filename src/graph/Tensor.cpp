@@ -21,6 +21,10 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+//Ehsan
+#include"annotate/streamline_annotate.h"
+
+
 #include "arm_compute/graph/Tensor.h"
 
 namespace arm_compute
@@ -101,27 +105,30 @@ bool Tensor::call_accessor()
 //Ehsan
 bool Tensor::my_call_accessor()
 {
+	ANNOTATE_MARKER_STR("input_output accessor start");
     // Early exit guard
     if(!_accessor || !_handle)
     {
         return false;
     }
-
+    static int c=4;
+    ANNOTATE_CHANNEL_COLOR(c,ANNOTATE_GREEN,"map");
     // Map tensor
     _handle->map(true);
-
+    ANNOTATE_CHANNEL_END(c++);
     // Return in case of null backend buffer
     if(_handle->tensor().buffer() == nullptr)
     {
         return false;
     }
-
+    ANNOTATE_CHANNEL_COLOR(c,ANNOTATE_BLUE,"access");
     // Call accessor
     bool retval = _accessor->access_tensor(_handle->tensor());
-
+    ANNOTATE_CHANNEL_END(c++);
+    ANNOTATE_CHANNEL_COLOR(c,ANNOTATE_RED,"unmap");
     // Unmap tensor
     _handle->unmap();
-
+    ANNOTATE_CHANNEL_END(c++);
     return retval;
 }
 
