@@ -21,6 +21,9 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+//Ehsan
+#include"arm_compute/graph/TypePrinter.h"
+
 #include "arm_compute/core/IAccessWindow.h"
 
 #include "arm_compute/core/Helpers.h"
@@ -115,6 +118,11 @@ bool AccessWindowRectangle::update_window_if_needed(Window &window) const
     const TensorShape &shape                = _info->tensor_shape();
     const Strides     &strides              = _info->strides_in_bytes();
     const size_t       offset_first_element = _info->offset_first_element_in_bytes();
+
+    //Ehsan
+    std::cout<<" \nIAccessWindow.cpp\nShape: "<<shape
+    		<<" strides: "<<strides
+			<<std::endl;
 
     bool window_modified = false;
 

@@ -86,6 +86,7 @@ void CLConvolutionLayer::configure(const CLCompileContext &compile_context, ICLT
     const size_t o_idx_c = get_data_layout_dimension_index(output->info()->data_layout(), DataLayoutDimension::CHANNEL);
     std::cout<<"\nCLConvolutionLayere_configure\n";
     //simply can use input->info()->tensor_shape(); instead of printing all dimensions seperately;
+    //std::cout<<"input dims:          "<<input->info()->tensor_shape()<<std::endl;
     std::cout<<"input dimensions:    "<<input->info()->dimension(in_idx_c)<<','<<input->info()->dimension(in_idx_w)<<','<<input->info()->dimension(in_idx_h)<<std::endl;
     std::cout<<"weights deimensions: "<<weights->info()->dimension(w_idx_c)<<','<<weights->info()->dimension(w_idx_w)<<','<<weights->info()->dimension(w_idx_h)<<std::endl;
     std::cout<<"output dimensions:   "<<output->info()->dimension(o_idx_c)<<','<<output->info()->dimension(o_idx_w)<<','<<output->info()->dimension(o_idx_h)<<std::endl;

@@ -105,13 +105,12 @@ void GraphManager::finalize_graph(Graph &graph, GraphContext &ctx, PassManager &
     detail::allocate_const_tensors(graph);
     detail::call_all_const_node_accessors(graph);
 
-
-    //Ehsan
-    DotGraphPrinter p;
-    p.print(graph,std::cout);
-
     // Prepare graph
     detail::prepare_all_tasks(workload);
+
+    //Ehsan
+        DotGraphPrinter p;
+        p.print(graph,std::cout);
 
     // Setup tensor memory (Allocate all tensors or setup transition manager)
     if(ctx.config().use_transition_memory_manager)

@@ -83,6 +83,12 @@ void CLWeightsReshapeKernel::configure(const CLCompileContext &compile_context, 
     // Output tensor auto inizialitation if not yet initialized
     auto_init_if_empty(*output->info(), input->info()->clone()->set_tensor_shape(compute_weights_reshaped_shape(*input->info(), (biases != nullptr), num_groups)));
 
+    //Ehsan
+    std::cout<<"\nCLWeightsReshapeKernel::configure\n"
+    		<<" input shape:"<<input->info()->tensor_shape()
+			<<" output shape:"<<output->info()->tensor_shape()
+			<<std::endl;
+
     // Perform validation step
     ARM_COMPUTE_ERROR_THROW_ON(validate_arguments(input->info(),
                                                   (biases != nullptr) ? biases->info() : nullptr,

@@ -109,7 +109,11 @@ CLGEMMKernelType CLGEMMDefaultTypeBifrost::select_kernel(const CLGEMMKernelSelec
         case GPUTarget::G52:
             if(gemm_g52_configs.find(data_type) != gemm_g52_configs.end())
             {
+            	//Ehsan
+            	std::cout<<"Data type: "<<(int)data_type<<", selecting gemm kernel based on gpu type which is g52_f32\n";
+
                 return (this->*gemm_g52_configs[data_type])(params.m, params.n, params.k, params.b, params.is_rhs_constant);
+
             }
             ARM_COMPUTE_ERROR("Not supported data type");
         default:

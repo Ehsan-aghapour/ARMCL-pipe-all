@@ -84,12 +84,19 @@ inline void MemoryGroup::manage(IMemoryManageable *obj)
 
         // Defer registration to the first managed object
         _memory_manager->lifetime_manager()->register_group(this);
+        //Ehsan
+        //_memory_manager->_lifetime_mgr->_actvie_group=obj
 
         // Associate this memory group with the tensor
         obj->associate_memory_group(this);
+        //Ehsan
+        //obj->_allocator._associated_memory_group = this;
 
         // Start object lifetime
         _memory_manager->lifetime_manager()->start_lifetime(obj);
+        //Ehsan
+        //_lifetime_mgr->_occupied_blobs.emplace_front(Blob{ obj, 0, 0, { obj } });
+        //_lifetime_mgr->_active_elements.insert(std::make_pair(obj, obj));
     }
 }
 

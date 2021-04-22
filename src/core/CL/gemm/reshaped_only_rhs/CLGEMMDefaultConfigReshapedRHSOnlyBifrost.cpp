@@ -258,6 +258,7 @@ std::pair<GEMMLHSMatrixInfo, GEMMRHSMatrixInfo> CLGEMMDefaultConfigReshapedRHSOn
     }
     else
     {
+    	printf("CLGEMMDefaultConfigReshapedRHSOnlyBifrost::configure_G52_f32, size of workload: %f\n",workload);
         if(workload <= 274.4000f)
         {
             return configure_lhs_rhs_info(m, n, 2, 2, 4, 1, 16, false, false, false, true, false);

@@ -40,6 +40,8 @@ using namespace arm_compute::misc::shape_calculator;
 std::pair<GEMMLHSMatrixInfo, GEMMRHSMatrixInfo> configure_lhs_rhs_info(unsigned int m, unsigned int n, unsigned int m0, unsigned int n0, unsigned int k0, unsigned int v0, unsigned int h0,
                                                                        bool lhs_interleave, bool rhs_interleave, bool lhs_transpose, bool rhs_transpose, bool export_to_cl_image)
 {
+	//Ehsan
+	//m0=4 n0=4 k0=4 v0=1 h0=2 rhs_transpose=true export_to_cl_image=true
     ARM_COMPUTE_ERROR_ON(m0 == 0 || n0 == 0);
     v0 = std::max(std::min(static_cast<int>(m / m0), static_cast<int>(v0)), static_cast<int>(1));
     h0 = std::max(std::min(static_cast<int>(n / n0), static_cast<int>(h0)), static_cast<int>(1));
@@ -60,10 +62,14 @@ std::pair<GEMMLHSMatrixInfo, GEMMRHSMatrixInfo> select_lhs_rhs_info(std::pair<GE
 
     if(bool(validate_image2d_support_on_rhs(tensor_reshaped_info, info_img.second)))
     {
+    	//Ehsan
+    	printf("image rhs and lhs matrices are selected\n");
         return info_img;
     }
     else
     {
+    	//Ehsan
+    	printf("buffer rhs and lhs matrices are selected\n");
         return info_buf;
     }
 }

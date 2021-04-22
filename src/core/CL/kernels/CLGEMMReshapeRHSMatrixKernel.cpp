@@ -21,6 +21,10 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+//Ehsan
+#include"arm_compute/graph/TypePrinter.h"
+
+
 #include "src/core/CL/kernels/CLGEMMReshapeRHSMatrixKernel.h"
 
 #include "arm_compute/core/CL/CLHelpers.h"
@@ -142,6 +146,11 @@ void CLGEMMReshapeRHSMatrixKernel::configure(const CLCompileContext &compile_con
     // Create kernel
     _kernel = create_kernel(compile_context, kernel_name, build_opts.options());
 
+
+    std::cout<<"CLGEMMReshapeRHSMatrixKernel::configure"
+    		<<" input shape: "<<input->info()->tensor_shape()
+			<<" output shape: "<<output->info()->tensor_shape()
+			<<std::endl;
     // Configure kernel window
     auto win_config = validate_and_configure_window(input->info(), output->info(), rhs_info);
     ARM_COMPUTE_ERROR_THROW_ON(win_config.first);

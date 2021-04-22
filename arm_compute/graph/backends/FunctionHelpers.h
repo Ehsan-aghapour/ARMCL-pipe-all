@@ -497,10 +497,18 @@ std::unique_ptr<IFunction> create_convolution_layer(ConvolutionLayerNode &node, 
         "Winograd" /**< Winograd based convolution */
     };
 
-    std::string mtd=cnmethods[int(conv_algorithm)];
-    std::cout<<"function helpers create convolution layer, node "<<node.name()<<" Convolution method: "<<mtd<<std::endl;
+    //std::string mtd=cnmethods[int(conv_algorithm)];
+    //std::cout<<"function helpers create convolution layer, node "<<node.name()<<" Convolution method: "<<mtd<<std::endl;
 
-
+    //Ehsan
+    std::cout<<"\nFunctionHelpers.cpp::create_convolution_layer(node,ctx)\n "
+    		<<" Node name:"<<node.name()
+			<<" Convolution method:"<<conv_algorithm
+			<<" Number of groups:"<<num_groups
+			<<" Input shape"<<input->info()->tensor_shape()
+			<<" Weights shape:"<<weights->info()->tensor_shape()
+			<< "Output shape:"<<output->info()->tensor_shape()
+			<<std::endl;
 
     if(conv_algorithm == ConvolutionMethod::Winograd)
     {
@@ -553,7 +561,7 @@ std::unique_ptr<IFunction> create_convolution_layer(ConvolutionLayerNode &node, 
                                << std::endl);
 
     //Ehsan
-    std::cout<<"function helper conv layer func Instantiated "
+    std::cout<<"\nFunction helper conv layer func Instantiated\n "
                                << node.name()
                                << " Type: " << func_name
                                << " Target: " << TargetInfo::TargetType

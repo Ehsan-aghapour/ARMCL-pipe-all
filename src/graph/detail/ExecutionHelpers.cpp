@@ -21,6 +21,9 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+//Ehsan
+#include<chrono>
+
 #include "arm_compute/graph/detail/ExecutionHelpers.h"
 
 #include "arm_compute/graph/Graph.h"
@@ -283,6 +286,9 @@ void call_all_tasks(ExecutionWorkload &workload)
     for(auto &task : workload.tasks)
     {
         task();
+        auto t0=std::chrono::high_resolution_clock::now();
+        auto nanosec = t0.time_since_epoch();
+        std::cout<<"Executionhelpers, tasks() time: "<<nanosec.count()<<std::endl;
     }
 
     // Release memory for the transition buffers
