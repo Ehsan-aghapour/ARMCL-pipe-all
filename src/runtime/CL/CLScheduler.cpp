@@ -171,6 +171,13 @@ void CLScheduler::enqueue_common(ICLKernel &kernel, ITensorPack &tensors, bool f
         inject_memory ? _cl_tuner->tune_kernel_dynamic(kernel, tensors) : _cl_tuner->tune_kernel_dynamic(kernel);
     }
 
+
+    //Ehsan
+    std::cout<<"\nCLScheduler::enqueue_common\n"
+    		<<"inject_memory:"<<inject_memory
+			<<" kernel config_id:" <<kernel.config_id()
+			<<std::endl;
+
     // Run kernel
     inject_memory ? kernel.run_op(tensors, kernel.window(), _queue) : kernel.run(kernel.window(), _queue);
 

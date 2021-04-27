@@ -165,7 +165,7 @@ void CLGEMMConvolutionLayer::configure_mm(const CLCompileContext &compile_contex
     else
     {
     	//Ehsan
-    	std::cout<<"Configuring CLGEM _mm_gemm\n";
+    	std::cout<<"\nConfiguring CLGEM _mm_gemm";
         // Configure matrix multiply function
         _mm_gemm.configure(compile_context, input, weights, biases, output, 1.0f, 1.0f, gemm_info);
     }
@@ -753,9 +753,9 @@ void CLGEMMConvolutionLayer::run()
     {
         _activationlayer_function.run();
     }
-    auto t0=std::chrono::high_resolution_clock::now();
-    auto nanosec = t0.time_since_epoch();
-    std::cout<<"**************************______**************"<<nanosec.count()<<std::endl;
+    //auto t0=std::chrono::high_resolution_clock::now();
+    //auto nanosec = t0.time_since_epoch();
+    //std::cout<<"**************************______**************"<<nanosec.count()<<std::endl;
 }
 
 void CLGEMMConvolutionLayer::prepare()

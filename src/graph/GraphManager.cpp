@@ -97,9 +97,16 @@ void GraphManager::finalize_graph(Graph &graph, GraphContext &ctx, PassManager &
     // Validate all nodes
     detail::validate_all_nodes(graph);
 
+
+
+
+
     // Configure all nodes
     auto workload = detail::configure_all_nodes(graph, ctx, topological_sorted_nodes);
     ARM_COMPUTE_ERROR_ON_MSG(workload.tasks.empty(), "Could not configure all nodes!");
+
+    //Ehsan
+    std::cout<<"\nGraphManager, outputs size:"<<workload.outputs.size()<<std::endl;
 
     // Allocate const tensors and call accessors
     detail::allocate_const_tensors(graph);

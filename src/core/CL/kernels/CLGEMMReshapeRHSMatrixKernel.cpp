@@ -87,8 +87,17 @@ std::pair<Status, Window> validate_and_configure_window(ITensorInfo *input, ITen
     // Output auto initialization if not yet initialized
     auto_init_if_empty(*output, input->clone()->set_tensor_shape(compute_rhs_reshaped_shape(*input, rhs_info)));
 
+    //Ehsan
+    std::cout<<"test; input shape: "<<input->tensor_shape()<<std::endl;
     // Configure window
     Window win = calculate_max_window(*input, Steps(num_elems_processed_per_iteration_x, num_elems_processed_per_iteration_y));
+    //Ehsan
+            std::cout<<"CLGEMMRESHAPERHSMatrixkernel, before collapse X:"<<win.x()
+            	<<" Y:"<<win.y()
+    			<<" Z:"<<win.z()
+    			<<" 4:"<<win[3]
+            	<<std::endl;
+
 
     AccessWindowRectangle input_access(input, 0, 0, num_elems_processed_per_iteration_x, num_elems_processed_per_iteration_y);
     AccessWindowStatic    output_access(output, 0, 0, output->dimension(0), output->dimension(1));
@@ -104,6 +113,14 @@ std::pair<Status, Window> validate_and_configure_window(ITensorInfo *input, ITen
     // Collapse along the Z direction
     // This collapse needs to be here in order to tune the Z dimension of LWS
     Window collapsed = win.collapse(win, Window::DimZ);
+
+    //Ehsan
+    std::cout<<"CLGEMMRESHAPERHSMatrixkernel, after collapse X:"<<collapsed.x()
+    	<<" Y:"<<collapsed.y()
+		<<" Z:"<<collapsed.z()
+		<<" 4:"<<collapsed[3]
+    	<<std::endl;
+
 
     Status err = (window_changed) ? ARM_COMPUTE_CREATE_ERROR(ErrorCode::RUNTIME_ERROR, "Insufficient Padding!") : Status{};
     return std::make_pair(err, collapsed);

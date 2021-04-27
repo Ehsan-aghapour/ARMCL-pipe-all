@@ -181,8 +181,10 @@ inline std::pair<GEMMLHSMatrixInfo, GEMMRHSMatrixInfo> auto_select_gemm_config_r
             return { config.lhs_info, config.rhs_info };
         }
     }
-    printf("auto_select_gemm_config_reshaped_only_rhs, there is not mlgo_heuristics in CLScheduler::get().gemm_heuristics()\n");
+
     config = auto_heuristics::select_default_gemm_config_reshaped_only_rhs(query);
+    printf("Auto_select_gemm_config_reshaped_only_rhs, there is not mlgo_heuristics in CLScheduler::get().gemm_heuristics()\n");
+    printf("Use reshaped_only_rhs config from default heuristics: LHS info: %s ; RHS info: %s ", to_string(config.lhs_info).c_str(), to_string(config.rhs_info).c_str());
     ARM_COMPUTE_LOG_INFO_MSG_WITH_FORMAT_CORE("Use reshaped_only_rhs config from default heuristics: LHS info: %s ; RHS info: %s ", to_string(config.lhs_info).c_str(), to_string(config.rhs_info).c_str());
     return { config.lhs_info, config.rhs_info };
 }
@@ -478,7 +480,8 @@ void CLGEMM::configure_reshaped_only_rhs(const CLCompileContext &compile_context
         	w2=true;
     }
 
-    printf("CLGEMM::configure_reshaped_only_rhs, weight manager:{%d}, and wm are weights managed:{%d}\n",w,w2 );
+    printf("\nCLGEMM::configure_reshaped_only_rhs, weight manager:{%d}, and wm are weights managed:{%d}\n_reshape_b_only_on_first_run:%d\n",w,w2,int(_reshape_b_only_on_first_run) );
+    std::cout<<"CLGEMM, _tmp_b or reshaped rhs shape: "<<_tmp_b.info()->tensor_shape()<<" output shape:"<<output->info()->tensor_shape()<<std::endl;
     //Ehsan: Fully connected layers has weight manager and b is managed but for conv there is not _weight_manager
 
     ICLTensor *reshaped_rhs = &_tmp_b;
@@ -491,6 +494,9 @@ void CLGEMM::configure_reshaped_only_rhs(const CLCompileContext &compile_context
     {
         _reshape_rhs_kernel->configure(compile_context, b, &_tmp_b, rhs_info);
     }
+
+    //Ehsan
+    std::cout<<"CLGEMM, After configuring _reshape_rhs_kernel, _tmp_b or reshaped rhs shape: "<<_tmp_b.info()->tensor_shape()<<" output shape:"<<output->info()->tensor_shape()<<std::endl;
 
     // Configure two variants of CLGEMMMatrixMultiplyReshapedOnlyRHSKernel (has_pad_y = false/true)
     // During the prepare stage we check the padding requirement for the lhs and dst tensors. If they do not have
@@ -697,16 +703,16 @@ void CLGEMM::configure(const CLCompileContext &compile_context, const ICLTensor 
     ARM_COMPUTE_ERROR_THROW_ON(validate(a->info(), b->info(), c != nullptr ? c->info() : nullptr, output->info(), alpha, beta, gemm_info));
 
     // Check if we need to reshape the matrix B only on the first run
-    _reshape_b_only_on_first_run = gemm_info.reshape_b_only_on_first_run();
-    _is_prepared                 = gemm_info.retain_internal_weights();
+    _reshape_b_only_on_first_run = gemm_info.reshape_b_only_on_first_run();//Ehsan true
+    _is_prepared                 = gemm_info.retain_internal_weights();//Ehsan false
     //Ehsan retaining weights=0
     //std::cout<<"^^^^^^^^^^^^^^^Retaining weights: "<<_is_prepared<<std::endl;
     _original_b                  = b;
     _lhs                         = a;
     _dst                         = output;
 
-    //a input with shape  k * m
-    //b weight with sahpe n * k
+    //(_lhs or a) input with shape  k * m
+    //(_original_b or b) weight with sahpe n * k
     //m=(out[0]*out[1])
     //n=num_kernels
     //k=(w[h]*w[w]*channels/num_groups)
@@ -719,12 +725,12 @@ void CLGEMM::configure(const CLCompileContext &compile_context, const ICLTensor 
 
 
     //Ehsan
-    std::cout<<"\ninput shape: "<<a->info()->tensor_shape()
-    		<<" weghts shape: "<<b->info()->tensor_shape()
+    std::cout<<"\nInput shape: "<<a->info()->tensor_shape()
+    		<<" Weights shape: "<<b->info()->tensor_shape()
     		<<" m: "<<m
     		<<" n: "<<n
 			<<" k: "<<k
-			<<" batch size: "<<batch_size
+			<<" Batch size: "<<batch_size
 			<<std::endl;
 
     // Select GEMMType
@@ -735,6 +741,8 @@ void CLGEMM::configure(const CLCompileContext &compile_context, const ICLTensor 
     //if(fuse_add_c)
     	//printf("fuse add c is true\n");
     const ICLTensor *c_to_use = fuse_add_c ? c : nullptr;
+    //std::string tt;
+    //std::cin>>tt;
 
     switch(_gemm_kernel_type)
     {

@@ -401,6 +401,9 @@ public:
 private:
     template <typename T>
     void access_predictions_tensor(ITensor &tensor);
+    //Ehsan
+    template <typename T>
+    void my_access_predictions_tensor(ITensor &tensor);
 
     std::vector<std::string> _labels;
     std::ostream            &_output_stream;

@@ -21,6 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+
 #include "arm_compute/runtime/BlobLifetimeManager.h"
 
 #include "arm_compute/core/Error.h"
@@ -59,6 +60,10 @@ void BlobLifetimeManager::update_blobs_and_mappings()
 {
     ARM_COMPUTE_ERROR_ON(!are_all_finalized());
     ARM_COMPUTE_ERROR_ON(_active_group == nullptr);
+
+    std::cout<<"\nBlobLifetimeManager::update_blobs_and_mappings()\n"
+    		<<"_free_blobs size:"<<_free_blobs.size()
+			<<std::endl;
 
     // Sort free blobs requirements in descending order.
     _free_blobs.sort([](const Blob & ba, const Blob & bb)

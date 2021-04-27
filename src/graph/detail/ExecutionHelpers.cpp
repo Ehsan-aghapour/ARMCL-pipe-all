@@ -81,6 +81,10 @@ void allocate_all_input_tensors(INode &node)
         if(tensor != nullptr && !tensor->bound_edges().empty())
         {
             ARM_COMPUTE_ERROR_ON_MSG(!tensor->handle(), "Tensor handle is not configured!");
+            //Ehsan
+            std::cout<<"\nExecutionHelpers, Allocating input tensor for outpu node, node shape:"<<tensor->handle()->tensor().info()->tensor_shape()
+            		<<" tensor shape:"<<tensor->desc().shape
+					<<std::endl;
             tensor->handle()->allocate();
         }
     }
@@ -94,6 +98,10 @@ void allocate_all_output_tensors(INode &node)
         if(tensor != nullptr && !tensor->bound_edges().empty())
         {
             ARM_COMPUTE_ERROR_ON_MSG(!tensor->handle(), "Tensor handle is not configured!");
+            //Ehsan
+            std::cout<<"\nExecutionHelpers, Allocating output tensor for input and const node, CLTensor shape:"<<tensor->handle()->tensor().info()->tensor_shape()
+            		<<" tensor shape:"<<tensor->desc().shape
+					<<std::endl;
             tensor->handle()->allocate();
         }
     }
@@ -238,7 +246,7 @@ void call_all_const_node_accessors(Graph &g)
             if(!node->output(0)->bound_edges().empty())
             {
             	//Ehsan
-            	std::cout<<"ExecutionHelpers, call all const node tensors, node name and ID: "<<node->name()<<'_'<<node->id()<<std::endl;
+            	std::cout<<"ExecutionHelpers, call all const node tensor accessors, node name and ID: "<<node->name()<<'_'<<node->id()<<std::endl;
                 call_tensor_accessor(node->output(0));
             }
         }
