@@ -21,6 +21,11 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+//Ehsan
+#include "arm_compute/gl_vs.h"
+
+arm_compute::graph::Tensor *f_out;
+arm_compute::graph::Tensor *s_in;
 
 #include "utils/GraphUtils.h"
 
@@ -129,11 +134,13 @@ void CaffePreproccessor::preprocess_typed(ITensor &tensor)
     Window window;
     window.use_tensor_dimensions(tensor.info()->tensor_shape());
     const int channel_idx = get_data_layout_dimension_index(tensor.info()->data_layout(), DataLayoutDimension::CHANNEL);
-
+    std::cout<<"\n\n\n preprocessor *********\n\n\n";
     execute_window_loop(window, [&](const Coordinates & id)
     {
         const T value                                     = *reinterpret_cast<T *>(tensor.ptr_to_element(id)) - T(_mean[id[channel_idx]]);
         *reinterpret_cast<T *>(tensor.ptr_to_element(id)) = value * T(_scale);
+        //Ehsan
+        //std::cout<<"id:"<<id<<" v:"<<value<<std::endl;
     });
 }
 
@@ -162,8 +169,14 @@ DummyAccessor::DummyAccessor(unsigned int maximum)
 {
 }
 
+
 bool DummyAccessor::access_tensor(ITensor &tensor)
 {
+	//std::cout<<"hhhh:"<<s_in->desc().shape<<std::endl;
+	//Ehsan
+	//First_NEON
+	tensor.copy_from(f_out->handle()->tensor());
+
     ARM_COMPUTE_UNUSED(tensor);
     bool ret = _maximum == 0 || _iterator < _maximum;
     if(_iterator == _maximum)
@@ -259,13 +272,13 @@ ImageAccessor::ImageAccessor(std::string filename, bool bgr, std::unique_ptr<IPr
 //Ehsan
 bool ImageAccessor::set_filename(std::string filename){
 	_filename=filename;
-	////std::cout<<"already value: "<<_already_loaded<<std::endl;
 	_already_loaded=false;
 	return _already_loaded;
 }
 
 bool ImageAccessor::access_tensor(ITensor &tensor)
 {
+	std::cout<<"heeeeeeeeeeeeeeeeeeeeeeeeeeeey\n";
     if(!_already_loaded)
     {
 	//Ehsan
@@ -682,17 +695,32 @@ void TopNPredictionsAccessor::my_access_predictions_tensor(ITensor &tensor)
 			<<std::endl;
 			//<<"\n tensor print:\n"<<tensor.print(t);
 
+
+
     int cnt=0;
+
+
+    //auto s_handle = s_in->handle();
+    //s_handle->map(true);
     for(size_t offset = 0; offset < tensor.info()->total_size(); offset += tensor.info()->element_size())
     {
          const auto value = *reinterpret_cast<T *>(tensor.buffer() + offset);
+         //First_CL (uncomment two lines above for; which map() and one line before for which unmap)
+         //*reinterpret_cast<T *>(s_in->handle()->tensor().buffer() + offset) = value;
          std::cout<<"i:"<<cnt<<" v:"<<value<<"   ";
          if (cnt%8==0)
         	 std::cout<<std::endl;
          cnt++;
 
     }
+    s_in->handle()->unmap();
+
+    /*
+     //asserts should be enabled
     std::cout<<"\nHere\n";
+    std::ostream& s = std::cout;
+    tensor.print(s);
+	*/
 
     //std::copy(output_net, output_net + num_bytes, elements.begin());
 
@@ -721,7 +749,8 @@ void TopNPredictionsAccessor::my_access_predictions_tensor(ITensor &tensor)
 bool TopNPredictionsAccessor::access_tensor(ITensor &tensor)
 {
     ARM_COMPUTE_ERROR_ON_DATA_TYPE_CHANNEL_NOT_IN(&tensor, 1, DataType::F32, DataType::QASYMM8);
-    ARM_COMPUTE_ERROR_ON(_labels.size() != tensor.info()->dimension(0));
+    //Ehsan
+    //ARM_COMPUTE_ERROR_ON(_labels.size() != tensor.info()->dimension(0));
 
     switch(tensor.info()->data_type())
     {

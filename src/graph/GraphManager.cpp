@@ -27,6 +27,7 @@
 #include"annotate/Sr_ann.c"
 #include "arm_compute/graph/printers/DotGraphPrinter.h"
 
+
 #include "arm_compute/graph/GraphManager.h"
 
 #include "arm_compute/graph/Graph.h"

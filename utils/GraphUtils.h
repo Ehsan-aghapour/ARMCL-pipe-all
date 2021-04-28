@@ -527,6 +527,7 @@ inline std::unique_ptr<graph::ITensorAccessor> get_input_accessor(const arm_comp
                 || arm_compute::utility::endswith(image_file_lower, ".jpg")
                 || arm_compute::utility::endswith(image_file_lower, ".ppm"))
         {
+        	std::cout<<"Input accessor is ImageAccessor.\n";
             return std::make_unique<ImageAccessor>(image_file, bgr, std::move(preprocessor));
         }
         else

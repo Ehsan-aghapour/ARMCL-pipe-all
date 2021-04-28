@@ -107,10 +107,12 @@ bool Tensor::my_call_accessor()
 {
 	ANNOTATE_MARKER_STR("input_output accessor start");
     // Early exit guard
+	std::cout<<"\n1\n";
     if(!_accessor || !_handle)
     {
         return false;
     }
+    std::cout<<"\n2\n";
     static int c=4;
     ANNOTATE_CHANNEL_COLOR(c,ANNOTATE_GREEN,"map");
     // Map tensor
@@ -121,6 +123,7 @@ bool Tensor::my_call_accessor()
     {
         return false;
     }
+    std::cout<<"\n3\n";
     ANNOTATE_CHANNEL_COLOR(c,ANNOTATE_BLUE,"access");
     // Call accessor
     bool retval = _accessor->access_tensor(_handle->tensor());

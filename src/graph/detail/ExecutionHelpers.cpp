@@ -260,7 +260,8 @@ bool call_all_input_node_accessors(ExecutionWorkload &workload)
     //std::cout<<"inputs size: "<<workload.inputs.size()<<std::endl;
     std::for_each(std::begin(workload.inputs), std::end(workload.inputs), [&](Tensor * input_tensor)
     {
-    	std::cout<<"input accessor"<<std::endl;
+    	std::cout<<"input accessorrr"<<std::endl;
+    	std::cout<<input_tensor->desc().shape <<std::endl;
         bool valid_input = (input_tensor != nullptr) && input_tensor->my_call_accessor();
         is_valid         = is_valid && valid_input;
     });
