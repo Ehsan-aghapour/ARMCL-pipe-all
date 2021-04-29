@@ -147,6 +147,25 @@ private:
     unsigned int _maximum;
 };
 
+/** Transfer accessor (Second graph input) class */
+class TransferAccessor final : public graph::ITensorAccessor
+{
+public:
+    /** Constructor
+     *
+     */
+	TransferAccessor(unsigned int maximum = 1);
+    /** Allows instances to move constructed */
+	TransferAccessor(TransferAccessor &&) = default;
+
+    // Inherited methods overriden:
+    bool access_tensor(ITensor &tensor) override;
+
+private:
+    unsigned int _iterator;
+    unsigned int _maximum;
+};
+
 /** NumPy accessor class */
 class NumPyAccessor final : public graph::ITensorAccessor
 {
@@ -407,12 +426,43 @@ private:
     template <typename T>
     void access_predictions_tensor(ITensor &tensor);
     //Ehsan
-    template <typename T>
-    void my_access_predictions_tensor(ITensor &tensor);
+    //template <typename T>
+    //void my_access_predictions_tensor(ITensor &tensor);
 
     std::vector<std::string> _labels;
     std::ostream            &_output_stream;
     size_t                   _top_n;
+};
+
+//Ehsan
+
+/** Connection accessor class */
+class ConnectionAccessor final : public graph::ITensorAccessor
+{
+public:
+    /** Constructor
+     *
+     * @param[in]  labels_path   Path to labels text file.
+     * @param[in]  top_n         (Optional) Number of output classes to print
+     * @param[out] output_stream (Optional) Output stream
+     */
+	ConnectionAccessor();
+    /** Allow instances of this class to be move constructed */
+	ConnectionAccessor(ConnectionAccessor &&) = default;
+    /** Prevent instances of this class from being copied (As this class contains pointers) */
+	ConnectionAccessor(const ConnectionAccessor &) = delete;
+    /** Prevent instances of this class from being copied (As this class contains pointers) */
+	ConnectionAccessor &operator=(const ConnectionAccessor &) = delete;
+
+    // Inherited methods overriden:
+    bool access_tensor(ITensor &tensor) override;
+
+private:
+
+    //Ehsan
+    template <typename T>
+    void my_access_predictions_tensor(ITensor &tensor);
+
 };
 
 /** Random accessor class */
@@ -537,6 +587,11 @@ inline std::unique_ptr<graph::ITensorAccessor> get_input_accessor(const arm_comp
 #endif
             return std::make_unique<ImageAccessor>(image_file, bgr, std::move(preprocessor));
         }
+        else if( arm_compute::utility::endswith(graph_parameters.image, "transfer") )
+        {
+        	return std::make_unique<TransferAccessor>();
+        }
+
         else
         {
             return std::make_unique<DummyAccessor>();
@@ -572,6 +627,10 @@ inline std::unique_ptr<graph::ITensorAccessor> get_output_accessor(const arm_com
     else if(graph_parameters.labels.empty())
     {
         return std::make_unique<DummyAccessor>(0);
+    }
+    else if(arm_compute::utility::endswith(graph_parameters.labels, "transfer") )
+    {
+    	return std::make_unique<ConnectionAccessor>();
     }
     else
     {

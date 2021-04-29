@@ -178,7 +178,7 @@ bool DummyAccessor::access_tensor(ITensor &tensor)
 	//std::cout<<"hhhh:"<<s_in->desc().shape<<std::endl;
 	//Ehsan
 	//First_NEON
-	tensor.copy_from(f_out->handle()->tensor());
+	//tensor.copy_from(f_out->handle()->tensor());
 
     ARM_COMPUTE_UNUSED(tensor);
     bool ret = _maximum == 0 || _iterator < _maximum;
@@ -192,6 +192,40 @@ bool DummyAccessor::access_tensor(ITensor &tensor)
     }
     return ret;
 }
+
+TransferAccessor::TransferAccessor(unsigned int maximum)
+	: _iterator(0), _maximum(maximum)
+{
+}
+
+bool TransferAccessor::access_tensor(ITensor &tensor)
+{
+	//std::cout<<"hhhh:"<<s_in->desc().shape<<std::endl;
+	//Ehsan
+	//First_NEON
+#if My_print > 0
+	std::cout<<"\nrecieving data from first graph\n";
+#endif
+	auto tstart=std::chrono::high_resolution_clock::now();
+	tensor.copy_from(f_out->handle()->tensor());
+	auto tfinish=std::chrono::high_resolution_clock::now();
+	double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+	std::cout<<"\nTransfer time:"<<cost0<<std::endl<<std::endl;
+#if My_print > 0
+	std::cout<<"\nReceived\n";
+#endif
+	bool ret = _maximum == 0 || _iterator < _maximum;
+	if(_iterator == _maximum)
+	{
+		_iterator = 0;
+	}
+	else
+	{
+		_iterator++;
+	}
+	return ret;
+}
+
 
 NumPyAccessor::NumPyAccessor(std::string npy_path, TensorShape shape, DataType data_type, DataLayout data_layout, std::ostream &output_stream)
     : _npy_tensor(), _filename(std::move(npy_path)), _output_stream(output_stream)
@@ -640,6 +674,7 @@ TopNPredictionsAccessor::TopNPredictionsAccessor(const std::string &labels_path,
 template <typename T>
 void TopNPredictionsAccessor::access_predictions_tensor(ITensor &tensor)
 {
+
     // Get the predicted class
     std::vector<T>      classes_prob;
     std::vector<size_t> index;
@@ -671,12 +706,15 @@ void TopNPredictionsAccessor::access_predictions_tensor(ITensor &tensor)
     }
 }
 
+ConnectionAccessor::ConnectionAccessor(){
 
+}
 
 //Ehsan
 template <typename T>
-void TopNPredictionsAccessor::my_access_predictions_tensor(ITensor &tensor)
+void ConnectionAccessor::my_access_predictions_tensor(ITensor &tensor)
 {
+	std::cout<<"Final output accessor called\n";
     // Get the predicted class
     std::vector<T>      classes_prob;
     //std::vector<size_t> index;
@@ -701,25 +739,38 @@ void TopNPredictionsAccessor::my_access_predictions_tensor(ITensor &tensor)
 #endif
 
 
+#if My_print > 0
     int cnt=0;
-
-
-    //auto s_handle = s_in->handle();
-    //s_handle->map(true);
     for(size_t offset = 0; offset < tensor.info()->total_size(); offset += tensor.info()->element_size())
     {
          const auto value = *reinterpret_cast<T *>(tensor.buffer() + offset);
-         //First_CL (uncomment two lines above for; which map() and one line before for which unmap)
-         //*reinterpret_cast<T *>(s_in->handle()->tensor().buffer() + offset) = value;
-#if My_print > 0
+
+
+
          std::cout<<"i:"<<cnt<<" v:"<<value<<"   ";
          if (cnt%8==0)
         	 std::cout<<std::endl;
-#endif
+
          cnt++;
 
     }
+
+#endif
+
+
+    /*
+    //First_CL (uncomment two lines above for; which map() and one line before for which unmap)
+    auto s_handle = s_in->handle();
+    s_handle->map(true);
+    for(size_t offset = 0; offset < tensor.info()->total_size(); offset += tensor.info()->element_size())
+    {
+        *reinterpret_cast<T *>(s_in->handle()->tensor().buffer() + offset) = *reinterpret_cast<T *>(tensor.buffer() + offset);
+    }
     s_in->handle()->unmap();
+    */
+
+    //Or
+    //s_in->handle()->tensor().copyfrom(tensor);
 
     /*
      //asserts should be enabled
@@ -729,27 +780,6 @@ void TopNPredictionsAccessor::my_access_predictions_tensor(ITensor &tensor)
 	*/
 
     //std::copy(output_net, output_net + num_bytes, elements.begin());
-
-    /*
-    std::copy(output_net, output_net + num_classes, classes_prob.begin());
-
-    // Sort results
-    std::iota(std::begin(index), std::end(index), static_cast<size_t>(0));
-    std::sort(std::begin(index), std::end(index),
-              [&](size_t a, size_t b)
-    {
-        return classes_prob[a] > classes_prob[b];
-    });
-
-    _output_stream << "---------- Top " << _top_n << " predictions ----------" << std::endl
-                   << std::endl;
-    for(size_t i = 0; i < _top_n; ++i)
-    {
-        _output_stream << std::fixed << std::setprecision(4)
-                       << +classes_prob[index.at(i)]
-                       << " - [id = " << index.at(i) << "]"
-                       << ", " << _labels[index.at(i)] << std::endl;
-    }*/
 }
 
 bool TopNPredictionsAccessor::access_tensor(ITensor &tensor)
@@ -762,6 +792,30 @@ bool TopNPredictionsAccessor::access_tensor(ITensor &tensor)
     {
         case DataType::QASYMM8:
             access_predictions_tensor<uint8_t>(tensor);
+            break;
+        case DataType::F32:
+            access_predictions_tensor<float>(tensor);
+        	//Ehsan
+        	//my_access_predictions_tensor<float>(tensor);
+            break;
+        default:
+            ARM_COMPUTE_ERROR("NOT SUPPORTED!");
+    }
+
+    return false;
+}
+
+//Ehsan
+bool ConnectionAccessor::access_tensor(ITensor &tensor)
+{
+    ARM_COMPUTE_ERROR_ON_DATA_TYPE_CHANNEL_NOT_IN(&tensor, 1, DataType::F32, DataType::QASYMM8);
+    //Ehsan
+    //ARM_COMPUTE_ERROR_ON(_labels.size() != tensor.info()->dimension(0));
+
+    switch(tensor.info()->data_type())
+    {
+        case DataType::QASYMM8:
+            my_access_predictions_tensor<uint8_t>(tensor);
             break;
         case DataType::F32:
             //access_predictions_tensor<float>(tensor);

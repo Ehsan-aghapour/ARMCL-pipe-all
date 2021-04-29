@@ -107,8 +107,6 @@ public:
         // Checks
         ARM_COMPUTE_EXIT_ON_MSG(arm_compute::is_data_type_quantized_asymmetric(common_params.data_type), "QASYMM8 not supported for this graph");
 
-        // Print parameter values
-        std::cout << common_params << std::endl;
 
         // Get trainable parameters data path
         std::string data_path = common_params.data_path;
@@ -129,7 +127,18 @@ public:
         common_params.target=arm_compute::graph::Target ::NEON;
         common_params2.target=arm_compute::graph::Target ::CL;
 
-        common_params.threads=4;
+        common_params2.labels=common_params.labels;
+        common_params.labels="transfer";
+
+        common_params2.image="transfer";
+        //common_params.threads=4;
+
+
+        // Print parameter values
+        std::cout << common_params << std::endl;
+        // Print parameter values
+        std::cout <<"\nGraph2:\n"<< common_params2 << std::endl;
+
 
         graph << common_params.target
               << common_params.fast_math_hint
@@ -215,7 +224,6 @@ public:
 #endif
 
         // Layer 4
-        common_params2.image="";
         // Create input descriptor
         //const auto        operation_layout = common_params.data_layout;
         ////const TensorShape tensor_shape2     = permute_shape(TensorShape(13U, 13U, 384U, 1U), DataLayout::NCHW, operation_layout);
@@ -261,7 +269,7 @@ public:
         .set_name("fc8")
         // Softmax
         << SoftmaxLayer().set_name("prob")
-        << OutputLayer(get_output_accessor(common_params, 5));
+        << OutputLayer(get_output_accessor(common_params2, 5));
 
 
         graph2.finalize(common_params2.target, config);
