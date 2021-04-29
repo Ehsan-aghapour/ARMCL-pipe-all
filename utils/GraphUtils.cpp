@@ -23,6 +23,9 @@
  */
 //Ehsan
 #include "arm_compute/gl_vs.h"
+#ifndef My_print
+#include "arm_compute/gl_vs.h"
+#endif
 
 arm_compute::graph::Tensor *f_out;
 arm_compute::graph::Tensor *s_in;
@@ -134,13 +137,13 @@ void CaffePreproccessor::preprocess_typed(ITensor &tensor)
     Window window;
     window.use_tensor_dimensions(tensor.info()->tensor_shape());
     const int channel_idx = get_data_layout_dimension_index(tensor.info()->data_layout(), DataLayoutDimension::CHANNEL);
-    std::cout<<"\n\n\n preprocessor *********\n\n\n";
     execute_window_loop(window, [&](const Coordinates & id)
     {
         const T value                                     = *reinterpret_cast<T *>(tensor.ptr_to_element(id)) - T(_mean[id[channel_idx]]);
         *reinterpret_cast<T *>(tensor.ptr_to_element(id)) = value * T(_scale);
+
         //Ehsan
-        //std::cout<<"id:"<<id<<" v:"<<value<<std::endl;
+        //std::cout<<\nInput image\n<<"id:"<<id<<" v:"<<value<<std::endl;
     });
 }
 
@@ -278,7 +281,7 @@ bool ImageAccessor::set_filename(std::string filename){
 
 bool ImageAccessor::access_tensor(ITensor &tensor)
 {
-	std::cout<<"heeeeeeeeeeeeeeeeeeeeeeeeeeeey\n";
+
     if(!_already_loaded)
     {
 	//Ehsan
@@ -689,12 +692,13 @@ void TopNPredictionsAccessor::my_access_predictions_tensor(ITensor &tensor)
     //std::ostream &t;
     const size_t num_bytes = tensor.info()->total_size();
     std::vector<T>  elements;
+#if My_print > 0
     std::cout<<"\nGraphUtils,TopNPredictionsAccessor::access_predictions_tensor\n"
     		<<"output tensor shape:"<<tensor.info()->tensor_shape()
 			<<" total sizes:"<<tensor.info()->total_size()
 			<<std::endl;
 			//<<"\n tensor print:\n"<<tensor.print(t);
-
+#endif
 
 
     int cnt=0;
@@ -707,9 +711,11 @@ void TopNPredictionsAccessor::my_access_predictions_tensor(ITensor &tensor)
          const auto value = *reinterpret_cast<T *>(tensor.buffer() + offset);
          //First_CL (uncomment two lines above for; which map() and one line before for which unmap)
          //*reinterpret_cast<T *>(s_in->handle()->tensor().buffer() + offset) = value;
+#if My_print > 0
          std::cout<<"i:"<<cnt<<" v:"<<value<<"   ";
          if (cnt%8==0)
         	 std::cout<<std::endl;
+#endif
          cnt++;
 
     }

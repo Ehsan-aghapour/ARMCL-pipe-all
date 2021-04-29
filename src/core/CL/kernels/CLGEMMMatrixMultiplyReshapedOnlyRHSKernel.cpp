@@ -21,6 +21,11 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+//Ehsan
+#ifndef My_print
+#include "arm_compute/gl_vs.h"
+#endif
+
 #include "src/core/CL/kernels/CLGEMMMatrixMultiplyReshapedOnlyRHSKernel.h"
 
 #include "arm_compute/core/CL/ICLTensor.h"
@@ -259,6 +264,7 @@ void CLGEMMMatrixMultiplyReshapedOnlyRHSKernel::configure(const CLCompileContext
     const unsigned int partial_store_m0 = internal_m % internal_m0;
     const unsigned int partial_store_n0 = gemm_info.n % rhs_info.n0;
 
+#if My_print > 0
     std::cout<<"\n\nCLGEMMMatrixMultiplyReshapedOnlyRHSKernel::configure\n"
     		<<" input shape:"<<input0->info()->tensor_shape()
 			<<" weight(input1) shape:"<<input1->info()->tensor_shape()
@@ -277,7 +283,7 @@ void CLGEMMMatrixMultiplyReshapedOnlyRHSKernel::configure(const CLCompileContext
 			<<" d_gemm_3d:"<<d_gemm_3d
 			<<std::endl;
 
-
+#endif
 
 
 

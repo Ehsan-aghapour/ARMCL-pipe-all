@@ -21,6 +21,11 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+//Ehsan
+#ifndef My_print2
+#include "arm_compute/gl_vs.h"
+#endif
+
 #ifndef __ARM_COMPUTE_UTILS_GRAPH_UTILS_H__
 #define __ARM_COMPUTE_UTILS_GRAPH_UTILS_H__
 
@@ -527,7 +532,9 @@ inline std::unique_ptr<graph::ITensorAccessor> get_input_accessor(const arm_comp
                 || arm_compute::utility::endswith(image_file_lower, ".jpg")
                 || arm_compute::utility::endswith(image_file_lower, ".ppm"))
         {
+#if My_print2 > 0
         	std::cout<<"Input accessor is ImageAccessor.\n";
+#endif
             return std::make_unique<ImageAccessor>(image_file, bgr, std::move(preprocessor));
         }
         else

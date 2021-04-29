@@ -23,6 +23,9 @@
  */
 //Ehsan
 #include<chrono>
+#ifndef My_print
+#include "arm_compute/gl_vs.h"
+#endif
 
 #include "arm_compute/graph/detail/ExecutionHelpers.h"
 
@@ -81,10 +84,12 @@ void allocate_all_input_tensors(INode &node)
         if(tensor != nullptr && !tensor->bound_edges().empty())
         {
             ARM_COMPUTE_ERROR_ON_MSG(!tensor->handle(), "Tensor handle is not configured!");
+#if My_print > 0
             //Ehsan
             std::cout<<"\nExecutionHelpers, Allocating input tensor for outpu node, node shape:"<<tensor->handle()->tensor().info()->tensor_shape()
             		<<" tensor shape:"<<tensor->desc().shape
 					<<std::endl;
+#endif
             tensor->handle()->allocate();
         }
     }
@@ -98,10 +103,12 @@ void allocate_all_output_tensors(INode &node)
         if(tensor != nullptr && !tensor->bound_edges().empty())
         {
             ARM_COMPUTE_ERROR_ON_MSG(!tensor->handle(), "Tensor handle is not configured!");
+#if My_print > 0
             //Ehsan
             std::cout<<"\nExecutionHelpers, Allocating output tensor for input and const node, CLTensor shape:"<<tensor->handle()->tensor().info()->tensor_shape()
             		<<" tensor shape:"<<tensor->desc().shape
 					<<std::endl;
+#endif
             tensor->handle()->allocate();
         }
     }
@@ -245,9 +252,11 @@ void call_all_const_node_accessors(Graph &g)
         {
             if(!node->output(0)->bound_edges().empty())
             {
+#if My_print > 0
             	//Ehsan
             	std::cout<<"ExecutionHelpers, call all const node tensor accessors, node name and ID: "<<node->name()<<'_'<<node->id()<<std::endl;
-                call_tensor_accessor(node->output(0));
+#endif
+            	call_tensor_accessor(node->output(0));
             }
         }
     }
@@ -260,8 +269,10 @@ bool call_all_input_node_accessors(ExecutionWorkload &workload)
     //std::cout<<"inputs size: "<<workload.inputs.size()<<std::endl;
     std::for_each(std::begin(workload.inputs), std::end(workload.inputs), [&](Tensor * input_tensor)
     {
+#if My_print > 0
     	std::cout<<"input accessorrr"<<std::endl;
     	std::cout<<input_tensor->desc().shape <<std::endl;
+#endif
         bool valid_input = (input_tensor != nullptr) && input_tensor->my_call_accessor();
         is_valid         = is_valid && valid_input;
     });
@@ -297,7 +308,9 @@ void call_all_tasks(ExecutionWorkload &workload)
         task();
         auto t0=std::chrono::high_resolution_clock::now();
         auto nanosec = t0.time_since_epoch();
+#if My_print > 0
         std::cout<<"Executionhelpers, tasks() time: "<<nanosec.count()<<std::endl;
+#endif
     }
 
     // Release memory for the transition buffers

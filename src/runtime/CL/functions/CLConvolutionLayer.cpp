@@ -21,6 +21,11 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+//Ehsan
+#ifndef My_print
+#include "arm_compute/gl_vs.h"
+#endif
+
 #include "arm_compute/runtime/CL/functions/CLConvolutionLayer.h"
 
 #include "arm_compute/core/PixelValue.h"
@@ -84,6 +89,7 @@ void CLConvolutionLayer::configure(const CLCompileContext &compile_context, ICLT
     const size_t o_idx_w = get_data_layout_dimension_index(output->info()->data_layout(), DataLayoutDimension::WIDTH);
     const size_t o_idx_h = get_data_layout_dimension_index(output->info()->data_layout(), DataLayoutDimension::HEIGHT);
     const size_t o_idx_c = get_data_layout_dimension_index(output->info()->data_layout(), DataLayoutDimension::CHANNEL);
+#if My_print > 0
     std::cout<<"\nCLConvolutionLayere_configure\n";
     //simply can use input->info()->tensor_shape(); instead of printing all dimensions seperately;
     //std::cout<<"input dims:          "<<input->info()->tensor_shape()<<std::endl;
@@ -91,7 +97,7 @@ void CLConvolutionLayer::configure(const CLCompileContext &compile_context, ICLT
     std::cout<<"weights deimensions: "<<weights->info()->dimension(w_idx_c)<<','<<weights->info()->dimension(w_idx_w)<<','<<weights->info()->dimension(w_idx_h)<<std::endl;
     std::cout<<"output dimensions:   "<<output->info()->dimension(o_idx_c)<<','<<output->info()->dimension(o_idx_w)<<','<<output->info()->dimension(o_idx_h)<<std::endl;
     std::cout<<"Convolution Method:  "<<mtd<<std::endl;
-
+#endif
 
     switch(cnmtd)
     {

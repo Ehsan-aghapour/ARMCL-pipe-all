@@ -23,6 +23,9 @@
  */
 //Ehsan
 #include"arm_compute/graph/TypePrinter.h"
+#ifndef My_print
+#include "arm_compute/gl_vs.h"
+#endif
 
 #include "src/core/AccessWindowStatic.h"
 
@@ -89,8 +92,9 @@ bool AccessWindowStatic::update_window_if_needed(Window &window) const
     // If the padding is not enough and the tensor is not resizable, shrink the window to size 0
     if(_info == nullptr || _info->is_resizable())
     {
+
     	//Ehsan
-    	std::cout<<"info is resizable: "<<_info->is_resizable()<<std::endl;
+    	//std::cout<<"info is resizable: "<<_info->is_resizable()<<std::endl;
         return false;
     }
 
@@ -100,12 +104,12 @@ bool AccessWindowStatic::update_window_if_needed(Window &window) const
 
     bool window_modified = false;
 
-
+#if My_print > 0
     //Ehsan
     std::cout<<" \nAccessWindowStatic.cpp\nShape: "<<shape
     		<<" strides: "<<strides
 			<<std::endl;
-
+#endif
     // Calculate if padding is enough
     if(_start_y < 0)
     {

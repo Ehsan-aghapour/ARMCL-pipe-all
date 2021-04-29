@@ -21,6 +21,11 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+//Ehsan
+#ifndef My_print
+#include "arm_compute/gl_vs.h"
+#endif
+
 #include "arm_compute/runtime/CL/CLTensorAllocator.h"
 
 #include "arm_compute/core/Error.h"
@@ -129,11 +134,12 @@ void CLTensorAllocator::allocate()
     // Allocate tensor backing memory
     if(_associated_memory_group == nullptr)
     {
-
+#if My_print > 0
     	std::cout<<"CLTensorAllocator::allocate() _associated_memory_group == nullptr\n"
     			<<"tensor shape:"<<info().tensor_shape()
 				<<" _ctx==nullptr:"<<(_ctx==nullptr)
 				<<std::endl;
+#endif
         // Perform memory allocation
         if(_ctx == nullptr)
         {

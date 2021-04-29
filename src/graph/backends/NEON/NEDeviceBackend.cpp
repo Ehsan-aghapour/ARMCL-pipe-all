@@ -21,6 +21,10 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+#ifndef My_print
+#include "arm_compute/gl_vs.h"
+#endif
+
 #include "arm_compute/graph/backends/NEON/NEDeviceBackend.h"
 
 #include "arm_compute/graph/Graph.h"
@@ -81,7 +85,12 @@ void NEDeviceBackend::setup_backend_context(GraphContext &ctx)
     {
 	//Ehsan
         //Scheduler::get().set_num_threads(ctx.config().num_threads);
-	Scheduler::get().set_num_threads_with_affinity(ctx.config().num_threads,[](int t_id,int max_cores){std::cout<<"**********max_cores: "<<max_cores<<std::endl;return (5-(t_id%6));});
+	Scheduler::get().set_num_threads_with_affinity(ctx.config().num_threads,[](int t_id,int max_cores){
+#if My_print > 0
+		std::cout<<"max_cores: "<<max_cores<<std::endl;
+#endif
+		return (5-(t_id%6));
+	});
     }
 
     // Create function level memory manager

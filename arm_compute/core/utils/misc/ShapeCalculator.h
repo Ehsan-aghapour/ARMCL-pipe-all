@@ -23,6 +23,9 @@
  */
 //Ehsan
 #include"arm_compute/graph/TypePrinter.h"
+#ifndef My_print
+#include "arm_compute/gl_vs.h"
+#endif
 
 #ifndef ARM_COMPUTE_MISC_SHAPE_CALCULATOR_H
 #define ARM_COMPUTE_MISC_SHAPE_CALCULATOR_H
@@ -249,6 +252,7 @@ inline TensorShape compute_rhs_reshaped_shape(const ITensorInfo &a, const GEMMRH
     rhs_shape.set(0, output_width);
     rhs_shape.set(1, output_height);
 
+	#if My_print2 > 0
     std::cout<<"compute_rhs_reshaped_shape, "
     		<<" num_horiz_blocks:"<<num_horiz_blocks
 			<<" num_vert_blocks:"<<num_vert_blocks
@@ -257,6 +261,7 @@ inline TensorShape compute_rhs_reshaped_shape(const ITensorInfo &a, const GEMMRH
 			<<" input_shape:"<<a.tensor_shape()
 			<<" output_shape:"<<rhs_shape
 			<<std::endl;
+	#endif
 
     return rhs_shape;
 }

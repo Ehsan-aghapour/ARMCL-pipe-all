@@ -21,6 +21,10 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+#ifndef My_print
+#include "arm_compute/gl_vs.h"
+#endif
+
 
 //Ehsan
 #include<chrono>
@@ -205,9 +209,10 @@ public:
             }
         }
 
-
-        std::cout<<"Second Graph,\n"<<f_out->desc().shape<<std::endl;
-        std::cout<<f_out->desc().shape.x()<<','<<f_out->desc().shape.y()<<','<<f_out->desc().shape.z()<<std::endl;
+#if My_print > 0
+        std::cout<<"Setup Second Graph,\n"<<f_out->desc().shape<<std::endl;
+        //std::cout<<f_out->desc().shape.x()<<','<<f_out->desc().shape.y()<<','<<f_out->desc().shape.z()<<std::endl;
+#endif
 
         // Layer 4
         common_params2.image="";
@@ -324,7 +329,7 @@ public:
         task=task/tt;
         out=out/tt;
         double tot=in+task+out;
-        std::cout<<"Cost:"<<Cost<<std::endl;
+        std::cout<<"\n\nCost:"<<Cost<<std::endl;
         std::cout<<"input_time:"<<in<<"\ntask_time:"<<task<<"\noutput_time:"<<out<<"\ntotal_time:"<<tot<<std::endl;
 
         in2=in2/tt;
@@ -332,7 +337,7 @@ public:
         out2=out2/tt;
         double tot2=in2+task2+out2;
         //std::cout<<"Cost:"<<Cost<<std::endl;
-        std::cout<<"input2_time:"<<in2<<"\ntask2_time:"<<task2<<"\noutput2_time:"<<out2<<"\ntotal2_time:"<<tot2<<std::endl;
+        std::cout<<"\n\ninput2_time:"<<in2<<"\ntask2_time:"<<task2<<"\noutput2_time:"<<out2<<"\ntotal2_time:"<<tot2<<std::endl;
     }
 
 	

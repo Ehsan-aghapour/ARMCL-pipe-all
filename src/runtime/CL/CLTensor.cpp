@@ -21,6 +21,11 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+//Ehsan
+#ifndef My_print
+#include "arm_compute/gl_vs.h"
+#endif
+
 #include "arm_compute/runtime/CL/CLTensor.h"
 
 #include "arm_compute/runtime/CL/CLRuntimeContext.h"
@@ -65,8 +70,10 @@ CLTensorAllocator *CLTensor::allocator()
 
 void CLTensor::map(bool blocking)
 {
+#if My_print > 0
 	//Ehsan: Observation: _ctx is null at setup and runtime several times called
 	std::cout<<"contex is null? "<<(_ctx==nullptr)<<std::endl;
+#endif
     ICLTensor::map(_ctx == nullptr ? CLScheduler::get().queue() : _ctx->gpu_scheduler()->queue(), blocking);
 }
 

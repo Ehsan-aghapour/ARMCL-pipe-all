@@ -23,6 +23,9 @@
  */
 //Ehsan
 #include"arm_compute/graph/TypePrinter.h"
+#ifndef My_print
+#include "arm_compute/gl_vs.h"
+#endif
 
 #include "arm_compute/core/IAccessWindow.h"
 
@@ -118,12 +121,12 @@ bool AccessWindowRectangle::update_window_if_needed(Window &window) const
     const TensorShape &shape                = _info->tensor_shape();
     const Strides     &strides              = _info->strides_in_bytes();
     const size_t       offset_first_element = _info->offset_first_element_in_bytes();
-
+#if My_print > 0
     //Ehsan
     std::cout<<" \nIAccessWindow.cpp\nShape: "<<shape
     		<<" strides: "<<strides
 			<<std::endl;
-
+#endif
     bool window_modified = false;
 
     int front_pad_y = 0;

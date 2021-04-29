@@ -26,6 +26,9 @@
 #include<chrono>
 #include"annotate/Sr_ann.c"
 #include "arm_compute/graph/printers/DotGraphPrinter.h"
+#ifndef My_print
+#include "arm_compute/gl_vs.h"
+#endif
 
 
 #include "arm_compute/graph/GraphManager.h"
@@ -73,8 +76,10 @@ void GraphManager::finalize_graph(Graph &graph, GraphContext &ctx, PassManager &
         forced_target = get_default_target();
         ARM_COMPUTE_LOG_GRAPH_INFO("Switching target from " << target << " to " << forced_target << std::endl);
     }
+#if My_print > 0
     //Ehsan
     std::cout<<"*********force target is: "<<target<<std::endl;
+#endif
     force_target_to_graph(graph, forced_target);
 
     // Setup backend context
@@ -105,10 +110,10 @@ void GraphManager::finalize_graph(Graph &graph, GraphContext &ctx, PassManager &
     // Configure all nodes
     auto workload = detail::configure_all_nodes(graph, ctx, topological_sorted_nodes);
     ARM_COMPUTE_ERROR_ON_MSG(workload.tasks.empty(), "Could not configure all nodes!");
-
+#if My_print > 0
     //Ehsan
     std::cout<<"\nGraphManager, outputs size:"<<workload.outputs.size()<<std::endl;
-
+#endif
     // Allocate const tensors and call accessors
     detail::allocate_const_tensors(graph);
     detail::call_all_const_node_accessors(graph);
@@ -116,15 +121,19 @@ void GraphManager::finalize_graph(Graph &graph, GraphContext &ctx, PassManager &
     // Prepare graph
     detail::prepare_all_tasks(workload);
 
+#if My_print > 0
     //Ehsan
         DotGraphPrinter p;
         p.print(graph,std::cout);
+#endif
 
     // Setup tensor memory (Allocate all tensors or setup transition manager)
     if(ctx.config().use_transition_memory_manager)
     {
+#if My_print > 0
     	//Ehsan
     	std::cout<<"transition memory mangaer is used\n";
+#endif
 
         detail::configure_transition_manager(graph, ctx, workload);
     }
@@ -256,25 +265,34 @@ void GraphManager::execute_graph(Graph &graph,double &in, double &task, double &
         //double tot=0;
 
         ANNOTATE_CHANNEL_COLOR(cc,ANNOTATE_GREEN,"input");
+#if My_print > 0
         std::cout<<"test is: "<<test++<<std::endl;
+#endif
         auto tstart=std::chrono::high_resolution_clock::now();
         if(!detail::call_all_input_node_accessors(it->second))
         {
             auto tfinish=std::chrono::high_resolution_clock::now();
             ANNOTATE_CHANNEL_END(cc++);
+#if My_print > 0
             std::cout<<"in: "<<in<<'\t';
+#endif
             in += std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+#if My_print > 0
             std::cout<<"updated in: "<<in<<std::endl;
             std::cout<<"input exit\n";
+#endif
             return;
         }
         auto tfinish=std::chrono::high_resolution_clock::now();
         ANNOTATE_CHANNEL_END(cc++);
-
+#if My_print > 0
         std::cout<<"in: "<<in<<'\t';
+#endif
         in += std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+#if My_print > 0
         std::cout<<"updated in: "<<in<<std::endl;
         //std::cout<<"Input accessor duration: "<<Cost0<<std::endl;
+#endif
         // Run graph
         ANNOTATE_CHANNEL_COLOR(cc,ANNOTATE_YELLOW,"task");
         tfinish=std::chrono::high_resolution_clock::now();
@@ -285,20 +303,28 @@ void GraphManager::execute_graph(Graph &graph,double &in, double &task, double &
 
         ANNOTATE_CHANNEL_END(cc++);
         ANNOTATE_CHANNEL_COLOR(cc,ANNOTATE_BLACK,"output");
+#if My_print > 0
         std::cout<<"task: "<<task<<'\t';
+#endif
         task += std::chrono::duration_cast<std::chrono::duration<double>>(tstart-tfinish).count();
+#if My_print > 0
         std::cout<<"updated task: "<<task<<std::endl;
         //std::cout<<"task duration: "<<task<<std::endl;
+#endif
         // Call output accessors
         tstart=std::chrono::high_resolution_clock::now();
         if(!detail::call_all_output_node_accessors(it->second))
         {
             tfinish=std::chrono::high_resolution_clock::now();
+#if My_print > 0
             std::cout<<"out: "<<out<<'\t';
+#endif
             out += std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+#if My_print > 0
             std::cout<<"updated out: "<<out<<std::endl;
              std::cout<<"__Output accessor duration: "<<out<<std::endl;
             //std::cout<<"tot_(input+tasks+output):"<<tot<<std::endl;
+#endif
             ANNOTATE_CHANNEL_END(cc++);
 	    ANNOTATE_MARKER_STR("Finished...");
             return;
@@ -306,13 +332,16 @@ void GraphManager::execute_graph(Graph &graph,double &in, double &task, double &
         tfinish=std::chrono::high_resolution_clock::now();
         ANNOTATE_CHANNEL_END(cc++);
 	//ANNOTATE_MARKER_STR("Finished");
+#if My_print > 0
         std::cout<<"out: "<<out<<'\t';
+#endif
         out += std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+#if My_print > 0
         std::cout<<"updated out: "<<out<<std::endl;
         //tot = in+task+out;
         //std::cout<<"Output accessor duration: "<<out<<std::endl;
         //std::cout<<"tot_:"<<tot<<std::endl;
-
+#endif
     }
 }
 

@@ -24,6 +24,9 @@
 //Ehsan
 #include<chrono>
 #include"arm_compute/graph/TypePrinter.h"
+#ifndef My_print
+#include "arm_compute/gl_vs.h"
+#endif
 
 #include "arm_compute/runtime/CL/functions/CLGEMMConvolutionLayer.h"
 
@@ -164,8 +167,10 @@ void CLGEMMConvolutionLayer::configure_mm(const CLCompileContext &compile_contex
     }
     else
     {
+#if My_print > 0
     	//Ehsan
     	std::cout<<"\nConfiguring CLGEM _mm_gemm";
+#endif
         // Configure matrix multiply function
         _mm_gemm.configure(compile_context, input, weights, biases, output, 1.0f, 1.0f, gemm_info);
     }
@@ -282,6 +287,7 @@ void CLGEMMConvolutionLayer::configure(const CLCompileContext &compile_context, 
 
     ICLTensor *weights_to_use = &_weights_reshaped;
 
+#if My_print > 0
     //Ehsan
     std::cout<<"\nWeights reshaped shape:"<<_weights_reshaped.info()->tensor_shape()<<std::endl;
     bool w=false;
@@ -303,7 +309,7 @@ void CLGEMMConvolutionLayer::configure(const CLCompileContext &compile_context, 
 			<<" _fuse_activation: "<<_fuse_activation
 			//<<" are weights managed: "<<(_weights_manager->are_weights_managed(weights));/*
 			<<std::endl;
-
+#endif
 
     if(num_groups != 1 && biases != nullptr)
     {
@@ -332,8 +338,10 @@ void CLGEMMConvolutionLayer::configure(const CLCompileContext &compile_context, 
         else
         {
             _reshape_weights.configure(compile_context, weights, nullptr, &_weights_reshaped, num_groups);
+#if My_print > 0
             //Ehsan
             std::cout<<"\nWeights reshaped shape __:"<<_weights_reshaped.info()->tensor_shape()<<std::endl;
+#endif
         }
     }
 
@@ -403,8 +411,6 @@ void CLGEMMConvolutionLayer::configure(const CLCompileContext &compile_context, 
     if(!_skip_col2im)
     {
 
-    	//Ehsan
-    	std::cout<<"************************************************************************************************************\n\n\n\n\n\n\n"<<std::endl;
         TensorShape shape_gemm;
 
         // If we cannot skip col2im it means we run im2col as well
@@ -481,7 +487,7 @@ void CLGEMMConvolutionLayer::configure(const CLCompileContext &compile_context, 
     // In case of NHWC, we need to run GEMM3D (gemm_3d_depth != 0) in order to avoid reshaping the output matrix
     const unsigned int gemm_3d_depth = (data_layout == DataLayout::NHWC) ? conv_h : 0;
 
-
+#if My_print > 0
     std::cout<<"\nCLGEMMConvolutionLayer_2\n"
     		<<"input_shape:"<< input->info()->tensor_shape()
 			<<" gemm_input_to_use_shape:"<< gemm_input_to_use->info()->tensor_shape()
@@ -494,7 +500,7 @@ void CLGEMMConvolutionLayer::configure(const CLCompileContext &compile_context, 
 			<<" gemm_3d_depth:"<<gemm_3d_depth
 			<<std::endl;
 
-
+#endif
 
     configure_mm(compile_context, gemm_input_to_use, weights_to_use, biases_to_use, gemm_output_to_use, gemmlowp_output_stage, gemm_3d_depth, act_info);
 

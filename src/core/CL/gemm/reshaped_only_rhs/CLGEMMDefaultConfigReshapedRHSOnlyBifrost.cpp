@@ -21,6 +21,11 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+//Ehsan
+#ifndef My_print
+#include "arm_compute/gl_vs.h"
+#endif
+
 #include "src/core/CL/gemm/reshaped_only_rhs/CLGEMMDefaultConfigReshapedRHSOnlyBifrost.h"
 
 #include "arm_compute/core/CL/CLHelpers.h"
@@ -258,7 +263,9 @@ std::pair<GEMMLHSMatrixInfo, GEMMRHSMatrixInfo> CLGEMMDefaultConfigReshapedRHSOn
     }
     else
     {
+#if My_print > 0
     	printf("CLGEMMDefaultConfigReshapedRHSOnlyBifrost::configure_G52_f32, size of workload: %f\n",workload);
+#endif
         if(workload <= 274.4000f)
         {
             return configure_lhs_rhs_info(m, n, 2, 2, 4, 1, 16, false, false, false, true, false);

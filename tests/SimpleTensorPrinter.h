@@ -141,7 +141,7 @@ inline std::string to_string(const SimpleTensor<T> &tensor)
     return ss.str();
 }
 
-#if PRINT_TENSOR_LIMIT
+#if My_print > 0_TENSOR_LIMIT
 template <typename T>
 void print_simpletensor(const SimpleTensor<T> &tensor, const std::string &title, const IOFormatInfo::PrintRegion &region = IOFormatInfo::PrintRegion::NoPadding)
 {

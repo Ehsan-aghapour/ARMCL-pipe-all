@@ -23,6 +23,9 @@
  */
 //Ehsan
 #include"arm_compute/graph/TypePrinter.h"
+#ifndef My_print
+#include "arm_compute/gl_vs.h"
+#endif
 
 
 #include "src/core/CL/kernels/CLGEMMReshapeRHSMatrixKernel.h"
@@ -87,17 +90,22 @@ std::pair<Status, Window> validate_and_configure_window(ITensorInfo *input, ITen
     // Output auto initialization if not yet initialized
     auto_init_if_empty(*output, input->clone()->set_tensor_shape(compute_rhs_reshaped_shape(*input, rhs_info)));
 
+#if My_print > 0
     //Ehsan
     std::cout<<"test; input shape: "<<input->tensor_shape()<<std::endl;
+#endif
+
     // Configure window
     Window win = calculate_max_window(*input, Steps(num_elems_processed_per_iteration_x, num_elems_processed_per_iteration_y));
+
+#if My_print > 0
     //Ehsan
             std::cout<<"CLGEMMRESHAPERHSMatrixkernel, before collapse X:"<<win.x()
             	<<" Y:"<<win.y()
     			<<" Z:"<<win.z()
     			<<" 4:"<<win[3]
             	<<std::endl;
-
+#endif
 
     AccessWindowRectangle input_access(input, 0, 0, num_elems_processed_per_iteration_x, num_elems_processed_per_iteration_y);
     AccessWindowStatic    output_access(output, 0, 0, output->dimension(0), output->dimension(1));
@@ -114,13 +122,14 @@ std::pair<Status, Window> validate_and_configure_window(ITensorInfo *input, ITen
     // This collapse needs to be here in order to tune the Z dimension of LWS
     Window collapsed = win.collapse(win, Window::DimZ);
 
+#if My_print > 0
     //Ehsan
     std::cout<<"CLGEMMRESHAPERHSMatrixkernel, after collapse X:"<<collapsed.x()
     	<<" Y:"<<collapsed.y()
 		<<" Z:"<<collapsed.z()
 		<<" 4:"<<collapsed[3]
     	<<std::endl;
-
+#endif
 
     Status err = (window_changed) ? ARM_COMPUTE_CREATE_ERROR(ErrorCode::RUNTIME_ERROR, "Insufficient Padding!") : Status{};
     return std::make_pair(err, collapsed);
@@ -163,11 +172,12 @@ void CLGEMMReshapeRHSMatrixKernel::configure(const CLCompileContext &compile_con
     // Create kernel
     _kernel = create_kernel(compile_context, kernel_name, build_opts.options());
 
-
+#if My_print > 0
     std::cout<<"CLGEMMReshapeRHSMatrixKernel::configure"
     		<<" input shape: "<<input->info()->tensor_shape()
 			<<" output shape: "<<output->info()->tensor_shape()
 			<<std::endl;
+#endif
     // Configure kernel window
     auto win_config = validate_and_configure_window(input->info(), output->info(), rhs_info);
     ARM_COMPUTE_ERROR_THROW_ON(win_config.first);

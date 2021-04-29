@@ -21,6 +21,10 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+#ifndef My_print
+#include "arm_compute/gl_vs.h"
+#endif
+
 #include "src/core/CL/gemm/CLGEMMHelpers.h"
 
 #include "arm_compute/core/CL/CLHelpers.h"
@@ -62,14 +66,18 @@ std::pair<GEMMLHSMatrixInfo, GEMMRHSMatrixInfo> select_lhs_rhs_info(std::pair<GE
 
     if(bool(validate_image2d_support_on_rhs(tensor_reshaped_info, info_img.second)))
     {
+#if My_print > 0
     	//Ehsan
     	printf("image rhs and lhs matrices are selected\n");
+#endif
         return info_img;
     }
     else
     {
+#if My_print > 0
     	//Ehsan
     	printf("buffer rhs and lhs matrices are selected\n");
+#endif
         return info_buf;
     }
 }
