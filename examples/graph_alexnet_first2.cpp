@@ -21,6 +21,10 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+#ifndef My_print
+#include "arm_compute/gl_vs.h"
+#endif
+
 
 //Ehsan
 #include<chrono>
@@ -28,6 +32,8 @@
 #include <dirent.h>
 //#include<unistd.h>
 //#include<sched.h>
+#include "arm_compute/graph/Types.h"
+#include "arm_compute/gl_vs.h"
 
 
 #include "arm_compute/graph.h"
@@ -49,12 +55,14 @@ using namespace arm_compute::graph_utils;
 typedef std::vector<std::string> stringvec;
 void read_directory(const std::string& name, stringvec& v)
 {
+
     DIR* dirp = opendir(name.c_str());
     struct dirent * dp;
     while ((dp = readdir(dirp)) != NULL) {
         if(arm_compute::utility::endswith(dp->d_name, ".ppm"))
            v.push_back(name+(dp->d_name));
     }
+
     closedir(dirp);
 }
 
@@ -68,7 +76,7 @@ class GraphAlexnetExample : public Example
 {
 public:
     GraphAlexnetExample()
-        : cmd_parser(), common_opts(cmd_parser), common_params(), graph(0, "AlexNet")
+        : cmd_parser(), common_opts(cmd_parser), common_params(), graph(0, "AlexNet") , common_params2(), graph2(1,"Alexnet2")
     {
     }
     bool do_setup(int argc, char **argv) override
@@ -79,10 +87,11 @@ public:
 
         // Consume common parameters
         common_params = consume_common_graph_parameters(common_opts);
+        common_params2 = consume_common_graph_parameters(common_opts);
         
-	//Ehsan
-	imgs=!(common_params.image.empty());
-	if(imgs){
+	    //Ehsan
+	    imgs=!(common_params.image.empty());
+	    if(imgs){
 	   read_directory(common_params.image,images_list);
 	   std::cout<<images_list.size()<<" Input images are read from "<<common_params.image<<std::endl;
 	   common_params.image=images_list[image_index];
@@ -98,8 +107,6 @@ public:
         // Checks
         ARM_COMPUTE_EXIT_ON_MSG(arm_compute::is_data_type_quantized_asymmetric(common_params.data_type), "QASYMM8 not supported for this graph");
 
-        // Print parameter values
-        std::cout << common_params << std::endl;
 
         // Get trainable parameters data path
         std::string data_path = common_params.data_path;
@@ -116,6 +123,28 @@ public:
         // Set weights trained layout
         const DataLayout weights_layout = DataLayout::NCHW;
 
+        //Ehsan
+
+        //common_params.target=arm_compute::graph::Target ::CL;
+        //common_params2.target=arm_compute::graph::Target ::NEON;
+        //std::cout<<int(common_params.target)<<std::endl<<std::endl;
+        common_params2.target=static_cast<arm_compute::graph::Target>(3-int(common_params.target));
+        std::cout<<"\nFirst sub graph device:"<<common_params.target<<" Second sub graph device:"<<common_params2.target
+        		<<"\n\n";
+
+        common_params2.labels=common_params.labels;
+        common_params.labels="transfer";
+
+        common_params2.image="transfer";
+        //common_params.threads=4;
+
+
+        // Print parameter values
+        std::cout << common_params << std::endl;
+        // Print parameter values
+        std::cout <<"\nGraph2:\n"<< common_params2 << std::endl;
+
+
         graph << common_params.target
               << common_params.fast_math_hint
               << InputLayer(input_descriptor, get_input_accessor(common_params, std::move(preprocessor)))
@@ -128,9 +157,9 @@ public:
               .set_name("conv1")
               << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name("relu1")
               << NormalizationLayer(NormalizationLayerInfo(NormType::CROSS_MAP, 5, 0.0001f, 0.75f)).set_name("norm1")
-              << PoolingLayer(PoolingLayerInfo(PoolingType::MAX, 3, operation_layout, PadStrideInfo(2, 2, 0, 0))).set_name("pool1")
+              << PoolingLayer(PoolingLayerInfo(PoolingType::MAX, 3, operation_layout, PadStrideInfo(2, 2, 0, 0))).set_name("pool1");
               // Layer 2
-              << ConvolutionLayer(
+        graph << ConvolutionLayer(
                   5U, 5U, 256U,
                   get_weights_accessor(data_path, "/cnn_data/alexnet_model/conv2_w.npy", weights_layout),
                   get_weights_accessor(data_path, "/cnn_data/alexnet_model/conv2_b.npy"),
@@ -139,54 +168,14 @@ public:
               << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name("relu2")
               << NormalizationLayer(NormalizationLayerInfo(NormType::CROSS_MAP, 5, 0.0001f, 0.75f)).set_name("norm2")
               << PoolingLayer(PoolingLayerInfo(PoolingType::MAX, 3, operation_layout, PadStrideInfo(2, 2, 0, 0))).set_name("pool2")
+			  <<OutputLayer(get_output_accessor(common_params, 5));
               // Layer 3
-              << ConvolutionLayer(
-                  3U, 3U, 384U,
-                  get_weights_accessor(data_path, "/cnn_data/alexnet_model/conv3_w.npy", weights_layout),
-                  get_weights_accessor(data_path, "/cnn_data/alexnet_model/conv3_b.npy"),
-                  PadStrideInfo(1, 1, 1, 1))
-              .set_name("conv3")
-              << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name("relu3")
-              // Layer 4
-              << ConvolutionLayer(
-                  3U, 3U, 384U,
-                  get_weights_accessor(data_path, "/cnn_data/alexnet_model/conv4_w.npy", weights_layout),
-                  get_weights_accessor(data_path, "/cnn_data/alexnet_model/conv4_b.npy"),
-                  PadStrideInfo(1, 1, 1, 1), 2)
-              .set_name("conv4")
-              << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name("relu4")
-              // Layer 5
-              << ConvolutionLayer(
-                  3U, 3U, 256U,
-                  get_weights_accessor(data_path, "/cnn_data/alexnet_model/conv5_w.npy", weights_layout),
-                  get_weights_accessor(data_path, "/cnn_data/alexnet_model/conv5_b.npy"),
-                  PadStrideInfo(1, 1, 1, 1), 2)
-              .set_name("conv5")
-              << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name("relu5")
-              << PoolingLayer(PoolingLayerInfo(PoolingType::MAX, 3, operation_layout, PadStrideInfo(2, 2, 0, 0))).set_name("pool5")
-              // Layer 6
-              << FullyConnectedLayer(
-                  4096U,
-                  get_weights_accessor(data_path, "/cnn_data/alexnet_model/fc6_w.npy", weights_layout),
-                  get_weights_accessor(data_path, "/cnn_data/alexnet_model/fc6_b.npy"))
-              .set_name("fc6")
-              << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name("relu6")
-              // Layer 7
-              << FullyConnectedLayer(
-                  4096U,
-                  get_weights_accessor(data_path, "/cnn_data/alexnet_model/fc7_w.npy", weights_layout),
-                  get_weights_accessor(data_path, "/cnn_data/alexnet_model/fc7_b.npy"))
-              .set_name("fc7")
-              << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name("relu7")
-              // Layer 8
-              << FullyConnectedLayer(
-                  1000U,
-                  get_weights_accessor(data_path, "/cnn_data/alexnet_model/fc8_w.npy", weights_layout),
-                  get_weights_accessor(data_path, "/cnn_data/alexnet_model/fc8_b.npy"))
-              .set_name("fc8")
-              // Softmax
-              << SoftmaxLayer().set_name("prob")
-              << OutputLayer(get_output_accessor(common_params, 5));
+
+
+
+
+
+
 
         // Finalize graph
         GraphConfig config;
@@ -208,6 +197,115 @@ public:
 
         graph.finalize(common_params.target, config);
 
+        //arm_compute::graph::Tensor *f_out;
+        for(auto &node : graph.graph().nodes())
+        {
+            /*if(node != nullptr && node->type() == NodeType::Input)
+            {
+            	//Ehsan
+            	//std::cout<<"\ninput node name and ID: "<<node->name()<<'_'<<node->id()<<std::endl;
+
+                workload.inputs.push_back(node->output(0));
+            }*/
+
+            if(node != nullptr && node->type() == arm_compute::graph::NodeType::Output)
+            {
+                f_out=node->input(0);
+                //Ehsan
+                //std::cout<<"\noutput node name and ID: "<<node->name()<<'_'<<node->id()<<std::endl;
+
+                continue;
+            }
+        }
+
+#if My_print > 0
+        std::cout<<"Setup Second Graph,\n"<<f_out->desc().shape<<std::endl;
+        //std::cout<<f_out->desc().shape.x()<<','<<f_out->desc().shape.y()<<','<<f_out->desc().shape.z()<<std::endl;
+#endif
+
+        // Layer 4
+        // Create input descriptor
+        //const auto        operation_layout = common_params.data_layout;
+        ////const TensorShape tensor_shape2     = permute_shape(TensorShape(13U, 13U, 384U, 1U), DataLayout::NCHW, operation_layout);
+        const TensorShape tensor_shape2 = f_out->desc().shape;
+        TensorDescriptor  input_descriptor2 = TensorDescriptor(tensor_shape2, common_params.data_type).set_layout(operation_layout);
+        graph2<<InputLayer(input_descriptor2, get_input_accessor(common_params2));
+
+		graph2<< ConvolutionLayer(
+		                  3U, 3U, 384U,
+		                  get_weights_accessor(data_path, "/cnn_data/alexnet_model/conv3_w.npy", weights_layout),
+		                  get_weights_accessor(data_path, "/cnn_data/alexnet_model/conv3_b.npy"),
+		                  PadStrideInfo(1, 1, 1, 1))
+		              .set_name("conv3")
+		<< ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name("relu3");
+
+	    graph2<< ConvolutionLayer(
+            3U, 3U, 384U,
+            get_weights_accessor(data_path, "/cnn_data/alexnet_model/conv4_w.npy", weights_layout),
+            get_weights_accessor(data_path, "/cnn_data/alexnet_model/conv4_b.npy"),
+            PadStrideInfo(1, 1, 1, 1), 2)
+        .set_name("conv4")
+        << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name("relu4");
+        // Layer 5
+        graph2<< ConvolutionLayer(
+            3U, 3U, 256U,
+            get_weights_accessor(data_path, "/cnn_data/alexnet_model/conv5_w.npy", weights_layout),
+            get_weights_accessor(data_path, "/cnn_data/alexnet_model/conv5_b.npy"),
+            PadStrideInfo(1, 1, 1, 1), 2)
+        .set_name("conv5")
+        << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name("relu5")
+        << PoolingLayer(PoolingLayerInfo(PoolingType::MAX, 3, operation_layout, PadStrideInfo(2, 2, 0, 0))).set_name("pool5");
+
+        // Layer 6
+        graph2<< FullyConnectedLayer(
+            4096U,
+            get_weights_accessor(data_path, "/cnn_data/alexnet_model/fc6_w.npy", weights_layout),
+            get_weights_accessor(data_path, "/cnn_data/alexnet_model/fc6_b.npy"))
+        .set_name("fc6")
+        << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name("relu6");
+        // Layer 7
+        graph2<< FullyConnectedLayer(
+            4096U,
+            get_weights_accessor(data_path, "/cnn_data/alexnet_model/fc7_w.npy", weights_layout),
+            get_weights_accessor(data_path, "/cnn_data/alexnet_model/fc7_b.npy"))
+        .set_name("fc7")
+        << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name("relu7");
+        // Layer 8
+        graph2<< FullyConnectedLayer(
+            1000U,
+            get_weights_accessor(data_path, "/cnn_data/alexnet_model/fc8_w.npy", weights_layout),
+            get_weights_accessor(data_path, "/cnn_data/alexnet_model/fc8_b.npy"))
+        .set_name("fc8")
+        // Softmax
+        << SoftmaxLayer().set_name("prob")
+        << OutputLayer(get_output_accessor(common_params2, 5));
+
+
+        graph2.finalize(common_params2.target, config);
+
+
+        //arm_compute::graph::Tensor *s_in;
+        for(auto &node : graph2.graph().nodes())
+        {
+            if(node != nullptr && node->type() == arm_compute::graph::NodeType::Input)
+            {
+            	//Ehsan
+            	//std::cout<<"\ninput node name and ID: "<<node->name()<<'_'<<node->id()<<std::endl;
+
+                s_in = node->output(0);
+            }
+            /*
+            if(node != nullptr && node->type() == arm_compute::graph::NodeType::Output)
+            {
+                f_out=node->input(0);
+                //Ehsan
+                //std::cout<<"\noutput node name and ID: "<<node->name()<<'_'<<node->id()<<std::endl;
+
+                continue;
+            }*/
+        }
+
+
         // Save the opencl kernels to a file
         if(common_opts.enable_cl_cache)
         {
@@ -225,9 +323,9 @@ public:
         //Ehsan
         std::cout<<"start running graph ...\n";
         ImageAccessor *im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
-        double in=0;
-        double task=0;
-        double out=0;
+        double in,in2=0;
+        double task,task2=0;
+        double out,out2=0;
         int tt=1;
         auto tstart=std::chrono::high_resolution_clock::now();
         for(int i=0;i<tt;i++){
@@ -239,6 +337,7 @@ public:
 		        im_acc->set_filename(images_list[image_index++]);
 		}
                 graph.run(in,task,out,1);
+                graph2.run(in2,task2,out2);
         }
         auto tfinish=std::chrono::high_resolution_clock::now();
         double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
@@ -247,8 +346,15 @@ public:
         task=task/tt;
         out=out/tt;
         double tot=in+task+out;
-        std::cout<<"Cost:"<<Cost<<std::endl;
+        std::cout<<"\n\nCost:"<<Cost<<std::endl;
         std::cout<<"input_time:"<<in<<"\ntask_time:"<<task<<"\noutput_time:"<<out<<"\ntotal_time:"<<tot<<std::endl;
+
+        in2=in2/tt;
+        task2=task2/tt;
+        out2=out2/tt;
+        double tot2=in2+task2+out2;
+        //std::cout<<"Cost:"<<Cost<<std::endl;
+        std::cout<<"\n\ninput2_time:"<<in2<<"\ntask2_time:"<<task2<<"\noutput2_time:"<<out2<<"\ntotal2_time:"<<tot2<<std::endl;
     }
 
 	
@@ -257,7 +363,9 @@ private:
     CommandLineParser  cmd_parser;
     CommonGraphOptions common_opts;
     CommonGraphParams  common_params;
+    CommonGraphParams  common_params2;
     Stream             graph;
+    Stream			   graph2;
 };
 
 /** Main program for AlexNet
@@ -287,6 +395,5 @@ int main(int argc, char **argv)
     if(e !=0)
         std::cout << "Error in setting sched_setaffinity \n";
     */
-
     return arm_compute::utils::run_example<GraphAlexnetExample>(argc, argv);
 }

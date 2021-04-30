@@ -206,11 +206,14 @@ bool TransferAccessor::access_tensor(ITensor &tensor)
 #if My_print > 0
 	std::cout<<"\nrecieving data from first graph\n";
 #endif
-	auto tstart=std::chrono::high_resolution_clock::now();
-	tensor.copy_from(f_out->handle()->tensor());
-	auto tfinish=std::chrono::high_resolution_clock::now();
-	double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
-	std::cout<<"\nTransfer time:"<<cost0<<std::endl<<std::endl;
+	if(s_in->desc().target==arm_compute::graph::Target ::CL)
+	{
+		auto tstart=std::chrono::high_resolution_clock::now();
+		tensor.copy_from(f_out->handle()->tensor());
+		auto tfinish=std::chrono::high_resolution_clock::now();
+		double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+		std::cout<<"\nTransfer time:"<<cost0<<std::endl<<std::endl;
+	}
 #if My_print > 0
 	std::cout<<"\nReceived\n";
 #endif
@@ -756,6 +759,14 @@ void ConnectionAccessor::my_access_predictions_tensor(ITensor &tensor)
     }
 
 #endif
+    if(f_out->desc().target==arm_compute::graph::Target ::CL)
+    {
+		auto tstart=std::chrono::high_resolution_clock::now();
+		s_in->handle()->tensor().copy_from(tensor);
+		auto tfinish=std::chrono::high_resolution_clock::now();
+		double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+		std::cout<<"\nTransfer0 time:"<<cost0<<std::endl<<std::endl;
+    }
 
 
     /*

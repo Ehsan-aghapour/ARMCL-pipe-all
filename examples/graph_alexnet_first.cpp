@@ -124,8 +124,13 @@ public:
         const DataLayout weights_layout = DataLayout::NCHW;
 
         //Ehsan
-        common_params.target=arm_compute::graph::Target ::NEON;
-        common_params2.target=arm_compute::graph::Target ::CL;
+
+        //common_params.target=arm_compute::graph::Target ::CL;
+        //common_params2.target=arm_compute::graph::Target ::NEON;
+        //std::cout<<int(common_params.target)<<std::endl<<std::endl;
+        common_params2.target=static_cast<arm_compute::graph::Target>(3-int(common_params.target));
+        std::cout<<"\nFirst sub graph device:"<<common_params.target<<" Second sub graph device:"<<common_params2.target
+        		<<"\n\n";
 
         common_params2.labels=common_params.labels;
         common_params.labels="transfer";
