@@ -189,7 +189,7 @@ public:
 		        //std::unique_ptr<ImageAccessor> im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
 		        im_acc->set_filename(images_list[image_index++]);
 		}
-                graph.run(in,task,out);
+                graph.run(in,task,out,1);
         }
         auto tfinish=std::chrono::high_resolution_clock::now();
 	//ANNOTATE_CHANNEL_END(1);

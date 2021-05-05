@@ -234,7 +234,9 @@ public:
         ////const TensorShape tensor_shape2     = permute_shape(TensorShape(13U, 13U, 384U, 1U), DataLayout::NCHW, operation_layout);
         const TensorShape tensor_shape2 = f_out->desc().shape;
         TensorDescriptor  input_descriptor2 = TensorDescriptor(tensor_shape2, common_params.data_type).set_layout(operation_layout);
-        graph2<<InputLayer(input_descriptor2, get_input_accessor(common_params2))
+        graph2<<common_params2.target
+        	<<common_params2.fast_math_hint
+		<<InputLayer(input_descriptor2, get_input_accessor(common_params2))
 
 	    << ConvolutionLayer(
             3U, 3U, 384U,

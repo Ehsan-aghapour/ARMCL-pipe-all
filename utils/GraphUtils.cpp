@@ -230,6 +230,96 @@ bool TransferAccessor::access_tensor(ITensor &tensor)
 }
 
 
+
+
+
+
+
+
+
+MySaveAccessor::MySaveAccessor(const std::string npy_name, const bool is_fortran , unsigned int maximum)
+    : _iterator(0), _maximum(maximum), _npy_name(std::move(npy_name)), _is_fortran(is_fortran)
+{
+}
+
+#include <filesystem>
+#include <iostream>
+
+bool MySaveAccessor::access_tensor(ITensor &tensor)
+{
+	//std::cout<<"hhhh:"<<s_in->desc().shape<<std::endl;
+	//Ehsan
+	//First_NEON
+	//tensor.copy_from(f_out->handle()->tensor());
+
+
+
+	if(!saved){
+
+
+
+		//Generate and fill with random numbers
+		std::uniform_real_distribution<float> distribution_f32(0.0, 255.0);
+		std::random_device::result_type _seed=0;
+	    std::mt19937 gen(_seed);
+
+	    if(tensor.info()->padding().empty() && (dynamic_cast<SubTensor *>(&tensor) == nullptr))
+	    {
+	        for(size_t offset = 0; offset < tensor.info()->total_size(); offset += tensor.info()->element_size())
+	        {
+	            const auto value                                 = static_cast<float>(distribution_f32(gen));
+	            *reinterpret_cast<float *>(tensor.buffer() + offset) = value;
+	        }
+	    }
+	    else
+	    {
+	        // If tensor has padding accessing tensor elements through execution window.
+	        Window window;
+	        window.use_tensor_dimensions(tensor.info()->tensor_shape());
+
+	        execute_window_loop(window, [&](const Coordinates & id)
+	        {
+	            const auto value                                  = static_cast<float>(distribution_f32(gen));
+	            *reinterpret_cast<float *>(tensor.ptr_to_element(id)) = value;
+	        });
+	    }
+
+
+
+
+	    auto len=_npy_name.length();
+	    auto index=_npy_name.find_last_of('/');
+	    bool path=true;
+	    if (index == std::string::npos) {
+	        path=false;
+	    }
+
+	    if(path){
+	    	std::system(("mkdir -p "+_npy_name.substr(0,index)).c_str());
+	    }
+		utils::save_to_npy(tensor, _npy_name, _is_fortran);
+		saved=true;
+	}
+
+
+    ARM_COMPUTE_UNUSED(tensor);
+    bool ret = _maximum == 0 || _iterator < _maximum;
+    if(_iterator == _maximum)
+    {
+        _iterator = 0;
+    }
+    else
+    {
+        _iterator++;
+    }
+    return ret;
+}
+
+
+
+
+
+
 NumPyAccessor::NumPyAccessor(std::string npy_path, TensorShape shape, DataType data_type, DataLayout data_layout, std::ostream &output_stream)
     : _npy_tensor(), _filename(std::move(npy_path)), _output_stream(output_stream)
 {
@@ -717,7 +807,7 @@ ConnectionAccessor::ConnectionAccessor(){
 template <typename T>
 void ConnectionAccessor::my_access_predictions_tensor(ITensor &tensor)
 {
-	std::cout<<"Final output accessor called\n";
+
     // Get the predicted class
     std::vector<T>      classes_prob;
     //std::vector<size_t> index;
@@ -759,6 +849,9 @@ void ConnectionAccessor::my_access_predictions_tensor(ITensor &tensor)
     }
 
 #endif
+
+
+
     if(f_out->desc().target==arm_compute::graph::Target ::CL)
     {
 		auto tstart=std::chrono::high_resolution_clock::now();

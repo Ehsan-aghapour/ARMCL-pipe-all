@@ -110,6 +110,9 @@ namespace utils
             os << "Validation path : " << common_params.validation_path << std::endl;
         }
     }
+    os << "Partition point is : "
+    		<< common_params.partition_point
+    		<< std::endl;
 
     return os;
 }
@@ -131,7 +134,8 @@ CommonGraphOptions::CommonGraphOptions(CommandLineParser &parser)
       validation_path(parser.add_option<SimpleOption<std::string>>("validation-path")),
       validation_range(parser.add_option<SimpleOption<std::string>>("validation-range")),
       tuner_file(parser.add_option<SimpleOption<std::string>>("tuner-file")),
-      mlgo_file(parser.add_option<SimpleOption<std::string>>("mlgo-file"))
+      mlgo_file(parser.add_option<SimpleOption<std::string>>("mlgo-file")),
+	  partition_point(parser.add_option<SimpleOption<int>>("partition_point", 0))
 {
     std::set<arm_compute::graph::Target> supported_targets
     {
@@ -186,6 +190,7 @@ CommonGraphOptions::CommonGraphOptions(CommandLineParser &parser)
     validation_range->set_help("Range of the images to validate for (Format : start,end)");
     tuner_file->set_help("File to load/save CLTuner values");
     mlgo_file->set_help("File to load MLGO heuristics");
+    partition_point->set_help("Point at which graph wanted to be partitioned");
 }
 
 CommonGraphParams consume_common_graph_parameters(CommonGraphOptions &options)
@@ -215,6 +220,7 @@ CommonGraphParams consume_common_graph_parameters(CommonGraphOptions &options)
     common_params.validation_range_end   = validation_range.second;
     common_params.tuner_file             = options.tuner_file->value();
     common_params.mlgo_file              = options.mlgo_file->value();
+    common_params.partition_point		 = options.partition_point->value();
 
     return common_params;
 }

@@ -166,6 +166,34 @@ private:
     unsigned int _maximum;
 };
 
+
+/** Dummy accessor class */
+class MySaveAccessor final : public graph::ITensorAccessor
+{
+public:
+    /** Constructor
+     *
+     * @param[in] maximum Maximum elements to write
+     */
+	MySaveAccessor(const std::string npy_name, const bool is_fortran = false, unsigned int maximum = 1);
+    /** Allows instances to move constructed */
+	MySaveAccessor(MySaveAccessor &&) = default;
+
+    // Inherited methods overriden:
+    bool access_tensor(ITensor &tensor) override;
+
+private:
+    unsigned int _iterator;
+    unsigned int _maximum;
+
+    const std::string _npy_name;
+    const bool        _is_fortran;
+    bool 			  saved=false;
+
+
+};
+
+
 /** NumPy accessor class */
 class NumPyAccessor final : public graph::ITensorAccessor
 {
@@ -542,6 +570,12 @@ inline std::unique_ptr<graph::ITensorAccessor> get_weights_accessor(const std::s
     if(path.empty())
     {
         return std::make_unique<DummyAccessor>();
+    }
+    else if(arm_compute::utility::endswith(path, "Save/"))
+    {
+    	std::cout<<"save parameters to save folder\n";
+    	return std::make_unique<MySaveAccessor>(path+data_file);
+    	//utils::save_to_npy(tensor, _npy_name, _is_fortran);
     }
     else
     {

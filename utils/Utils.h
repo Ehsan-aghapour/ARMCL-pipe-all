@@ -97,6 +97,7 @@ public:
 
     /** Default destructor. */
     virtual ~Example() = default;
+
 };
 
 /** Run an example and handle the potential exceptions it throws
