@@ -113,6 +113,9 @@ struct CommonGraphParams
     unsigned int                     validation_range_end{ std::numeric_limits<unsigned int>::max() };
     //Ehsan
     int								 partition_point{ 0 };
+    int							 	 annotate{0};
+    int							 	 save{0};
+    int								 n{1};
 };
 
 /** Formatted output of the CommonGraphParams type
@@ -169,7 +172,11 @@ public:
     SimpleOption<std::string>              *validation_range; /**< Validation range */
     SimpleOption<std::string>              *tuner_file;       /**< File to load/store the tuner's values from */
     SimpleOption<std::string>              *mlgo_file;        /**< File to load the MLGO heuristics from */
+    //Ehsan
     SimpleOption<int>                      *partition_point;          /**< Partition point */
+    SimpleOption<int>					   *annotate;
+    SimpleOption<int>					   *save;
+    SimpleOption<int>					   *n;
 };
 
 /** Consumes the common graph options and creates a structure containing any information

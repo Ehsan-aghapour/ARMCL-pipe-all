@@ -30,6 +30,7 @@
 arm_compute::graph::Tensor *f_out;
 arm_compute::graph::Tensor *s_in;
 
+
 #include "utils/GraphUtils.h"
 
 #include "arm_compute/core/Helpers.h"
@@ -167,8 +168,8 @@ bool PPMWriter::access_tensor(ITensor &tensor)
     return _iterator < _maximum;
 }
 
-DummyAccessor::DummyAccessor(unsigned int maximum)
-    : _iterator(0), _maximum(maximum)
+DummyAccessor::DummyAccessor(bool type, unsigned int maximum)
+    : _iterator(0), _maximum(maximum), _type(type)
 {
 }
 
@@ -179,6 +180,7 @@ bool DummyAccessor::access_tensor(ITensor &tensor)
 	//Ehsan
 	//First_NEON
 	//tensor.copy_from(f_out->handle()->tensor());
+	return _type;
 
     ARM_COMPUTE_UNUSED(tensor);
     bool ret = _maximum == 0 || _iterator < _maximum;
@@ -198,11 +200,28 @@ TransferAccessor::TransferAccessor(unsigned int maximum)
 {
 }
 
+
+//input of second graph
 bool TransferAccessor::access_tensor(ITensor &tensor)
 {
 	//std::cout<<"hhhh:"<<s_in->desc().shape<<std::endl;
 	//Ehsan
 	//First_NEON
+
+	/*bool ret = _maximum == 0 || _iterator < _maximum;
+	if(_iterator == _maximum)
+	{
+		_iterator = 0;
+	}
+	else
+	{
+		_iterator++;
+	}
+
+	if(!ret)
+		return ret;
+	*/
+
 #if My_print > 0
 	std::cout<<"\nrecieving data from first graph\n";
 #endif
@@ -217,16 +236,10 @@ bool TransferAccessor::access_tensor(ITensor &tensor)
 #if My_print > 0
 	std::cout<<"\nReceived\n";
 #endif
-	bool ret = _maximum == 0 || _iterator < _maximum;
-	if(_iterator == _maximum)
-	{
-		_iterator = 0;
-	}
-	else
-	{
-		_iterator++;
-	}
-	return ret;
+
+	//return ret;
+	return true;
+
 }
 
 
@@ -296,7 +309,14 @@ bool MySaveAccessor::access_tensor(ITensor &tensor)
 
 	    if(path){
 	    	std::system(("mkdir -p "+_npy_name.substr(0,index)).c_str());
+	    	std::cout<<"create path:"<<_npy_name.substr(0,index)<<std::endl;
+
 	    }
+	    std::cout<<"file name:"<<_npy_name.substr(len-index,len-1)<<std::endl;
+	    //std::string tes;
+	    //std::cout<<"press to continue...";
+	    //std::cin>>tes;
+	    //std::cout<<std::endl;
 		utils::save_to_npy(tensor, _npy_name, _is_fortran);
 		saved=true;
 	}
@@ -804,6 +824,7 @@ ConnectionAccessor::ConnectionAccessor(){
 }
 
 //Ehsan
+//Output of first graph
 template <typename T>
 void ConnectionAccessor::my_access_predictions_tensor(ITensor &tensor)
 {

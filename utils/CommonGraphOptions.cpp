@@ -114,6 +114,15 @@ namespace utils
     		<< common_params.partition_point
     		<< std::endl;
 
+    if(common_params.save){
+    	os<<"Saving model to "<<common_params.data_path<<std::endl;
+    }
+
+    if(common_params.annotate){
+    	os<<"Streamline annotation is enable"<<std::endl;
+    }
+
+    os<<"Run network for "<<common_params.n<<" times.\n";
     return os;
 }
 
@@ -135,7 +144,10 @@ CommonGraphOptions::CommonGraphOptions(CommandLineParser &parser)
       validation_range(parser.add_option<SimpleOption<std::string>>("validation-range")),
       tuner_file(parser.add_option<SimpleOption<std::string>>("tuner-file")),
       mlgo_file(parser.add_option<SimpleOption<std::string>>("mlgo-file")),
-	  partition_point(parser.add_option<SimpleOption<int>>("partition_point", 0))
+	  partition_point(parser.add_option<SimpleOption<int>>("partition_point", 0)),
+	  annotate(parser.add_option<SimpleOption<int>>("annotate", 0)),
+	  save(parser.add_option<SimpleOption<int>>("save", 0)),
+	  n(parser.add_option<SimpleOption<int>>("n", 1))
 {
     std::set<arm_compute::graph::Target> supported_targets
     {
@@ -191,6 +203,9 @@ CommonGraphOptions::CommonGraphOptions(CommandLineParser &parser)
     tuner_file->set_help("File to load/save CLTuner values");
     mlgo_file->set_help("File to load MLGO heuristics");
     partition_point->set_help("Point at which graph wanted to be partitioned");
+    annotate->set_help("Use streamline for annotation");
+    save->set_help("Save graph parameters");
+    n->set_help("number of run");
 }
 
 CommonGraphParams consume_common_graph_parameters(CommonGraphOptions &options)
@@ -221,6 +236,9 @@ CommonGraphParams consume_common_graph_parameters(CommonGraphOptions &options)
     common_params.tuner_file             = options.tuner_file->value();
     common_params.mlgo_file              = options.mlgo_file->value();
     common_params.partition_point		 = options.partition_point->value();
+    common_params.annotate		 		 = options.annotate->value();
+    common_params.save		 			 = options.save->value();
+    common_params.n						 = options.n->value();
 
     return common_params;
 }

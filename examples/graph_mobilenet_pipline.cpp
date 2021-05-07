@@ -162,8 +162,7 @@ public:
         //common_params2.target=arm_compute::graph::Target ::NEON;
         //std::cout<<int(common_params.target)<<std::endl<<std::endl;
         common_params2.target=static_cast<arm_compute::graph::Target>(3-int(common_params.target));
-        std::cout<<"\nFirst sub graph device:"<<common_params.target<<" Second sub graph device:"<<common_params2.target
-        		<<"\n\n";
+
 
         common_params2.labels=common_params.labels;
 
@@ -183,6 +182,10 @@ public:
         _common_params=&common_params;
         Layer=0;
         //bool second=false;
+
+        annotate=common_params.annotate;
+        save_model=common_params.save;
+
         //***************************************************************
 
 
@@ -225,7 +228,8 @@ public:
                 s_in = node->output(0);
             }
         }
-
+        std::cout<<"Partition layer:"<<p<<std::endl;
+        std::cout<<"Total layers:"<<Layer+1<<std::endl;
 
         return true;
     }
@@ -238,19 +242,26 @@ public:
         double in,in2=0;
         double task,task2=0;
         double out,out2=0;
-        int tt=1;
+        int tt=(common_params.n);
         auto tstart=std::chrono::high_resolution_clock::now();
-        for(int i=0;i<tt;i++){
-		if(imgs){
-		        if(image_index>=images_list.size())
-		                image_index=image_index%images_list.size();
-		        std::cout<<"\n\ninferencing image: "<<image_index<<":"<<images_list[image_index]<<std::endl;
-		        //std::unique_ptr<ImageAccessor> im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
-		        im_acc->set_filename(images_list[image_index++]);
-		}
-                graph.run(in,task,out);
-                if (second)
-                	graph2.run(in2, task2, out2);
+        for(int i=0;i<(tt+1);i++){
+        	if(i==1){
+        		tstart=std::chrono::high_resolution_clock::now();
+        		in=in2=task=task2=out=out2=0;
+        	}
+			if(imgs){
+				if(image_index>=images_list.size())
+						image_index=image_index%images_list.size();
+				std::cout<<"\n\ninferencing image: "<<image_index<<":"<<images_list[image_index]<<std::endl;
+				//std::unique_ptr<ImageAccessor> im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
+				im_acc->set_filename(images_list[image_index++]);
+			}
+
+            graph.run(in,task,out,annotate);
+			if(second)
+			{
+				graph2.run(in2,task2,out2,annotate);
+			}
         }
         auto tfinish=std::chrono::high_resolution_clock::now();
         double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
@@ -289,6 +300,7 @@ private:
     CommonGraphParams *_common_params=&common_params;
     int Layer=0;
     int p=0;
+    bool			   annotate{false};
 
 
 

@@ -25,6 +25,7 @@
 #ifndef My_print2
 #include "arm_compute/gl_vs.h"
 #endif
+static int save_model=0;
 
 #ifndef __ARM_COMPUTE_UTILS_GRAPH_UTILS_H__
 #define __ARM_COMPUTE_UTILS_GRAPH_UTILS_H__
@@ -135,7 +136,7 @@ public:
      *
      * @param[in] maximum Maximum elements to write
      */
-    DummyAccessor(unsigned int maximum = 1);
+    DummyAccessor(bool type, unsigned int maximum = 1);
     /** Allows instances to move constructed */
     DummyAccessor(DummyAccessor &&) = default;
 
@@ -145,6 +146,7 @@ public:
 private:
     unsigned int _iterator;
     unsigned int _maximum;
+    bool 		 _type;
 };
 
 /** Transfer accessor (Second graph input) class */
@@ -567,13 +569,17 @@ inline std::unique_ptr<graph::ITensorAccessor> get_weights_accessor(const std::s
                                                                     const std::string &data_file,
                                                                     DataLayout         file_layout = DataLayout::NCHW)
 {
+
+	//std::cout<<"Path is:"<<path<<std::endl;
     if(path.empty())
     {
-        return std::make_unique<DummyAccessor>();
+        return std::make_unique<DummyAccessor>(1);
     }
-    else if(arm_compute::utility::endswith(path, "Save/"))
+    //arm_compute::utility::endswith(path, "Save/")
+    //int save=0;
+    else if(save_model)
     {
-    	std::cout<<"save parameters to save folder\n";
+    	std::cout<<"save path:"<<path<<"\n"<<"data_file:"<<data_file<<std::endl;
     	return std::make_unique<MySaveAccessor>(path+data_file);
     	//utils::save_to_npy(tensor, _npy_name, _is_fortran);
     }
@@ -628,7 +634,7 @@ inline std::unique_ptr<graph::ITensorAccessor> get_input_accessor(const arm_comp
 
         else
         {
-            return std::make_unique<DummyAccessor>();
+            return std::make_unique<DummyAccessor>(1);
         }
     }
 }
@@ -660,7 +666,7 @@ inline std::unique_ptr<graph::ITensorAccessor> get_output_accessor(const arm_com
     }
     else if(graph_parameters.labels.empty())
     {
-        return std::make_unique<DummyAccessor>(0);
+        return std::make_unique<DummyAccessor>(0,0);
     }
     else if(arm_compute::utility::endswith(graph_parameters.labels, "transfer") )
     {

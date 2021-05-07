@@ -250,6 +250,11 @@ void GraphManager::execute_graph(Graph &graph,double &in, double &task, double &
 //Ehsan
 void GraphManager::execute_graph(Graph &graph,double &in, double &task, double &out, bool anotate)
 {
+	if(!anotate)
+	{
+		execute_graph(graph, in, task, out);
+		return;
+	}
     // Check if graph is finalized
     auto it = _workloads.find(graph.id());
     ARM_COMPUTE_ERROR_ON_MSG(it == std::end(_workloads), "Graph is not registered!");

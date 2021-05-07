@@ -116,6 +116,10 @@ public:
         // Set weights trained layout
         const DataLayout weights_layout = DataLayout::NCHW;
 
+        int annotate=common_params.annotate;
+        save_model=common_params.save;
+
+
         graph << common_params.target
               << common_params.fast_math_hint
               << InputLayer(input_descriptor, get_input_accessor(common_params, std::move(preprocessor)))
@@ -228,18 +232,26 @@ public:
         double in=0;
         double task=0;
         double out=0;
-        int tt=1;
+        int tt=common_params.n;
         auto tstart=std::chrono::high_resolution_clock::now();
-        for(int i=0;i<tt;i++){
-		if(imgs){
-		        if(image_index>=images_list.size())
-		                image_index=image_index%images_list.size();
-		        std::cout<<"\n\ninferencing image: "<<image_index<<":"<<images_list[image_index]<<std::endl;
-		        //std::unique_ptr<ImageAccessor> im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
-		        im_acc->set_filename(images_list[image_index++]);
+        for(int i=0;i<(tt+1);i++){
+        	if(i==1){
+        		tstart=std::chrono::high_resolution_clock::now();
+        		//std::cout<<tstart.time_since_epoch().count()<<std::endl;
+        		in=task=out=0;
+        	}
+			if(imgs){
+					if(image_index>=images_list.size())
+							image_index=image_index%images_list.size();
+					std::cout<<"\n\ninferencing image: "<<image_index<<":"<<images_list[image_index]<<std::endl;
+					//std::unique_ptr<ImageAccessor> im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
+					im_acc->set_filename(images_list[image_index++]);
+			}
+			if(annotate)
+				graph.run(in,task,out,annotate);
+			else
+				graph.run(in,task,out);
 		}
-                graph.run(in,task,out,1);
-        }
         auto tfinish=std::chrono::high_resolution_clock::now();
         double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
         double Cost=cost0/tt;
@@ -258,6 +270,7 @@ private:
     CommonGraphOptions common_opts;
     CommonGraphParams  common_params;
     Stream             graph;
+    bool			   annotate{false};
 };
 
 /** Main program for AlexNet

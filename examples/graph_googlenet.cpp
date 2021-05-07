@@ -109,6 +109,10 @@ public:
         // Set weights trained layout
         const DataLayout weights_layout = DataLayout::NCHW;
 
+        annotate=common_params.annotate;
+        save_model=common_params.save;
+
+
         graph << common_params.target
               << common_params.fast_math_hint
               << InputLayer(input_descriptor, get_input_accessor(common_params, std::move(preprocessor)))
@@ -179,25 +183,34 @@ public:
         double in=0;
         double task=0;
         double out=0;
+        int tt=common_params.n;
 	//ANNOTATE_CHANNEL_COLOR(1,ANNOTATE_RED,"20_runs");
         auto tstart=std::chrono::high_resolution_clock::now();
-        for(int i=0;i<20;i++){
-		if(imgs){
-		        if(image_index>=images_list.size())
-		                image_index=image_index%images_list.size();
-		        std::cout<<"\n\ninferencing image: "<<image_index<<":"<<images_list[image_index]<<std::endl;
-		        //std::unique_ptr<ImageAccessor> im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
-		        im_acc->set_filename(images_list[image_index++]);
+        for(int i=0;i<(tt+1);i++){
+        	if(i==1){
+        		tstart=std::chrono::high_resolution_clock::now();
+        		//std::cout<<tstart.time_since_epoch().count()<<std::endl;
+        		in=task=out=0;
+        	}
+			if(imgs){
+					if(image_index>=images_list.size())
+							image_index=image_index%images_list.size();
+					std::cout<<"\n\ninferencing image: "<<image_index<<":"<<images_list[image_index]<<std::endl;
+					//std::unique_ptr<ImageAccessor> im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
+					im_acc->set_filename(images_list[image_index++]);
+			}
+			if(annotate)
+				graph.run(in,task,out,annotate);
+			else
+				graph.run(in,task,out);
 		}
-                graph.run(in,task,out,1);
-        }
         auto tfinish=std::chrono::high_resolution_clock::now();
 	//ANNOTATE_CHANNEL_END(1);
         double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
-        double Cost=cost0/20;
-        in=in/20;
-        task=task/20;
-        out=out/20;
+        double Cost=cost0/tt;
+        in=in/tt;
+        task=task/tt;
+        out=out/tt;
         double tot=in+task+out;
         std::cout<<"Cost:"<<Cost<<std::endl;
         std::cout<<"input_time:"<<in<<"\ntask_time:"<<task<<"\noutput_time:"<<out<<"\ntotal_time:"<<tot<<std::endl;
@@ -211,6 +224,7 @@ private:
     CommonGraphOptions common_opts;
     CommonGraphParams  common_params;
     Stream             graph;
+    bool			   annotate{false};
 
     ConcatLayer get_inception_node(const std::string &data_path, std::string &&param_path, DataLayout weights_layout,
                                    unsigned int a_filt,

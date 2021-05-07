@@ -108,6 +108,11 @@ public:
         const TensorShape tensor_shape     = permute_shape(TensorShape(spatial_size, spatial_size, 3U, 1U), DataLayout::NCHW, common_params.data_layout);
         TensorDescriptor  input_descriptor = TensorDescriptor(tensor_shape, common_params.data_type).set_layout(common_params.data_layout);
 
+
+        annotate=common_params.annotate;
+        save_model=common_params.save;
+
+
         // Set graph hints
         graph << common_params.target
               << common_params.fast_math_hint;
@@ -121,6 +126,11 @@ public:
         {
             create_graph_qasymm(input_descriptor);
         }
+
+
+        int annotate=common_params.annotate;
+        save_model=common_params.save;
+
 
         // Create common tail
         graph << ReshapeLayer(TensorShape(1001U)).set_name("Reshape")
@@ -149,23 +159,32 @@ public:
         double in=0;
         double task=0;
         double out=0;
+        int tt=common_params.n;
         auto tstart=std::chrono::high_resolution_clock::now();
-        for(int i=0;i<20;i++){
-		if(imgs){
-		        if(image_index>=images_list.size())
-		                image_index=image_index%images_list.size();
-		        std::cout<<"\n\ninferencing image: "<<image_index<<":"<<images_list[image_index]<<std::endl;
-		        //std::unique_ptr<ImageAccessor> im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
-		        im_acc->set_filename(images_list[image_index++]);
+        for(int i=0;i<(tt+1);i++){
+        	if(i==1){
+        		tstart=std::chrono::high_resolution_clock::now();
+        		//std::cout<<tstart.time_since_epoch().count()<<std::endl;
+        		in=task=out=0;
+        	}
+			if(imgs){
+					if(image_index>=images_list.size())
+							image_index=image_index%images_list.size();
+					std::cout<<"\n\ninferencing image: "<<image_index<<":"<<images_list[image_index]<<std::endl;
+					//std::unique_ptr<ImageAccessor> im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
+					im_acc->set_filename(images_list[image_index++]);
+			}
+			if(annotate)
+				graph.run(in,task,out,annotate);
+			else
+				graph.run(in,task,out);
 		}
-                graph.run(in,task,out);
-        }
         auto tfinish=std::chrono::high_resolution_clock::now();
         double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
-        double Cost=cost0/20;
-        in=in/20;
-        task=task/20;
-        out=out/20;
+        double Cost=cost0/tt;
+        in=in/tt;
+        task=task/tt;
+        out=out/tt;
         double tot=in+task+out;
         std::cout<<"Cost:"<<Cost<<std::endl;
         std::cout<<"input_time:"<<in<<"\ntask_time:"<<task<<"\noutput_time:"<<out<<"\ntotal_time:"<<tot<<std::endl;
@@ -179,6 +198,7 @@ private:
     SimpleOption<int> *model_id_opt{ nullptr };
     CommonGraphParams  common_params;
     Stream             graph;
+    bool			   annotate{false};
 
     void create_graph_float(TensorDescriptor &input_descriptor, int model_id)
     {
