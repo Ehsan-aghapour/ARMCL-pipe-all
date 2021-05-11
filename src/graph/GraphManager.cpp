@@ -217,6 +217,8 @@ void GraphManager::execute_graph(Graph &graph,double &in, double &task, double &
 	in += std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
 	//std::cout<<"Input accessor duration: "<<Cost0<<std::endl;
         // Run graph
+	//std::cout<<"\ntask:"<<task<<std::endl;
+	//if(!task)
         detail::call_all_tasks(it->second);
 	tstart=std::chrono::high_resolution_clock::now();
 
@@ -224,8 +226,10 @@ void GraphManager::execute_graph(Graph &graph,double &in, double &task, double &
 
 	//ANNOTATE_CHANNEL_END(2);
 	//ANNOTATE_CHANNEL_COLOR(3,ANNOTATE_BLACK,"output");
+	//if(!task)
 	task += std::chrono::duration_cast<std::chrono::duration<double>>(tstart-tfinish).count();
 
+	//std::cout<<"\n2task:"<<task<<std::endl;
 	//std::cout<<"task duration: "<<task<<std::endl;
         // Call output accessors
         if(!detail::call_all_output_node_accessors(it->second))

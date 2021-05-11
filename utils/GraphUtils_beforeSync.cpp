@@ -31,21 +31,6 @@ arm_compute::graph::Tensor *f_out;
 arm_compute::graph::Tensor *s_in;
 
 
-#include <mutex>
-#include <condition_variable>
-#include <queue>
-
-std::mutex m;
-std::condition_variable cv;
-
-static bool waiting = true;
-static bool data_ready = false;
-
-#include "arm_compute/runtime/Tensor.h"
-
-//static std::queue<arm_compute::ITensor> Tensors_Q;
-static std::queue<arm_compute::Tensor*> Tensors_Q;
-
 #include "utils/GraphUtils.h"
 
 #include "arm_compute/core/Helpers.h"
@@ -62,8 +47,6 @@ static std::queue<arm_compute::Tensor*> Tensors_Q;
 #include <inttypes.h>
 #include <iomanip>
 #include <limits>
-
-
 
 using namespace arm_compute::graph_utils;
 
@@ -238,46 +221,21 @@ bool TransferAccessor::access_tensor(ITensor &tensor)
 	if(!ret)
 		return ret;
 	*/
-	
-	std::unique_lock<std::mutex> lk(m);
-	if (Tensors_Q.empty()){
-		//std::cout<<"\nQ is empty waiting for source data\n";
-		waiting = 1;
-		cv.wait(lk, []{return data_ready;});
-		data_ready=0;
-		waiting=0;
-		lk.unlock();
 
 #if My_print > 0
-		std::cout<<"\nrecieving data from first graph\n";
+	std::cout<<"\nrecieving data from first graph\n";
 #endif
-		if(s_in->desc().target==arm_compute::graph::Target ::CL)
-		{
-			//std::cout<<"\n transfering data from source directly transfer is done in dest\n";
-			auto tstart=std::chrono::high_resolution_clock::now();
-			tensor.copy_from(f_out->handle()->tensor());
-			auto tfinish=std::chrono::high_resolution_clock::now();
-			double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
-			std::cout<<"\nTransfer time from source:"<<cost0<<std::endl<<std::endl;
-		}
-#if My_print > 0
-		std::cout<<"\nReceived\n";
-#endif
-	}
-	else{
-		//std::cout<<"\nTransfer from Queue at dest\n";
+	if(s_in->desc().target==arm_compute::graph::Target ::CL)
+	{
 		auto tstart=std::chrono::high_resolution_clock::now();
-		tensor.copy_from(*Tensors_Q.front());
-		//tensor.copy_from(Tensors_Q.front().handle()->tensor());
-		Tensors_Q.pop();
+		tensor.copy_from(f_out->handle()->tensor());
 		auto tfinish=std::chrono::high_resolution_clock::now();
 		double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
-		std::cout<<"\nTransfer time from queue:"<<cost0<<std::endl<<std::endl;
-		lk.unlock();
+		std::cout<<"\nTransfer time:"<<cost0<<std::endl<<std::endl;
 	}
-
-
-
+#if My_print > 0
+	std::cout<<"\nReceived\n";
+#endif
 
 	//return ret;
 	return true;
@@ -907,7 +865,6 @@ void ConnectionAccessor::my_access_predictions_tensor(ITensor &tensor)
          if (cnt%8==0)
         	 std::cout<<std::endl;
 
-
          cnt++;
 
     }
@@ -915,38 +872,15 @@ void ConnectionAccessor::my_access_predictions_tensor(ITensor &tensor)
 #endif
 
 
+
+    if(f_out->desc().target==arm_compute::graph::Target ::CL)
     {
-    	//std::cout<<"\n first graph waiting for mutex\n";
-		std::lock_guard<std::mutex> lk(m);
-		if(!waiting){
-					//auto tstart=std::chrono::high_resolution_clock::now();
-					Tensors_Q.push(dynamic_cast<arm_compute::Tensor*>(&(f_out->handle()->tensor())));
-					//auto tfinish=std::chrono::high_resolution_clock::now();
-					//double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
-					//std::cout<<"\npushing to queue time:"<<cost0<<std::endl;
-					//std::cout<<"\npushing to queue\n";
-					//Tensors_Q.push(*f_out);
-		}
-
-		else{
-
-			//std::cout<<"\nDirectly should be transfomed\n";
-			if(f_out->desc().target==arm_compute::graph::Target ::CL)
-			{
-				auto tstart=std::chrono::high_resolution_clock::now();
-				s_in->handle()->tensor().copy_from(tensor);
-				auto tfinish=std::chrono::high_resolution_clock::now();
-				double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
-				std::cout<<"\nTransfer0 time:"<<cost0<<std::endl<<std::endl;
-			}
-			data_ready = true;
-			cv.notify_one();
-
-		}
-
+		auto tstart=std::chrono::high_resolution_clock::now();
+		s_in->handle()->tensor().copy_from(tensor);
+		auto tfinish=std::chrono::high_resolution_clock::now();
+		double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+		std::cout<<"\nTransfer0 time:"<<cost0<<std::endl<<std::endl;
     }
-
-
 
 
     /*

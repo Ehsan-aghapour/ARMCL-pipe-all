@@ -25,9 +25,16 @@
 #include "arm_compute/gl_vs.h"
 #endif
 
+//#include <sys/wait.h>
+//#include <sys/list.h>
+//wait_queue_head_t wq;
+//int flag = 0;
+
+
 
 //Ehsan
 #include<chrono>
+#include<thread>
 #include <sys/types.h>
 #include <dirent.h>
 //#include<unistd.h>
@@ -70,6 +77,7 @@ void read_directory(const std::string& name, stringvec& v)
 size_t image_index=0;
 stringvec images_list;
 bool imgs=0;
+bool ann=0;
 
 /** Example demonstrating how to implement AlexNet's network using the Compute Library's graph API */
 class GraphAlexnetExample : public Example
@@ -216,6 +224,7 @@ public:
         int Layer=0;
         //bool second=false;
         annotate=common_params.annotate;
+        ann=annotate;
         save_model=common_params.save;
 
 
@@ -442,34 +451,55 @@ public:
     {
         // Run graph
         //Ehsan
+    	std::thread First(&GraphAlexnetExample::do_run_1,this,0);
+    	std::thread Second(&GraphAlexnetExample::do_run_2,this,1);
+    	First.join();
+    	Second.join();
+    }
+
+
+    void do_run_1(int core_id)
+    {
+        // Run graph
+        //Ehsan
+    	//int core_id=1;
+/*
+        cpu_set_t set;
+        CPU_ZERO(&set);
+        CPU_SET(core_id, &set);
+        CPU_SET(5,&set);
+        CPU_SET(4,&set);
+        CPU_SET(3,&set);
+        CPU_SET(2,&set);
+        CPU_SET(1,&set);
+        ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
+*/
         std::cout<<"start running graph ...\n";
         ImageAccessor *im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
-        double in,in2=0;
-        double task,task2=0;
-        double out,out2=0;
+        double in=0;
+        double task=0.0001;
+        double out=0;
         int tt=(common_params.n);
         auto tstart=std::chrono::high_resolution_clock::now();
         //std::cout<<tstart.time_since_epoch().count()<<std::endl;
         //std::cout<<tt<<std::endl;
         for(int i=0;i<(tt+1);i++){
         	if(i==1){
+        		std::this_thread::sleep_for(std::chrono::milliseconds(1000));
         		tstart=std::chrono::high_resolution_clock::now();
         		//std::cout<<tstart.time_since_epoch().count()<<std::endl;
-        		in=in2=task=task2=out=out2=0;
+        		in=task=out=0;
+        		task=0.0001;
         	}
 			if(imgs){
 				if(image_index>=images_list.size())
 						image_index=image_index%images_list.size();
-				std::cout<<"\n\ninferencing image: "<<image_index<<":"<<images_list[image_index]<<std::endl;
+				std::cout<<"\n\nFirst graph inferencing image: "<<image_index<<":"<<images_list[image_index]<<std::endl;
 				//std::unique_ptr<ImageAccessor> im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
 				im_acc->set_filename(images_list[image_index++]);
 			}
 
             graph.run(in,task,out,annotate);
-			if(second)
-			{
-				graph2.run(in2,task2,out2,annotate);
-			}
         }
         auto tfinish=std::chrono::high_resolution_clock::now();
         //std::cout<<tfinish.time_since_epoch().count()<<std::endl;
@@ -481,7 +511,54 @@ public:
         double tot=in+task+out;
         std::cout<<"\n\nCost:"<<Cost<<std::endl;
         std::cout<<"input_time:"<<in<<"\ntask_time:"<<task<<"\noutput_time:"<<out<<"\ntotal_time:"<<tot<<std::endl;
+    }
+    void do_run_2(int core_id)
+    {
+        // Run graph
+        //Ehsan
+    	//int core_id=1;
 
+
+        cpu_set_t set;
+        CPU_ZERO(&set);
+        //CPU_SET(core_id, &set);
+        //CPU_SET(1,&set);
+        //CPU_SET(0,&set);
+        //ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
+
+        std::cout<<"start running graph ...\n";
+        ImageAccessor *im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
+        double in2=0;
+        double task2=0;
+        double out2=0;
+        int tt=(common_params.n);
+        auto tstart=std::chrono::high_resolution_clock::now();
+        //std::cout<<tstart.time_since_epoch().count()<<std::endl;
+        //std::cout<<tt<<std::endl;
+        for(int i=0;i<(tt+1);i++){
+        	if(i==1){
+        		std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        		tstart=std::chrono::high_resolution_clock::now();
+        		//std::cout<<tstart.time_since_epoch().count()<<std::endl;
+        		in2=task2=out2=0;
+        	}
+			if(imgs){
+				if(image_index>=images_list.size())
+						image_index=image_index%images_list.size();
+				std::cout<<"\n\nSecond graph inferencing image: "<<image_index<<":"<<images_list[image_index]<<std::endl;
+				//std::unique_ptr<ImageAccessor> im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
+				//im_acc->set_filename(images_list[image_index++]);
+			}
+			if(second)
+			{
+				graph2.run(in2,task2,out2,annotate);
+			}
+        }
+        auto tfinish=std::chrono::high_resolution_clock::now();
+        //std::cout<<tfinish.time_since_epoch().count()<<std::endl;
+        double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+        double Cost=cost0/tt;
+        std::cout<<"\n\nCost:"<<Cost<<std::endl;
         in2=in2/tt;
         task2=task2/tt;
         out2=out2/tt;
@@ -489,7 +566,6 @@ public:
         //std::cout<<"Cost:"<<Cost<<std::endl;
         std::cout<<"\n\ninput2_time:"<<in2<<"\ntask2_time:"<<task2<<"\noutput2_time:"<<out2<<"\ntotal2_time:"<<tot2<<std::endl;
     }
-
 	
 
 private:
@@ -531,5 +607,6 @@ int main(int argc, char **argv)
     if(e !=0)
         std::cout << "Error in setting sched_setaffinity \n";
     */
+	//init_waitqueue_head(&wq);
     return arm_compute::utils::run_example<GraphAlexnetExample>(argc, argv);
 }
