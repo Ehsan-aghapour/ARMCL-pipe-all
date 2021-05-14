@@ -489,7 +489,7 @@ public:
         		tstart=std::chrono::high_resolution_clock::now();
         		//std::cout<<tstart.time_since_epoch().count()<<std::endl;
         		in=task=out=0;
-        		task=0.0001;
+        		task=0;
         	}
 			if(imgs){
 				if(image_index>=images_list.size())
@@ -523,8 +523,8 @@ public:
         CPU_ZERO(&set);
         //CPU_SET(core_id, &set);
         //CPU_SET(1,&set);
-        //CPU_SET(0,&set);
-        //ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
+        CPU_SET(0,&set);
+        ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
 
         std::cout<<"start running graph ...\n";
         ImageAccessor *im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());

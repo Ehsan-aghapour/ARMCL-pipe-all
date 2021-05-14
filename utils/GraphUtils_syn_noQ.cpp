@@ -41,6 +41,8 @@ std::condition_variable cv;
 static bool waiting = true;
 static bool data_ready = false;
 
+static bool senderwaiting=false;
+
 
 
 #include "arm_compute/runtime/Tensor.h"
@@ -258,6 +260,8 @@ bool TransferAccessor::access_tensor(ITensor &tensor)
 	if (Tensors_Q.empty()){
 		//std::cout<<"\nQ is empty waiting for source data\n";
 		waiting = 1;
+		if(senderwaiting)
+			cv.notify_one();
 		cv.wait(lk, []{return data_ready;});
 		data_ready=0;
 		waiting=0;
@@ -944,12 +948,18 @@ void ConnectionAccessor::my_access_predictions_tensor(ITensor &tensor)
 
     {
     	//std::cout<<"\n first graph waiting for mutex\n";
-		std::lock_guard<std::mutex> lk(m);
+		std::unique_lock<std::mutex> lk(m);
 		if(!waiting){
 					//auto tstart=std::chrono::high_resolution_clock::now();
 					////Tensors_Q.push(dynamic_cast<arm_compute::Tensor*>(&(f_out->handle()->tensor())));
+
+					/*
 					transit_tensor.copy_from(f_out->handle()->tensor());
 				    Tensors_Q.push(&transit_tensor);
+				    */
+					senderwaiting=true;
+					cv.wait(lk, []{return waiting;});
+					senderwaiting=false;
 					//auto tfinish=std::chrono::high_resolution_clock::now();
 					//double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
 					//std::cout<<"\npushing to queue time:"<<cost0<<std::endl;
@@ -957,7 +967,7 @@ void ConnectionAccessor::my_access_predictions_tensor(ITensor &tensor)
 					//Tensors_Q.push(*f_out);
 		}
 
-		else{
+
 
 			//std::cout<<"\nDirectly should be transfomed\n";
 			if(f_out->desc().target==arm_compute::graph::Target ::CL)
@@ -969,9 +979,11 @@ void ConnectionAccessor::my_access_predictions_tensor(ITensor &tensor)
 				std::cout<<"\nTransfer0 time:"<<cost0<<std::endl<<std::endl;
 			}
 			data_ready = true;
+			lk.unlock();
 			cv.notify_one();
 
-		}
+
+
 
     }
 

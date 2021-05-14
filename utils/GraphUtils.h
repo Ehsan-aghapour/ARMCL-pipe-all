@@ -26,6 +26,7 @@
 #include "arm_compute/gl_vs.h"
 #endif
 static int save_model=0;
+static arm_compute::graph::Target g1t;
 
 #ifndef __ARM_COMPUTE_UTILS_GRAPH_UTILS_H__
 #define __ARM_COMPUTE_UTILS_GRAPH_UTILS_H__
@@ -670,6 +671,7 @@ inline std::unique_ptr<graph::ITensorAccessor> get_output_accessor(const arm_com
     }
     else if(arm_compute::utility::endswith(graph_parameters.labels, "transfer") )
     {
+    	g1t=graph_parameters.target;
     	return std::make_unique<ConnectionAccessor>();
     }
     else
