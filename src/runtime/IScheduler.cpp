@@ -49,7 +49,7 @@ CPUInfo &IScheduler::cpu_info()
     return _cpu_info;
 }
 
-void IScheduler::set_num_threads_with_affinity(unsigned int num_threads, BindFunc func)
+void IScheduler::set_num_threads_with_affinity(unsigned int num_threads, arm_compute::graph::GraphConfig cfg, BindFunc func)
 {
     ARM_COMPUTE_UNUSED(num_threads, func);
     ARM_COMPUTE_ERROR("Feature for affinity setting is not implemented");

@@ -169,24 +169,6 @@ private:
     unsigned int _maximum;
 };
 
-class TransferAccessor2 final : public graph::ITensorAccessor
-{
-public:
-    /** Constructor
-     *
-     */
-	TransferAccessor2(unsigned int maximum = 1);
-    /** Allows instances to move constructed */
-	TransferAccessor2(TransferAccessor2 &&) = default;
-
-    // Inherited methods overriden:
-    bool access_tensor(ITensor &tensor) override;
-
-private:
-    unsigned int _iterator;
-    unsigned int _maximum;
-};
-
 
 /** Dummy accessor class */
 class MySaveAccessor final : public graph::ITensorAccessor
@@ -514,34 +496,6 @@ private:
 
 };
 
-class ConnectionAccessor2 final : public graph::ITensorAccessor
-{
-public:
-    /** Constructor
-     *
-     * @param[in]  labels_path   Path to labels text file.
-     * @param[in]  top_n         (Optional) Number of output classes to print
-     * @param[out] output_stream (Optional) Output stream
-     */
-	ConnectionAccessor2();
-    /** Allow instances of this class to be move constructed */
-	ConnectionAccessor2(ConnectionAccessor2 &&) = default;
-    /** Prevent instances of this class from being copied (As this class contains pointers) */
-	ConnectionAccessor2(const ConnectionAccessor2 &) = delete;
-    /** Prevent instances of this class from being copied (As this class contains pointers) */
-	ConnectionAccessor2 &operator=(const ConnectionAccessor2 &) = delete;
-
-    // Inherited methods overriden:
-    bool access_tensor(ITensor &tensor) override;
-
-private:
-
-    //Ehsan
-    template <typename T>
-    void my_access_predictions_tensor(ITensor &tensor);
-
-};
-
 /** Random accessor class */
 class RandomAccessor final : public graph::ITensorAccessor
 {
@@ -674,14 +628,9 @@ inline std::unique_ptr<graph::ITensorAccessor> get_input_accessor(const arm_comp
 #endif
             return std::make_unique<ImageAccessor>(image_file, bgr, std::move(preprocessor));
         }
-        //else if( arm_compute::utility::endswith(graph_parameters.image, "transfer") )
-        else if( graph_parameters.image == "transfer" )
+        else if( arm_compute::utility::endswith(graph_parameters.image, "transfer") )
         {
         	return std::make_unique<TransferAccessor>();
-        }
-        else if( graph_parameters.image == "transfer2" )
-        {
-        	return std::make_unique<TransferAccessor2>();
         }
 
         else
@@ -720,16 +669,10 @@ inline std::unique_ptr<graph::ITensorAccessor> get_output_accessor(const arm_com
     {
         return std::make_unique<DummyAccessor>(0,0);
     }
-    //else if(arm_compute::utility::endswith(graph_parameters.labels, "transfer") )
-    else if( graph_parameters.labels == "transfer" )
+    else if(arm_compute::utility::endswith(graph_parameters.labels, "transfer") )
     {
     	g1t=graph_parameters.target;
     	return std::make_unique<ConnectionAccessor>();
-    }
-    else if( graph_parameters.labels == "transfer2" )
-    {
-    	g1t=graph_parameters.target;
-    	return std::make_unique<ConnectionAccessor2>();
     }
     else
     {

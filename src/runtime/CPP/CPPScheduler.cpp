@@ -248,18 +248,18 @@ struct CPPScheduler::Impl final
         _num_threads = num_threads == 0 ? thread_hint : num_threads;
         _threads.resize(_num_threads - 1);
     }
-    void set_num_threads_with_affinity(unsigned int num_threads, unsigned int thread_hint, BindFunc func)
+    void set_num_threads_with_affinity(unsigned int num_threads, unsigned int thread_hint, arm_compute::graph::GraphConfig cfg, BindFunc func)
     {
         _num_threads = num_threads == 0 ? thread_hint : num_threads;
 
         // Set affinity on main thread
-        set_thread_affinity(func(0, thread_hint));
+        set_thread_affinity(func(0, thread_hint, cfg));
 
         // Set affinity on worked threads
         _threads.clear();
         for(auto i = 1U; i < _num_threads; ++i)
         {
-            _threads.emplace_back(func(i, thread_hint));
+            _threads.emplace_back(func(i, thread_hint, cfg));
         }
     }
     unsigned int num_threads() const
@@ -299,11 +299,11 @@ void CPPScheduler::set_num_threads(unsigned int num_threads)
     _impl->set_num_threads(num_threads, num_threads_hint());
 }
 
-void CPPScheduler::set_num_threads_with_affinity(unsigned int num_threads, BindFunc func)
+void CPPScheduler::set_num_threads_with_affinity(unsigned int num_threads, arm_compute::graph::GraphConfig cfg, BindFunc func)
 {
     // No changes in the number of threads while current workloads are running
     arm_compute::lock_guard<std::mutex> lock(_impl->_run_workloads_mutex);
-    _impl->set_num_threads_with_affinity(num_threads, num_threads_hint(), func);
+    _impl->set_num_threads_with_affinity(num_threads, num_threads_hint(), cfg, func);
 }
 
 unsigned int CPPScheduler::num_threads() const
