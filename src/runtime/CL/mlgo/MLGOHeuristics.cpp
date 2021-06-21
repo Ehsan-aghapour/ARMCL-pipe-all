@@ -219,6 +219,7 @@ bool MLGOHeuristics::reload_from_file(const std::string &filename)
     std::ifstream fs;
     fs.exceptions(std::ifstream::badbit);
     fs.open(filename, std::ios::in);
+
     if(!fs.is_open())
     {
         ARM_COMPUTE_LOG_INFO_MSG_WITH_FORMAT_CORE("Cannot open DotMLGO file %s. Use default heuristics instead", filename.c_str());

@@ -197,15 +197,15 @@ bool DummyAccessor::access_tensor(ITensor &tensor)
     return ret;
 }
 
-TransferAccessor::TransferAccessor(unsigned int maximum)
-	: _iterator(0), _maximum(maximum)
+TransferAccessor::TransferAccessor(bool tran, unsigned int maximum)
+	: _iterator(0), _maximum(maximum), transition(tran)
 {
-	std::cout<<"\ntransferaccessor1\n";
+	//std::cout<<"\ntransferaccessor1\n";
 }
-TransferAccessor2::TransferAccessor2(unsigned int maximum)
-	: _iterator(0), _maximum(maximum)
+TransferAccessor2::TransferAccessor2(bool tran, unsigned int maximum)
+	: _iterator(0), _maximum(maximum),  transition(tran)
 {
-	std::cout<<"\ntransferaccessor2\n";
+	//std::cout<<"\ntransferaccessor2\n";
 }
 
 
@@ -233,7 +233,8 @@ bool TransferAccessor::access_tensor(ITensor &tensor)
 #if My_print > 0
 	std::cout<<"\nrecieving data from first graph\n";
 #endif
-	if(s_in->desc().target==arm_compute::graph::Target ::CL)
+	//if(s_in->desc().target==arm_compute::graph::Target ::CL)
+	if(transition)
 	{
 		auto tstart=std::chrono::high_resolution_clock::now();
 		tensor.copy_from(f_out->handle()->tensor());
@@ -275,7 +276,8 @@ bool TransferAccessor2::access_tensor(ITensor &tensor)
 #if My_print > 0
 	std::cout<<"\nrecieving data from first graph\n";
 #endif
-	if(t_in->desc().target==arm_compute::graph::Target ::CL)
+	//if(t_in->desc().target==arm_compute::graph::Target ::CL)
+	if(transition)
 	{
 		auto tstart=std::chrono::high_resolution_clock::now();
 		tensor.copy_from(s_out->handle()->tensor());
@@ -869,11 +871,13 @@ void TopNPredictionsAccessor::access_predictions_tensor(ITensor &tensor)
     }
 }
 
-ConnectionAccessor::ConnectionAccessor(){
-	std::cout<<"\nconnectionaccessor1\n";
+ConnectionAccessor::ConnectionAccessor(bool tran){
+	//std::cout<<"\nconnectionaccessor1\n";
+	transition=tran;
 }
-ConnectionAccessor2::ConnectionAccessor2(){
-	std::cout<<"\nconnectionaccessor2\n";
+ConnectionAccessor2::ConnectionAccessor2(bool tran){
+	//std::cout<<"\nconnectionaccessor2\n";
+	transition=tran;
 }
 
 //Ehsan
@@ -883,7 +887,7 @@ void ConnectionAccessor::my_access_predictions_tensor(ITensor &tensor)
 {
 
     // Get the predicted class
-    std::vector<T>      classes_prob;
+    /*std::vector<T>      classes_prob;
     //std::vector<size_t> index;
 
     const auto   output_net  = reinterpret_cast<T *>(tensor.buffer() + tensor.info()->offset_first_element_in_bytes());
@@ -923,10 +927,11 @@ void ConnectionAccessor::my_access_predictions_tensor(ITensor &tensor)
     }
 
 #endif
+*/
 
 
-
-    if(f_out->desc().target==arm_compute::graph::Target ::CL)
+    //if(f_out->desc().target==arm_compute::graph::Target ::CL)
+	if(transition)
     {
 		auto tstart=std::chrono::high_resolution_clock::now();
 		s_in->handle()->tensor().copy_from(tensor);
@@ -969,7 +974,7 @@ void ConnectionAccessor2::my_access_predictions_tensor(ITensor &tensor)
 {
 
     // Get the predicted class
-    std::vector<T>      classes_prob;
+    /*std::vector<T>      classes_prob;
     //std::vector<size_t> index;
 
     const auto   output_net  = reinterpret_cast<T *>(tensor.buffer() + tensor.info()->offset_first_element_in_bytes());
@@ -1010,9 +1015,10 @@ void ConnectionAccessor2::my_access_predictions_tensor(ITensor &tensor)
 
 #endif
 
+*/
 
-
-    if(s_out->desc().target==arm_compute::graph::Target ::CL)
+    //if(s_out->desc().target==arm_compute::graph::Target ::CL)
+	if(transition)
     {
 		auto tstart=std::chrono::high_resolution_clock::now();
 		t_in->handle()->tensor().copy_from(tensor);

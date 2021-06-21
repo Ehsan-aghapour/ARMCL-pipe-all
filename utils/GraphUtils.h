@@ -157,7 +157,7 @@ public:
     /** Constructor
      *
      */
-	TransferAccessor(unsigned int maximum = 1);
+	TransferAccessor(bool tran, unsigned int maximum = 1);
     /** Allows instances to move constructed */
 	TransferAccessor(TransferAccessor &&) = default;
 
@@ -167,6 +167,7 @@ public:
 private:
     unsigned int _iterator;
     unsigned int _maximum;
+    bool		transition=false;
 };
 
 class TransferAccessor2 final : public graph::ITensorAccessor
@@ -175,7 +176,7 @@ public:
     /** Constructor
      *
      */
-	TransferAccessor2(unsigned int maximum = 1);
+	TransferAccessor2(bool tran, unsigned int maximum = 1);
     /** Allows instances to move constructed */
 	TransferAccessor2(TransferAccessor2 &&) = default;
 
@@ -185,6 +186,7 @@ public:
 private:
     unsigned int _iterator;
     unsigned int _maximum;
+    bool 		transition=false;
 };
 
 
@@ -495,7 +497,7 @@ public:
      * @param[in]  top_n         (Optional) Number of output classes to print
      * @param[out] output_stream (Optional) Output stream
      */
-	ConnectionAccessor();
+	ConnectionAccessor(bool tran);
     /** Allow instances of this class to be move constructed */
 	ConnectionAccessor(ConnectionAccessor &&) = default;
     /** Prevent instances of this class from being copied (As this class contains pointers) */
@@ -511,6 +513,7 @@ private:
     //Ehsan
     template <typename T>
     void my_access_predictions_tensor(ITensor &tensor);
+    bool		transition=false;
 
 };
 
@@ -523,7 +526,7 @@ public:
      * @param[in]  top_n         (Optional) Number of output classes to print
      * @param[out] output_stream (Optional) Output stream
      */
-	ConnectionAccessor2();
+	ConnectionAccessor2(bool tran);
     /** Allow instances of this class to be move constructed */
 	ConnectionAccessor2(ConnectionAccessor2 &&) = default;
     /** Prevent instances of this class from being copied (As this class contains pointers) */
@@ -539,6 +542,7 @@ private:
     //Ehsan
     template <typename T>
     void my_access_predictions_tensor(ITensor &tensor);
+    bool		transition=false;
 
 };
 
@@ -677,11 +681,19 @@ inline std::unique_ptr<graph::ITensorAccessor> get_input_accessor(const arm_comp
         //else if( arm_compute::utility::endswith(graph_parameters.image, "transfer") )
         else if( graph_parameters.image == "transfer" )
         {
-        	return std::make_unique<TransferAccessor>();
+        	return std::make_unique<TransferAccessor>(1);
         }
+        else if( graph_parameters.image == "transfer_wait" )
+		{
+			return std::make_unique<TransferAccessor>(0);
+		}
         else if( graph_parameters.image == "transfer2" )
         {
-        	return std::make_unique<TransferAccessor2>();
+        	return std::make_unique<TransferAccessor2>(1);
+        }
+        else if( graph_parameters.image == "transfer2_wait" )
+        {
+        	return std::make_unique<TransferAccessor2>(0);
         }
 
         else
@@ -724,13 +736,23 @@ inline std::unique_ptr<graph::ITensorAccessor> get_output_accessor(const arm_com
     else if( graph_parameters.labels == "transfer" )
     {
     	g1t=graph_parameters.target;
-    	return std::make_unique<ConnectionAccessor>();
+    	return std::make_unique<ConnectionAccessor>(1);
+    }
+    else if( graph_parameters.labels == "transfer_wait" )
+    {
+        g1t=graph_parameters.target;
+        return std::make_unique<ConnectionAccessor>(0);
     }
     else if( graph_parameters.labels == "transfer2" )
     {
     	g1t=graph_parameters.target;
-    	return std::make_unique<ConnectionAccessor2>();
+    	return std::make_unique<ConnectionAccessor2>(1);
     }
+    else if( graph_parameters.labels == "transfer2_wait")
+	{
+		g1t=graph_parameters.target;
+		return std::make_unique<ConnectionAccessor2>(0);
+	}
     else
     {
         return std::make_unique<TopNPredictionsAccessor>(graph_parameters.labels, top_n, output_stream);

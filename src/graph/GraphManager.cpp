@@ -64,7 +64,6 @@ void GraphManager::finalize_graph(Graph &graph, GraphContext &ctx, PassManager &
 
     // Apply IR mutating passes
     pm.run_type(graph, IGraphMutator::MutationType::IR);
-
     // Force target to all graph construct
     // TODO (COMPMID-2014) : Support heterogeneous execution
     Target forced_target = target;
@@ -84,8 +83,8 @@ void GraphManager::finalize_graph(Graph &graph, GraphContext &ctx, PassManager &
 
     // Setup backend context
     // TODO (COMPMID-2014) : Setup all backends needed by the graph
-    setup_requested_backend_context(ctx, forced_target);
 
+    setup_requested_backend_context(ctx, forced_target);
     // Configure all tensors
     /*Ehsan:
      * set TensforHandle for all tensors which TensorInfo of TensorAllocator for each TensorHandle is set based on information of each tensor such as shape,datatype,
@@ -93,19 +92,12 @@ void GraphManager::finalize_graph(Graph &graph, GraphContext &ctx, PassManager &
      * strides in bytes for all dimensions also is set in tensorInfo
      */
     detail::configure_all_tensors(graph);
-
     // Apply backend mutating passes
     pm.run_type(graph, IGraphMutator::MutationType::Backend);
-
     // Perform topological sort
     std::vector<NodeID> topological_sorted_nodes = dfs(graph);
-
     // Validate all nodes
     detail::validate_all_nodes(graph);
-
-
-
-
 
     // Configure all nodes
     auto workload = detail::configure_all_nodes(graph, ctx, topological_sorted_nodes);
@@ -117,7 +109,6 @@ void GraphManager::finalize_graph(Graph &graph, GraphContext &ctx, PassManager &
     // Allocate const tensors and call accessors
     detail::allocate_const_tensors(graph);
     detail::call_all_const_node_accessors(graph);
-
     // Prepare graph
     detail::prepare_all_tasks(workload);
 
@@ -141,7 +132,6 @@ void GraphManager::finalize_graph(Graph &graph, GraphContext &ctx, PassManager &
     {
         detail::allocate_all_tensors(graph);
     }
-
     // Finalize Graph context
     ctx.finalize();
 
