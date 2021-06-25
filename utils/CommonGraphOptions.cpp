@@ -94,14 +94,14 @@ namespace utils
     {
         os << "Data path : " << common_params.data_path << std::endl;
     }
-    if(!common_params.image.empty())
-    {
+    //if(!common_params.image.empty())
+    //{
         os << "Image file : " << common_params.image << std::endl;
-    }
-    if(!common_params.labels.empty())
-    {
+    //}
+    //if(!common_params.labels.empty())
+    //{
         os << "Labels file : " << common_params.labels << std::endl;
-    }
+    //}
     if(!common_params.validation_file.empty())
     {
         os << "Validation range : " << common_params.validation_range_start << "-" << common_params.validation_range_end << std::endl;

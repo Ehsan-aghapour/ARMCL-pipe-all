@@ -61,6 +61,7 @@ int Layer=0;
 bool second=false;
 bool third=false;
 
+
 /** Example demonstrating how to implement Googlenet's network using the Compute Library's graph API */
 class GraphGooglenetExample : public Example
 {
@@ -171,6 +172,8 @@ public:
         ////common_params2.target=static_cast<arm_compute::graph::Target>(3-int(common_params.target));
 
         std::string order=common_params.order;
+        std::string lbl=common_params.labels;
+        common_params.labels="transfer_wait";
 		if(order[0]=='B'){
 			common_params.target=static_cast<arm_compute::graph::Target>(1);
 			cluster=1;
@@ -181,6 +184,7 @@ public:
 		}
 		else if(order[0]=='G'){
 			common_params.target=static_cast<arm_compute::graph::Target>(2);
+			common_params.labels="transfer";
 			cluster=2;
 			gpu_index=0;
 		}
@@ -194,6 +198,7 @@ public:
 
         annotate=common_params.annotate;
         save_model=common_params.save;
+
 
         //***************************************************************
 
@@ -214,10 +219,6 @@ public:
 
         Layer++;
         if(Layer==p){
-        	common_params.labels="transfer";
-        	if(order[2]=='G'){
-        		common_params.labels="transfer_wait";
-        	}
         	graph<<OutputLayer(get_output_accessor(common_params, 5));
         	switch_graph();
         	second=true;
@@ -235,10 +236,7 @@ public:
 
         Layer++;
 		if(Layer==p){
-			common_params.labels="transfer";
-        	if(order[2]=='G'){
-        		common_params.labels="transfer_wait";
-        	}
+
 			graph<<OutputLayer(get_output_accessor(common_params, 5));
 			switch_graph();
 			second=true;
@@ -258,10 +256,7 @@ public:
 
         Layer++;
 		if(Layer==p){
-			common_params.labels="transfer";
-        	if(order[2]=='G'){
-        		common_params.labels="transfer_wait";
-        	}
+
 			graph<<OutputLayer(get_output_accessor(common_params, 5));
 			switch_graph();
 			second=true;
@@ -273,10 +268,7 @@ public:
 
         Layer++;
 		if(Layer==p){
-			common_params.labels="transfer";
-        	if(order[2]=='G'){
-        		common_params.labels="transfer_wait";
-        	}
+
 			graph<<OutputLayer(get_output_accessor(common_params, 5));
 			switch_graph();
 			second=true;
@@ -289,10 +281,7 @@ public:
 
         Layer++;
 		if(Layer==p){
-			common_params.labels="transfer";
-        	if(order[2]=='G'){
-        		common_params.labels="transfer_wait";
-        	}
+
 			graph<<OutputLayer(get_output_accessor(common_params, 5));
 			switch_graph();
 			second=true;
@@ -304,10 +293,7 @@ public:
 
         Layer++;
 		if(Layer==p){
-			common_params.labels="transfer";
-        	if(order[2]=='G'){
-        		common_params.labels="transfer_wait";
-        	}
+
 			graph<<OutputLayer(get_output_accessor(common_params, 5));
 			switch_graph();
 			second=true;
@@ -319,10 +305,7 @@ public:
 
         Layer++;
 		if(Layer==p){
-			common_params.labels="transfer";
-        	if(order[2]=='G'){
-        		common_params.labels="transfer_wait";
-        	}
+
 			graph<<OutputLayer(get_output_accessor(common_params, 5));
 			switch_graph();
 			second=true;
@@ -334,10 +317,7 @@ public:
 
         Layer++;
 		if(Layer==p){
-			common_params.labels="transfer";
-        	if(order[2]=='G'){
-        		common_params.labels="transfer_wait";
-        	}
+
 			graph<<OutputLayer(get_output_accessor(common_params, 5));
 			switch_graph();
 			second=true;
@@ -349,10 +329,7 @@ public:
 
         Layer++;
 		if(Layer==p){
-			common_params.labels="transfer";
-        	if(order[2]=='G'){
-        		common_params.labels="transfer_wait";
-        	}
+
 			graph<<OutputLayer(get_output_accessor(common_params, 5));
 			switch_graph();
 			second=true;
@@ -365,10 +342,7 @@ public:
 
         Layer++;
 		if(Layer==p){
-			common_params.labels="transfer";
-        	if(order[2]=='G'){
-        		common_params.labels="transfer_wait";
-        	}
+
 			graph<<OutputLayer(get_output_accessor(common_params, 5));
 			switch_graph();
 			second=true;
@@ -380,10 +354,7 @@ public:
 
         Layer++;
 		if(Layer==p){
-			common_params.labels="transfer";
-        	if(order[2]=='G'){
-        		common_params.labels="transfer_wait";
-        	}
+
 			graph<<OutputLayer(get_output_accessor(common_params, 5));
 			switch_graph();
 			second=true;
@@ -396,16 +367,14 @@ public:
 
         Layer++;
 		if(Layer==p){
-			common_params.labels="transfer";
-        	if(order[2]=='G'){
-        		common_params.labels="transfer_wait";
-        	}
+
 			graph<<OutputLayer(get_output_accessor(common_params, 5));
 			switch_graph();
 			second=true;
 			return true;
 		}
 
+		common_params.labels=lbl;
         // Layer 13
         graph<< FullyConnectedLayer(
                   1000U,
@@ -714,6 +683,8 @@ public:
         ////common_params2.target=static_cast<arm_compute::graph::Target>(3-int(common_params.target));
 
         std::string order=common_params.order;
+        std::string lbl=common_params.labels;
+        common_params.labels="transfer2_wait";
 		if(order[2]=='B'){
 			common_params.target=static_cast<arm_compute::graph::Target>(1);
 			cluster=1;
@@ -724,13 +695,14 @@ public:
 		}
 		else if(order[2]=='G'){
 			common_params.target=static_cast<arm_compute::graph::Target>(2);
+			common_params.labels="transfer2";
 			cluster=2;
 			gpu_index=1;
 		}
 
-		common_params.image="transfer_wait";
-    	if(order[2]=='G'){
-    		common_params.labels="transfer";
+		common_params.image="transfer";
+    	if(order[0]=='G'){
+    		common_params.image="transfer_wait";
     	}
 
         // Print parameter values
@@ -764,10 +736,6 @@ public:
 				  << NormalizationLayer(NormalizationLayerInfo(NormType::CROSS_MAP, 5, 0.0001f, 0.75f)).set_name("pool1/norm1");
 			Layer++;
 			if(Layer==p2){
-				common_params.labels="transfer";
-	        	if(order[4]=='G'){
-	        		common_params.labels="transfer_wait";
-	        	}
 				graph<<OutputLayer(get_output_accessor(common_params, 5));
 				switch_graph();
 				third=true;
@@ -788,10 +756,7 @@ public:
 
 			Layer++;
 			if(Layer==p2){
-				common_params.labels="transfer";
-	        	if(order[4]=='G'){
-	        		common_params.labels="transfer_wait";
-	        	}
+
 				graph<<OutputLayer(get_output_accessor(common_params, 5));
 				switch_graph();
 				third=true;
@@ -813,10 +778,7 @@ public:
 
 			Layer++;
 			if(Layer==p2){
-				common_params.labels="transfer";
-	        	if(order[4]=='G'){
-	        		common_params.labels="transfer_wait";
-	        	}
+
 				graph<<OutputLayer(get_output_accessor(common_params, 5));
 				switch_graph();
 				third=true;
@@ -830,10 +792,7 @@ public:
 
 			Layer++;
 			if(Layer==p2){
-				common_params.labels="transfer";
-	        	if(order[4]=='G'){
-	        		common_params.labels="transfer_wait";
-	        	}
+
 				graph<<OutputLayer(get_output_accessor(common_params, 5));
 				switch_graph();
 				third=true;
@@ -848,10 +807,7 @@ public:
 
 			Layer++;
 			if(Layer==p2){
-				common_params.labels="transfer";
-	        	if(order[4]=='G'){
-	        		common_params.labels="transfer_wait";
-	        	}
+
 				graph<<OutputLayer(get_output_accessor(common_params, 5));
 				switch_graph();
 				third=true;
@@ -865,10 +821,7 @@ public:
 
 			Layer++;
 			if(Layer==p2){
-				common_params.labels="transfer";
-	        	if(order[4]=='G'){
-	        		common_params.labels="transfer_wait";
-	        	}
+
 				graph<<OutputLayer(get_output_accessor(common_params, 5));
 				switch_graph();
 				third=true;
@@ -882,10 +835,7 @@ public:
 
 			Layer++;
 			if(Layer==p2){
-				common_params.labels="transfer";
-	        	if(order[4]=='G'){
-	        		common_params.labels="transfer_wait";
-	        	}
+
 				graph<<OutputLayer(get_output_accessor(common_params, 5));
 				switch_graph();
 				third=true;
@@ -899,10 +849,7 @@ public:
 
 			Layer++;
 			if(Layer==p2){
-				common_params.labels="transfer";
-	        	if(order[4]=='G'){
-	        		common_params.labels="transfer_wait";
-	        	}
+
 				graph<<OutputLayer(get_output_accessor(common_params, 5));
 				switch_graph();
 				third=true;
@@ -916,10 +863,7 @@ public:
 
 			Layer++;
 			if(Layer==p2){
-				common_params.labels="transfer";
-	        	if(order[4]=='G'){
-	        		common_params.labels="transfer_wait";
-	        	}
+
 				graph<<OutputLayer(get_output_accessor(common_params, 5));
 				switch_graph();
 				third=true;
@@ -934,10 +878,7 @@ public:
 
 			Layer++;
 			if(Layer==p2){
-				common_params.labels="transfer";
-	        	if(order[4]=='G'){
-	        		common_params.labels="transfer_wait";
-	        	}
+
 				graph<<OutputLayer(get_output_accessor(common_params, 5));
 				switch_graph();
 				third=true;
@@ -951,10 +892,7 @@ public:
 
 			Layer++;
 			if(Layer==p2){
-				common_params.labels="transfer";
-	        	if(order[4]=='G'){
-	        		common_params.labels="transfer_wait";
-	        	}
+
 				graph<<OutputLayer(get_output_accessor(common_params, 5));
 				switch_graph();
 				third=true;
@@ -969,10 +907,7 @@ public:
 
 			Layer++;
 			if(Layer==p2){
-				common_params.labels="transfer";
-	        	if(order[4]=='G'){
-	        		common_params.labels="transfer_wait";
-	        	}
+
 				graph<<OutputLayer(get_output_accessor(common_params, 5));
 				switch_graph();
 				third=true;
@@ -980,6 +915,7 @@ public:
 			}
         }
 
+        common_params.labels=lbl;
         // Layer 13
         if(Layer==12){
 			graph<< FullyConnectedLayer(
@@ -1241,9 +1177,9 @@ public:
 			gpu_index=2;
 		}
 
-		common_params.image="transfer_wait";
-    	if(order[4]=='G'){
-    		common_params.labels="transfer";
+		common_params.image="transfer2";
+    	if(order[2]=='G'){
+    		common_params.image="transfer2_wait";
     	}
 
 		// Print parameter values
@@ -1563,30 +1499,17 @@ private:
  * @param[in] argc Number of arguments
  * @param[in] argv Arguments
  */
-
-int c=0;
-char **v=NULL;
-bool First_stage(){
-	return arm_compute::utils::run_example<GraphGooglenetExample>(c, v);
-}
-bool Second_stage(){
-	return arm_compute::utils::run_example<GraphGooglenetExample2>(c, v);
-}
-bool Third_stage(){
-	return arm_compute::utils::run_example<GraphGooglenetExample3>(c, v);
-}
-
-
 int main(int argc, char **argv)
 {
     //ANNOTATE_SETUP;
-	c=argc;
-	v=argv;
 	bool ret=0;
-	std::thread First(First_stage);
-	std::thread Second(Second_stage);
-	std::thread Third(Third_stage);
-    ret=ret || First.join() || Second.join() || Third.join();
+    ret=ret || arm_compute::utils::run_example<GraphGooglenetExample>(argc, argv);
+
+    if(second)
+    	ret=ret || arm_compute::utils::run_example<GraphGooglenetExample2>(argc, argv);
+
+    if(third)
+    	ret=ret || arm_compute::utils::run_example<GraphGooglenetExample3>(argc, argv);
 
     return ret;
 }

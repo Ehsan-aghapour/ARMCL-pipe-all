@@ -41,7 +41,8 @@ public:
         ST,    /**< Single thread. */
         CPP,   /**< C++11 threads. */
         OMP,   /**< OpenMP. */
-        CUSTOM /**< Provided by the user. */
+        CUSTOM, /**< Provided by the user. */
+		CPP2
     };
     /** Sets the user defined scheduler and makes it the active scheduler.
      *

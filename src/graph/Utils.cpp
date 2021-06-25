@@ -127,6 +127,10 @@ void release_default_graph_context(GraphContext &ctx)
 
 void setup_requested_backend_context(GraphContext &ctx, Target target)
 {
+	//auto b=backends::BackendRegistry::get().backends();
+	//std::cout<<"size of backends is:"<<b.size()<<std::endl;
+	//std::cout<<"address of backendregistry:"<<&(backends::BackendRegistry::get())<<std::endl;
+
     if(backends::BackendRegistry::get().contains(target))
     {
         const auto &backend = backends::BackendRegistry::get().find_backend(target);

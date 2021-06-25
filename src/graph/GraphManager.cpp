@@ -53,7 +53,7 @@ GraphManager::GraphManager()
 {
 }
 
-
+//#include "arm_compute/graph/backends/BackendRegistry.h"
 void GraphManager::finalize_graph(Graph &graph, GraphContext &ctx, PassManager &pm, Target target)
 {
     // Check if graph has been registered
@@ -80,6 +80,7 @@ void GraphManager::finalize_graph(Graph &graph, GraphContext &ctx, PassManager &
     std::cout<<"*********force target is: "<<target<<std::endl;
 #endif
     force_target_to_graph(graph, forced_target);
+
 
     // Setup backend context
     // TODO (COMPMID-2014) : Setup all backends needed by the graph

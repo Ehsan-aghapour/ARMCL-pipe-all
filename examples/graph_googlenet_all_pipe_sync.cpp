@@ -37,6 +37,10 @@ using namespace arm_compute::utils;
 using namespace arm_compute::graph::frontend;
 using namespace arm_compute::graph_utils;
 
+int core0=0;
+int core1=0;
+int core2=0;
+//std::map<int,int> core;
 
 //Ehsan 
 typedef std::vector<std::string> stringvec;
@@ -70,12 +74,14 @@ public:
         GraphConfig config;
         if(cluster==0){
         	config.num_threads = common_params.threads2;
-        	config.cluster=0;
+        	//config.cluster=0;
         }
         else{
         	config.num_threads = common_params.threads;
-        	config.cluster=1;
+        	//config.cluster=1;
         }
+        //std::cout<<"n trds:"<<config.num_threads<<std::endl;
+        config.cluster=cluster;
         config.use_tuner   = common_params.enable_tuner;
         config.tuner_mode  = common_params.tuner_mode;
         config.tuner_file  = common_params.tuner_file;
@@ -101,7 +107,10 @@ public:
         //std::cout<<f_out->desc().shape.x()<<','<<f_out->desc().shape.y()<<','<<f_out->desc().shape.z()<<std::endl;
 #endif
 
-
+        cpu_set_t set;
+        CPU_ZERO(&set);
+        CPU_SET(core1,&set);
+        ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
         // Create input descriptor
         //const auto        operation_layout = common_params.data_layout;
         ////const TensorShape tensor_shape2     = permute_shape(TensorShape(13U, 13U, 384U, 1U), DataLayout::NCHW, operation_layout);
@@ -117,13 +126,14 @@ public:
         GraphConfig config;
 
         if(cluster2==0){
-        	config.num_threads = common_params.threads2;
+        	//config.num_threads = common_params.threads2;
         	config.cluster = 0;
         }
         else{
-        	config.num_threads = common_params.threads;
+        	//config.num_threads = common_params.threads;
         	config.cluster = 1;
         }
+        config.cluster=cluster2;
         //config.num_threads = common_params.threads;
         config.use_tuner   = common_params.enable_tuner;
         config.tuner_mode  = common_params.tuner_mode;
@@ -159,7 +169,10 @@ public:
         //std::cout<<f_out->desc().shape.x()<<','<<f_out->desc().shape.y()<<','<<f_out->desc().shape.z()<<std::endl;
 #endif
 
-
+        cpu_set_t set;
+        CPU_ZERO(&set);
+        CPU_SET(core2,&set);
+        ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
         // Create input descriptor
         //const auto        operation_layout = common_params.data_layout;
         ////const TensorShape tensor_shape2     = permute_shape(TensorShape(13U, 13U, 384U, 1U), DataLayout::NCHW, operation_layout);
@@ -173,6 +186,7 @@ public:
 
     bool do_setup(int argc, char **argv) override
     {
+
         // Parse arguments
         cmd_parser.parse(argc, argv);
         cmd_parser.validate();
@@ -198,8 +212,7 @@ public:
         // Checks
         ARM_COMPUTE_EXIT_ON_MSG(arm_compute::is_data_type_quantized_asymmetric(common_params.data_type), "QASYMM8 not supported for this graph");
 
-        // Print parameter values
-        std::cout << common_params << std::endl;
+
 
         // Get trainable parameters data path
         std::string data_path = common_params.data_path;
@@ -231,54 +244,78 @@ public:
 
         ////common_params2.target=static_cast<arm_compute::graph::Target>(3-int(common_params.target));
         std::string order=common_params.order;
-                if(order[0]=='B'){
-                	common_params.target=static_cast<arm_compute::graph::Target>(1);
-                	cluster=1;
-                }
-                if(order[0]=='L'){
-                	common_params.target=static_cast<arm_compute::graph::Target>(1);
-                	cluster=0;
-                }
-                if(order[0]=='G'){
-                	common_params.target=static_cast<arm_compute::graph::Target>(2);
-                	cluster=1;
-                	gpu_index=0;
-                }
+		if(order[0]=='B'){
+			common_params.target=static_cast<arm_compute::graph::Target>(1);
+			cluster=1;
+		}
+		if(order[0]=='L'){
+			common_params.target=static_cast<arm_compute::graph::Target>(1);
+			cluster=0;
+		}
+		if(order[0]=='G'){
+			common_params.target=static_cast<arm_compute::graph::Target>(2);
+			cluster=2;
+			gpu_index=0;
+		}
 
-                if(order[2]=='B'){
-                	common_params2.target=static_cast<arm_compute::graph::Target>(1);
-                	cluster2=1;
-                }
-                if(order[2]=='L'){
-                	common_params2.target=static_cast<arm_compute::graph::Target>(1);
-                	cluster2=0;
-                }
-                if(order[2]=='G'){
-                	common_params2.target=static_cast<arm_compute::graph::Target>(2);
-                	cluster2=1;
-                	gpu_index=1;
-                }
+		if(order[2]=='B'){
+			common_params2.target=static_cast<arm_compute::graph::Target>(1);
+			cluster2=1;
+		}
+		if(order[2]=='L'){
+			common_params2.target=static_cast<arm_compute::graph::Target>(1);
+			cluster2=0;
+		}
+		if(order[2]=='G'){
+			common_params2.target=static_cast<arm_compute::graph::Target>(2);
+			cluster2=2;
+			gpu_index=1;
+		}
 
-                if(order[4]=='B'){
-                	common_params3.target=static_cast<arm_compute::graph::Target>(1);
-                	cluster3=1;
-                }
-                if(order[4]=='L'){
-                	common_params3.target=static_cast<arm_compute::graph::Target>(1);
-                	cluster3=0;
-                }
-                if(order[4]=='G'){
-                	common_params3.target=static_cast<arm_compute::graph::Target>(2);
-                	cluster3=1;
-                	gpu_index=2;
-                }
+		if(order[4]=='B'){
+			common_params3.target=static_cast<arm_compute::graph::Target>(1);
+			cluster3=1;
+		}
+		if(order[4]=='L'){
+			common_params3.target=static_cast<arm_compute::graph::Target>(1);
+			cluster3=0;
+		}
+		if(order[4]=='G'){
+			common_params3.target=static_cast<arm_compute::graph::Target>(2);
+			cluster3=2;
+			gpu_index=2;
+		}
 
-        common_params2.labels=common_params.labels;
-        common_params3.labels=common_params.labels;
+		std::map<int, int> core = {{0, 1}, {1, 5}, {2, 4}};
+		core0=core[cluster];
+		core1=core[cluster2];
+		core2=core[cluster3];
+
+		//std::cout<<"\nFirst graph manages on core:"<<core0<<std::endl;
+		cpu_set_t set;
+		CPU_ZERO(&set);
+		CPU_SET(core0,&set);
+		ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
+
+
+        common_params.labels="transfer_wait";
+        if(order[0]=='G'){
+        	common_params.labels="transfer";
+        }
+        common_params2.labels="transfer2_wait";
+		if(order[2]=='G'){
+			common_params2.labels="transfer2";
+		}
 
 
         common_params2.image="transfer";
+        if(order[0]=='G'){
+        	common_params2.image="transfer_wait";
+        }
         common_params3.image="transfer2";
+        if(order[2]=='G'){
+        	common_params3.image="transfer2_wait";
+        }
         //common_params.threads=4;
 
         p=common_params.partition_point;
@@ -287,6 +324,9 @@ public:
         // Print parameter values
         //std::cout << common_params << std::endl;
         // Print parameter values
+        // Print parameter values
+        std::cout << common_params << std::endl;
+
         std::cout <<"\nGraph2:\n"<< common_params2 << std::endl;
 
         std::cout <<"\nGraph3:\n"<< common_params3 << std::endl;
@@ -319,7 +359,7 @@ public:
 
         Layer++;
         if(Layer==p){
-        	common_params.labels="transfer";
+        	//common_params.labels="transfer_wait";
         	(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
         	sub_graph=&graph2;
         	_common_params=&common_params2;
@@ -329,7 +369,7 @@ public:
 
         }
         if(Layer==p2){
-        	common_params2.labels="transfer2";
+        	//common_params2.labels="transfer2";
         	(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
         	sub_graph=&graph3;
         	_common_params=&common_params3;
@@ -352,7 +392,7 @@ public:
 
         Layer++;
         if(Layer==p){
-        	common_params.labels="transfer";
+        	//common_params.labels="transfer";
         	(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
         	sub_graph=&graph2;
         	_common_params=&common_params2;
@@ -361,7 +401,7 @@ public:
         	second=true;
         }
         if(Layer==p2){
-        	common_params2.labels="transfer2";
+        	//common_params2.labels="transfer2";
         	(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
         	sub_graph=&graph3;
         	_common_params=&common_params3;
@@ -385,7 +425,7 @@ public:
 
         Layer++;
         if(Layer==p){
-        	common_params.labels="transfer";
+        	//common_params.labels="transfer";
         	(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
         	sub_graph=&graph2;
         	_common_params=&common_params2;
@@ -394,7 +434,7 @@ public:
         	second=true;
         }
         if(Layer==p2){
-        	common_params2.labels="transfer2";
+        	//common_params2.labels="transfer2";
         	(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
         	sub_graph=&graph3;
         	_common_params=&common_params3;
@@ -409,7 +449,7 @@ public:
 
         Layer++;
         if(Layer==p){
-        	common_params.labels="transfer";
+        	//common_params.labels="transfer";
         	(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
         	sub_graph=&graph2;
         	_common_params=&common_params2;
@@ -418,7 +458,7 @@ public:
         	second=true;
         }
         if(Layer==p2){
-        	common_params2.labels="transfer2";
+        	//common_params2.labels="transfer2";
         	(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
         	sub_graph=&graph3;
         	_common_params=&common_params3;
@@ -434,7 +474,7 @@ public:
 
         Layer++;
         if(Layer==p){
-        	common_params.labels="transfer";
+        	//common_params.labels="transfer";
         	(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
         	sub_graph=&graph2;
         	_common_params=&common_params2;
@@ -443,7 +483,7 @@ public:
         	second=true;
         }
         if(Layer==p2){
-        	common_params2.labels="transfer2";
+        	//common_params2.labels="transfer2";
         	(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
         	sub_graph=&graph3;
         	_common_params=&common_params3;
@@ -457,7 +497,7 @@ public:
 
         Layer++;
         if(Layer==p){
-        	common_params.labels="transfer";
+        	//common_params.labels="transfer";
         	(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
         	sub_graph=&graph2;
         	_common_params=&common_params2;
@@ -466,7 +506,7 @@ public:
         	second=true;
         }
         if(Layer==p2){
-        	common_params2.labels="transfer2";
+        	//common_params2.labels="transfer2";
         	(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
         	sub_graph=&graph3;
         	_common_params=&common_params3;
@@ -481,7 +521,7 @@ public:
 
         Layer++;
         if(Layer==p){
-        	common_params.labels="transfer";
+        	//common_params.labels="transfer";
         	(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
         	sub_graph=&graph2;
         	_common_params=&common_params2;
@@ -490,7 +530,7 @@ public:
         	second=true;
         }
         if(Layer==p2){
-        	common_params2.labels="transfer2";
+        	//common_params2.labels="transfer2_wait";
         	(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
         	sub_graph=&graph3;
         	_common_params=&common_params3;
@@ -504,7 +544,7 @@ public:
 
         Layer++;
         if(Layer==p){
-        	common_params.labels="transfer";
+        	//common_params.labels="transfer";
         	(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
         	sub_graph=&graph2;
         	_common_params=&common_params2;
@@ -513,7 +553,7 @@ public:
         	second=true;
         }
         if(Layer==p2){
-        	common_params2.labels="transfer2";
+        	//common_params2.labels="transfer2";
         	(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
         	sub_graph=&graph3;
         	_common_params=&common_params3;
@@ -527,7 +567,7 @@ public:
 
         Layer++;
         if(Layer==p){
-        	common_params.labels="transfer";
+        	//common_params.labels="transfer";
         	(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
         	sub_graph=&graph2;
         	_common_params=&common_params2;
@@ -536,7 +576,7 @@ public:
         	second=true;
         }
         if(Layer==p2){
-        	common_params2.labels="transfer2";
+        	//common_params2.labels="transfer2";
         	(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
         	sub_graph=&graph3;
         	_common_params=&common_params3;
@@ -551,7 +591,7 @@ public:
 
         Layer++;
         if(Layer==p){
-        	common_params.labels="transfer";
+        	//common_params.labels="transfer";
         	(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
         	sub_graph=&graph2;
         	_common_params=&common_params2;
@@ -560,7 +600,7 @@ public:
         	second=true;
         }
         if(Layer==p2){
-        	common_params2.labels="transfer2";
+        	//common_params2.labels="transfer2";
         	(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
         	sub_graph=&graph3;
         	_common_params=&common_params3;
@@ -575,7 +615,7 @@ public:
 
         Layer++;
         if(Layer==p){
-        	common_params.labels="transfer";
+        	//common_params.labels="transfer";
         	(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
         	sub_graph=&graph2;
         	_common_params=&common_params2;
@@ -584,7 +624,7 @@ public:
         	second=true;
         }
         if(Layer==p2){
-        	common_params2.labels="transfer2";
+        	//common_params2.labels="transfer2";
         	(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
         	sub_graph=&graph3;
         	_common_params=&common_params3;
@@ -601,7 +641,7 @@ public:
 
         Layer++;
         if(Layer==p){
-        	common_params.labels="transfer";
+        	//common_params.labels="transfer";
         	(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
         	sub_graph=&graph2;
         	_common_params=&common_params2;
@@ -610,7 +650,7 @@ public:
         	second=true;
         }
         if(Layer==p2){
-        	common_params2.labels="transfer2";
+        	//common_params2.labels="transfer2";
         	(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
         	sub_graph=&graph3;
         	_common_params=&common_params3;
@@ -619,7 +659,12 @@ public:
         	third=true;
 
         }
-
+        if(!second){
+        	common_params.labels=common_params3.labels;
+        }
+        else if(!third){
+			common_params2.labels=common_params3.labels;
+		}
         // Layer 13
         (*sub_graph)<< FullyConnectedLayer(
                   1000U,
@@ -669,11 +714,198 @@ public:
         }
 
         std::cout<<"Partition layer:"<<p<<std::endl;
-        std::cout<<"Total layers:"<<Layer+1<<std::endl;
+        std::cout<<"Second partition layer:"<<p2<<std::endl;
+        std::cout<<"Total layers:"<<Layer+1<<std::endl<<std::endl;
         return true;
     }
-
     void do_run() override
+    {
+        // Run graph
+        //Ehsan
+    	std::thread First(&GraphGooglenetExample::do_run_1,this,core0);
+    	std::thread Second(&GraphGooglenetExample::do_run_2,this,core1);
+    	std::thread Third(&GraphGooglenetExample::do_run_3,this,core2);
+    	First.join();
+    	Second.join();
+    	Third.join();
+    }
+
+
+    void do_run_1(int core_id)
+    {
+        // Run graph
+        //Ehsan
+    	//int core_id=1;
+/*
+        cpu_set_t set;
+        CPU_ZERO(&set);
+        CPU_SET(core_id, &set);
+        CPU_SET(5,&set);
+        CPU_SET(4,&set);
+        CPU_SET(3,&set);
+        CPU_SET(2,&set);
+        CPU_SET(1,&set);
+        ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
+*/
+
+
+        cpu_set_t set;
+        CPU_ZERO(&set);
+        //CPU_SET(core_id, &set);
+        //CPU_SET(1,&set);
+        CPU_SET(core0,&set);
+        ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
+
+
+        std::cout<<"start running first graph ...\n";
+        ImageAccessor *im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
+        double in=0;
+        double task=0.0001;
+        double out=0;
+        int tt=(common_params.n);
+        auto tstart=std::chrono::high_resolution_clock::now();
+        //std::cout<<tstart.time_since_epoch().count()<<std::endl;
+        //std::cout<<tt<<std::endl;
+        for(int i=0;i<(tt+1);i++){
+        	if(i==1){
+        		std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        		tstart=std::chrono::high_resolution_clock::now();
+        		//std::cout<<tstart.time_since_epoch().count()<<std::endl;
+        		in=task=out=0;
+        		task=0;
+        	}
+			if(imgs){
+				if(image_index>=images_list.size())
+						image_index=image_index%images_list.size();
+				std::cout<<"\n\nFirst graph inferencing image: "<<image_index<<":"<<images_list[image_index]<<std::endl;
+				//std::unique_ptr<ImageAccessor> im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
+				im_acc->set_filename(images_list[image_index++]);
+			}
+
+            graph.run(in,task,out,annotate);
+        }
+        auto tfinish=std::chrono::high_resolution_clock::now();
+        //std::cout<<tfinish.time_since_epoch().count()<<std::endl;
+        double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+        double Cost=cost0/tt;
+        in=in/tt;
+        task=task/tt;
+        out=out/tt;
+        double tot=in+task+out;
+        std::cout<<"\n\nCost:"<<Cost<<std::endl;
+        std::cout<<"input_time:"<<in<<"\ntask_time:"<<task<<"\noutput_time:"<<out<<"\ntotal_time:"<<tot<<std::endl;
+    }
+    void do_run_2(int core_id)
+    {
+        // Run graph
+        //Ehsan
+    	//int core_id=1;
+
+
+        cpu_set_t set;
+        CPU_ZERO(&set);
+        CPU_SET(core1, &set);
+        //CPU_SET(1,&set);
+        //CPU_SET(0,&set);
+        ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
+
+        std::cout<<"start running second graph ...\n";
+        ImageAccessor *im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
+        double in2=0;
+        double task2=0;
+        double out2=0;
+        int tt=(common_params.n);
+        auto tstart=std::chrono::high_resolution_clock::now();
+        //std::cout<<tstart.time_since_epoch().count()<<std::endl;
+        //std::cout<<tt<<std::endl;
+        for(int i=0;i<(tt+1);i++){
+        	if(i==1){
+        		std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        		tstart=std::chrono::high_resolution_clock::now();
+        		//std::cout<<tstart.time_since_epoch().count()<<std::endl;
+        		in2=task2=out2=0;
+        	}
+			if(imgs){
+				if(image_index>=images_list.size())
+						image_index=image_index%images_list.size();
+				std::cout<<"\n\nSecond graph inferencing image: "<<image_index<<":"<<images_list[image_index]<<std::endl;
+				//std::unique_ptr<ImageAccessor> im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
+				//im_acc->set_filename(images_list[image_index++]);
+			}
+			if(second)
+			{
+				graph2.run(in2,task2,out2,annotate);
+			}
+        }
+        auto tfinish=std::chrono::high_resolution_clock::now();
+        //std::cout<<tfinish.time_since_epoch().count()<<std::endl;
+        double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+        double Cost=cost0/tt;
+        std::cout<<"\n\nCost:"<<Cost<<std::endl;
+        in2=in2/tt;
+        task2=task2/tt;
+        out2=out2/tt;
+        double tot2=in2+task2+out2;
+        //std::cout<<"Cost:"<<Cost<<std::endl;
+        std::cout<<"\n\ninput2_time:"<<in2<<"\ntask2_time:"<<task2<<"\noutput2_time:"<<out2<<"\ntotal2_time:"<<tot2<<std::endl;
+    }
+    void do_run_3(int core_id)
+        {
+            // Run graph
+            //Ehsan
+        	//int core_id=1;
+
+
+            cpu_set_t set;
+            CPU_ZERO(&set);
+            CPU_SET(core2, &set);
+            //CPU_SET(1,&set);
+            //CPU_SET(0,&set);
+            ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
+
+            std::cout<<"start running third graph ...\n";
+            ImageAccessor *im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
+            double in3=0;
+            double task3=0;
+            double out3=0;
+            int tt=(common_params.n);
+            auto tstart=std::chrono::high_resolution_clock::now();
+            //std::cout<<tstart.time_since_epoch().count()<<std::endl;
+            //std::cout<<tt<<std::endl;
+            for(int i=0;i<(tt+1);i++){
+            	if(i==1){
+            		std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+            		tstart=std::chrono::high_resolution_clock::now();
+            		//std::cout<<tstart.time_since_epoch().count()<<std::endl;
+            		in3=task3=out3=0;
+            	}
+    			if(imgs){
+    				if(image_index>=images_list.size())
+    						image_index=image_index%images_list.size();
+    				std::cout<<"\n\nThird graph inferencing image: "<<image_index<<":"<<images_list[image_index]<<std::endl;
+    				//std::unique_ptr<ImageAccessor> im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
+    				//im_acc->set_filename(images_list[image_index++]);
+    			}
+    			if(third)
+    			{
+    				graph3.run(in3,task3,out3,annotate);
+    			}
+            }
+            auto tfinish=std::chrono::high_resolution_clock::now();
+            //std::cout<<tfinish.time_since_epoch().count()<<std::endl;
+            double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+            double Cost=cost0/tt;
+            std::cout<<"\n\nCost:"<<Cost<<std::endl;
+            in3=in3/tt;
+            task3=task3/tt;
+            out3=out3/tt;
+            double tot3=in3+task3+out3;
+            //std::cout<<"Cost:"<<Cost<<std::endl;
+            std::cout<<"\n\ninput3_time:"<<in3<<"\ntask3_time:"<<task3<<"\noutput3_time:"<<out3<<"\ntotal3_time:"<<tot3<<std::endl;
+        }
+
+
+ /*   void do_run() override
     {
         // Run graph
         //Ehsan
@@ -684,6 +916,7 @@ public:
         double out,out2,out3=0;
         int tt=(common_params.n);
         auto tstart=std::chrono::high_resolution_clock::now();
+        cpu_set_t set;
         for(int i=0;i<(tt+1);i++){
         	if(i==1){
         		tstart=std::chrono::high_resolution_clock::now();
@@ -696,22 +929,37 @@ public:
 				//std::unique_ptr<ImageAccessor> im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
 				im_acc->set_filename(images_list[image_index++]);
 			}
-
+			//std::cout<<"first graph\n";
+			CPU_ZERO(&set);
+			CPU_SET(core0,&set);
+			ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
             graph.run(in,task,out,annotate);
+            CPU_ZERO(&set);
+			CPU_SET(core1,&set);
+			ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
             std::string ll;
-            std::cout<<"\nsecondgg\n";
+
             //std::cin>>ll;
 			if(second)
 			{
+				//std::cout<<"\nsecondgg\n";
 				graph2.run(in2,task2,out2,annotate);
 			}
-			std::cout<<"\nthirdgg\n";
+			CPU_ZERO(&set);
+			CPU_SET(core2,&set);
+			ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
+
 			            //std::cin>>ll;
 			if(third)
 			{
+				//std::cout<<"\nthirdgg\n";
 				graph3.run(in3,task3,out3,annotate);
 			}
+			//std::cout<<"one rune\n";
         }
+        std::cout<<"finished\n";
+        //std::string y;
+        //std::cin>>y;
         auto tfinish=std::chrono::high_resolution_clock::now();
 	//ANNOTATE_CHANNEL_END(1);
         double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
@@ -739,7 +987,7 @@ public:
         std::cout<<"\n\ninput3_time:"<<in3<<"\ntask3_time:"<<task3<<"\noutput3_time:"<<out3<<"\ntotal3_time:"<<tot3<<std::endl;
 
     }
-
+*/
 
 
 private:

@@ -165,8 +165,8 @@ public:
     bool access_tensor(ITensor &tensor) override;
 
 private:
-    unsigned int _iterator;
-    unsigned int _maximum;
+    //unsigned int _iterator;
+    //unsigned int _maximum;
     bool		transition=false;
 };
 
@@ -184,8 +184,8 @@ public:
     bool access_tensor(ITensor &tensor) override;
 
 private:
-    unsigned int _iterator;
-    unsigned int _maximum;
+    //unsigned int _iterator;
+    //unsigned int _maximum;
     bool 		transition=false;
 };
 

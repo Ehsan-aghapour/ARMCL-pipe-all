@@ -38,9 +38,18 @@ GraphContext::GraphContext()
 
 GraphContext::~GraphContext()
 {
+	//std::string y;
+	//std::cout<<"graph context clearing\n";
+	//std::cin>>y;
     _memory_managers.clear();
+    //std::cout<<"graph context mm cleared\n";
+    //std::cin>>y;
     _weights_managers.clear();
+    //std::cout<<"graph context wm cleared\n";
+    //std::cin>>y;
     release_default_graph_context(*this);
+    //std::cout<<"released\n";
+    //std::cin>>y;
 }
 
 const GraphConfig &GraphContext::config() const

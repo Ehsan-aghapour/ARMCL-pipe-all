@@ -320,6 +320,7 @@ void CPPScheduler::run_workloads(std::vector<IScheduler::Workload> &workloads)
     // won't interfere each other and deadlock.
     arm_compute::lock_guard<std::mutex> lock(_impl->_run_workloads_mutex);
     const unsigned int                  num_threads = std::min(_impl->num_threads(), static_cast<unsigned int>(workloads.size()));
+    //std::cout<<"\nnum threads:"<<num_threads<<std::endl;
     if(num_threads < 1)
     {
         return;

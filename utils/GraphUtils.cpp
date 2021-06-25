@@ -33,6 +33,30 @@ arm_compute::graph::Tensor *s_out;
 arm_compute::graph::Tensor *t_in;
 
 
+#include <mutex>
+#include <condition_variable>
+#include <queue>
+
+std::mutex m1;
+std::condition_variable cv1;
+std::mutex m2;
+std::condition_variable cv2;
+
+static bool waiting1 = true;
+static bool data_ready1 = false;
+static bool waiting2 = true;
+static bool data_ready2 = false;
+
+#include "arm_compute/runtime/Tensor.h"
+
+//static std::queue<std::shared_ptr<arm_compute::ITensor>> Tensors_Q;
+arm_compute::Tensor transit_tensor1;
+arm_compute::Tensor transit_tensor2;
+
+static std::queue<arm_compute::Tensor*> Tensors_Q1;
+static std::queue<arm_compute::Tensor*> Tensors_Q2;
+
+
 #include "utils/GraphUtils.h"
 
 #include "arm_compute/core/Helpers.h"
@@ -198,25 +222,79 @@ bool DummyAccessor::access_tensor(ITensor &tensor)
 }
 
 TransferAccessor::TransferAccessor(bool tran, unsigned int maximum)
-	: _iterator(0), _maximum(maximum), transition(tran)
+	: transition(tran)//_iterator(0), _maximum(maximum),
 {
 	//std::cout<<"\ntransferaccessor1\n";
+	transit_tensor1.allocator()->init(*(f_out->handle()->tensor().info()));
+	transit_tensor1.allocator()->allocate();
 }
 TransferAccessor2::TransferAccessor2(bool tran, unsigned int maximum)
-	: _iterator(0), _maximum(maximum),  transition(tran)
+	:  transition(tran)// _iterator(0), _maximum(maximum),
 {
 	//std::cout<<"\ntransferaccessor2\n";
+	transit_tensor2.allocator()->init(*(s_out->handle()->tensor().info()));
+	transit_tensor2.allocator()->allocate();
 }
 
 
 //input of second graph
 bool TransferAccessor::access_tensor(ITensor &tensor)
 {
-	//std::cout<<"hhhh:"<<s_in->desc().shape<<std::endl;
-	//Ehsan
-	//First_NEON
+	//std::cout<<"second graph receiver is waiting for mutex\n";
+	std::unique_lock<std::mutex> lk(m1);
+	if (Tensors_Q1.empty()){
+		//std::cout<<"q of second graph is empty waits\n";
+		//std::cout<<"\nQ is empty waiting for source data\n";
+		waiting1 = 1;
+		cv1.wait(lk, []{return data_ready1;});
+		//std::cout<<"second graph receiver wake up\n";
+		data_ready1=0;
+		waiting1=0;
+		lk.unlock();
 
-	/*bool ret = _maximum == 0 || _iterator < _maximum;
+#if My_print > 0
+		std::cout<<"\nrecieving data from first graph\n";
+#endif
+		//if(s_in->desc().target==arm_compute::graph::Target ::CL )
+		if(transition)
+		{
+			//std::cout<<"second graph receiver is responsible for transfering\n";
+			//std::cout<<"\n transfering data from source directly transfer is done in dest\n";
+			auto tstart=std::chrono::high_resolution_clock::now();
+			tensor.copy_from(f_out->handle()->tensor());
+			auto tfinish=std::chrono::high_resolution_clock::now();
+			double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+#if My_print > 0
+			std::cout<<"\nTransfer time from source:"<<cost0<<std::endl<<std::endl;
+#endif
+		}
+
+#if My_print > 0
+		std::cout<<"\nReceived\n";
+#endif
+	}
+	else{
+		//std::cout<<"\nTransfer from Queue at dest\n";
+		//std::cout<<"second graph is reading from q\n";
+		auto tstart=std::chrono::high_resolution_clock::now();
+		tensor.copy_from(*Tensors_Q1.front());
+		//tensor.copy_from(Tensors_Q.front().handle()->tensor());
+		Tensors_Q1.pop();
+		auto tfinish=std::chrono::high_resolution_clock::now();
+		double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+#if My_print > 0
+		std::cout<<"\nTransfer time from queue:"<<cost0<<std::endl<<std::endl;
+#endif
+		lk.unlock();
+	}
+	//std::cout<<"second graph is ready to run nodes\n";
+	return true;
+
+
+
+/*
+
+	bool ret = _maximum == 0 || _iterator < _maximum;
 	if(_iterator == _maximum)
 	{
 		_iterator = 0;
@@ -228,7 +306,9 @@ bool TransferAccessor::access_tensor(ITensor &tensor)
 
 	if(!ret)
 		return ret;
-	*/
+
+
+
 
 #if My_print > 0
 	std::cout<<"\nrecieving data from first graph\n";
@@ -249,17 +329,70 @@ bool TransferAccessor::access_tensor(ITensor &tensor)
 	//return ret;
 	return true;
 
+	*/
+
 }
 
 
 //input of third graph
 bool TransferAccessor2::access_tensor(ITensor &tensor)
 {
-	//std::cout<<"hhhh:"<<s_in->desc().shape<<std::endl;
-	//Ehsan
-	//First_NEON
+	//std::cout<<"third graph receiver is waiting for mutex\n";
+	std::unique_lock<std::mutex> lk(m2);
+	if (Tensors_Q2.empty()){
+		//std::cout<<"q of third graph is empty want to wait\n";
+		//std::cout<<"\nQ is empty waiting for source data\n";
+		waiting2 = 1;
+		cv2.wait(lk, []{return data_ready2;});
+		data_ready2=0;
+		waiting2=0;
+		lk.unlock();
+		//std::cout<<"third garaph receiver wake up\n";
 
-	/*bool ret = _maximum == 0 || _iterator < _maximum;
+#if My_print > 0
+		std::cout<<"\nrecieving data from second graph\n";
+#endif
+		//if(t_in->desc().target==arm_compute::graph::Target ::CL)
+		if(transition)
+		{
+			//std::cout<<"third graph is responsible for transfer\n";
+			//std::cout<<"\n transfering data from source directly transfer is done in dest\n";
+			auto tstart=std::chrono::high_resolution_clock::now();
+			tensor.copy_from(s_out->handle()->tensor());
+			auto tfinish=std::chrono::high_resolution_clock::now();
+			//std::cout<<"third graph transfered data\n";
+			double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+#if My_print > 0
+			std::cout<<"\nTransfer time from source:"<<cost0<<std::endl<<std::endl;
+#endif
+		}
+#if My_print > 0
+		std::cout<<"\nReceived\n";
+#endif
+	}
+	else{
+		//std::cout<<"third graph want to pull from q\n";
+		//std::cout<<"\nTransfer from Queue at dest\n";
+		auto tstart=std::chrono::high_resolution_clock::now();
+		tensor.copy_from(*Tensors_Q2.front());
+		//tensor.copy_from(Tensors_Q.front().handle()->tensor());
+		Tensors_Q2.pop();
+		auto tfinish=std::chrono::high_resolution_clock::now();
+		double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+#if My_print > 0
+		std::cout<<"\nTransfer time from queue:"<<cost0<<std::endl<<std::endl;
+#endif
+		//std::cout<<"third graph pulled from q\n";
+		lk.unlock();
+	}
+	//std::cout<<"third graph is ready to run tasks\n";
+	return true;
+
+
+
+/*
+
+	bool ret = _maximum == 0 || _iterator < _maximum;
 	if(_iterator == _maximum)
 	{
 		_iterator = 0;
@@ -271,7 +404,9 @@ bool TransferAccessor2::access_tensor(ITensor &tensor)
 
 	if(!ret)
 		return ret;
-	*/
+
+
+
 
 #if My_print > 0
 	std::cout<<"\nrecieving data from first graph\n";
@@ -292,6 +427,28 @@ bool TransferAccessor2::access_tensor(ITensor &tensor)
 	//return ret;
 	return true;
 
+	*/
+
+
+
+
+	//std::cout<<"hhhh:"<<s_in->desc().shape<<std::endl;
+	//Ehsan
+	//First_NEON
+
+	/*bool ret = _maximum == 0 || _iterator < _maximum;
+	if(_iterator == _maximum)
+	{
+		_iterator = 0;
+	}
+	else
+	{
+		_iterator++;
+	}
+
+	if(!ret)
+		return ret;
+	*/
 }
 
 
@@ -885,22 +1042,18 @@ ConnectionAccessor2::ConnectionAccessor2(bool tran){
 template <typename T>
 void ConnectionAccessor::my_access_predictions_tensor(ITensor &tensor)
 {
-
-    // Get the predicted class
-    /*std::vector<T>      classes_prob;
+	// Get the predicted class
+    //std::vector<T>      classes_prob;
     //std::vector<size_t> index;
-
-    const auto   output_net  = reinterpret_cast<T *>(tensor.buffer() + tensor.info()->offset_first_element_in_bytes());
+    //const auto   output_net  = reinterpret_cast<T *>(tensor.buffer() + tensor.info()->offset_first_element_in_bytes());
     //const size_t num_classes = tensor.info()->dimension(0);
-
     //classes_prob.resize(num_classes);
     //index.resize(num_classes);
 
-
     //Ehsan
     //std::ostream &t;
-    const size_t num_bytes = tensor.info()->total_size();
-    std::vector<T>  elements;
+    //const size_t num_bytes = tensor.info()->total_size();
+    //std::vector<T>  elements;
 #if My_print > 0
     std::cout<<"\nGraphUtils,TopNPredictionsAccessor::access_predictions_tensor\n"
     		<<"output tensor shape:"<<tensor.info()->tensor_shape()
@@ -909,40 +1062,58 @@ void ConnectionAccessor::my_access_predictions_tensor(ITensor &tensor)
 			//<<"\n tensor print:\n"<<tensor.print(t);
 #endif
 
-
 #if My_print > 0
     int cnt=0;
     for(size_t offset = 0; offset < tensor.info()->total_size(); offset += tensor.info()->element_size())
     {
          const auto value = *reinterpret_cast<T *>(tensor.buffer() + offset);
-
-
-
          std::cout<<"i:"<<cnt<<" v:"<<value<<"   ";
          if (cnt%8==0)
         	 std::cout<<std::endl;
-
          cnt++;
-
     }
-
 #endif
-*/
 
 
-    //if(f_out->desc().target==arm_compute::graph::Target ::CL)
-	if(transition)
     {
-		auto tstart=std::chrono::high_resolution_clock::now();
-		s_in->handle()->tensor().copy_from(tensor);
-		auto tfinish=std::chrono::high_resolution_clock::now();
-		double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
-		std::cout<<"\nTransfer0 time:"<<cost0<<std::endl<<std::endl;
+    	//std::cout<<"\n first graph waiting for mutex\n";
+		std::lock_guard<std::mutex> lk(m1);
+		if(!waiting1){
+					//std::cout<<"second graph is busy. first graph want to push on q\n";
+					//auto tstart=std::chrono::high_resolution_clock::now();
+					////Tensors_Q.push(dynamic_cast<arm_compute::Tensor*>(&(f_out->handle()->tensor())));
+					transit_tensor1.copy_from(f_out->handle()->tensor());
+				    Tensors_Q1.push(&transit_tensor1);
+					//auto tfinish=std::chrono::high_resolution_clock::now();
+					//double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+					//std::cout<<"\npushing to queue time:"<<cost0<<std::endl;
+					//std::cout<<"\npushing to queue\n";
+					//Tensors_Q.push(*f_out);
+		}
+
+		else{
+
+			//std::cout<<"\nDirectly should be transfomed\n";
+			//std::cout<<"\n first graph sends directly\n";
+			//if(f_out->desc().target==arm_compute::graph::Target ::CL)
+			if(transition)
+			{
+				//std::cout<<"first graph is responsible for transition\n";
+				auto tstart=std::chrono::high_resolution_clock::now();
+				s_in->handle()->tensor().copy_from(tensor);
+				auto tfinish=std::chrono::high_resolution_clock::now();
+				double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+				//std::cout<<"\nTransfer0 time:"<<cost0<<std::endl<<std::endl;
+			}
+			data_ready1 = true;
+			cv1.notify_one();
+		}
     }
+
 
 
     /*
-    //First_CL (uncomment two lines above for; which map() and one line before for which unmap)
+    //First_CL (uncomment two lines above for; which map() and one line after for which unmap)
     auto s_handle = s_in->handle();
     s_handle->map(true);
     for(size_t offset = 0; offset < tensor.info()->total_size(); offset += tensor.info()->element_size())
@@ -972,22 +1143,18 @@ void ConnectionAccessor::my_access_predictions_tensor(ITensor &tensor)
 template <typename T>
 void ConnectionAccessor2::my_access_predictions_tensor(ITensor &tensor)
 {
-
-    // Get the predicted class
-    /*std::vector<T>      classes_prob;
+	// Get the predicted class
+    //std::vector<T>      classes_prob;
     //std::vector<size_t> index;
-
-    const auto   output_net  = reinterpret_cast<T *>(tensor.buffer() + tensor.info()->offset_first_element_in_bytes());
+    //const auto   output_net  = reinterpret_cast<T *>(tensor.buffer() + tensor.info()->offset_first_element_in_bytes());
     //const size_t num_classes = tensor.info()->dimension(0);
-
     //classes_prob.resize(num_classes);
     //index.resize(num_classes);
 
-
     //Ehsan
     //std::ostream &t;
-    const size_t num_bytes = tensor.info()->total_size();
-    std::vector<T>  elements;
+    //const size_t num_bytes = tensor.info()->total_size();
+    //std::vector<T>  elements;
 #if My_print > 0
     std::cout<<"\nGraphUtils,TopNPredictionsAccessor::access_predictions_tensor\n"
     		<<"output tensor shape:"<<tensor.info()->tensor_shape()
@@ -996,40 +1163,58 @@ void ConnectionAccessor2::my_access_predictions_tensor(ITensor &tensor)
 			//<<"\n tensor print:\n"<<tensor.print(t);
 #endif
 
-
 #if My_print > 0
     int cnt=0;
     for(size_t offset = 0; offset < tensor.info()->total_size(); offset += tensor.info()->element_size())
     {
          const auto value = *reinterpret_cast<T *>(tensor.buffer() + offset);
-
-
-
          std::cout<<"i:"<<cnt<<" v:"<<value<<"   ";
          if (cnt%8==0)
         	 std::cout<<std::endl;
-
          cnt++;
-
     }
-
 #endif
 
-*/
 
-    //if(s_out->desc().target==arm_compute::graph::Target ::CL)
-	if(transition)
     {
-		auto tstart=std::chrono::high_resolution_clock::now();
-		t_in->handle()->tensor().copy_from(tensor);
-		auto tfinish=std::chrono::high_resolution_clock::now();
-		double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
-		std::cout<<"\nTransfer0 time:"<<cost0<<std::endl<<std::endl;
+    	//std::cout<<"\n second graph sender waiting for mutex\n";
+		std::lock_guard<std::mutex> lk(m2);
+		if(!waiting2){
+					//std::cout<<"third graph is busy. second graph want to push on q\n";
+					//auto tstart=std::chrono::high_resolution_clock::now();
+					////Tensors_Q.push(dynamic_cast<arm_compute::Tensor*>(&(f_out->handle()->tensor())));
+					transit_tensor2.copy_from(s_out->handle()->tensor());
+				    Tensors_Q2.push(&transit_tensor2);
+					//auto tfinish=std::chrono::high_resolution_clock::now();
+					//double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+					//std::cout<<"\npushing to queue time:"<<cost0<<std::endl;
+					//std::cout<<"\npushing to queue\n";
+					//Tensors_Q.push(*f_out);
+		}
+
+		else{
+
+			//std::cout<<"\nDirectly should be transfomed\n";
+		    //if(s_out->desc().target==arm_compute::graph::Target ::CL)
+			//std::cout<<"third graph is waiting. second graph want to push directly\n";
+			if(transition)
+		    {
+				//std::cout<<"second graph is responsible for transition\n";
+				auto tstart=std::chrono::high_resolution_clock::now();
+				t_in->handle()->tensor().copy_from(tensor);
+				auto tfinish=std::chrono::high_resolution_clock::now();
+				double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+				//std::cout<<"\nTransfer0 time:"<<cost0<<std::endl<<std::endl;
+		    }
+			data_ready2 = true;
+			cv2.notify_one();
+		}
     }
+
 
 
     /*
-    //First_CL (uncomment two lines above for; which map() and one line before for which unmap)
+    //First_CL (uncomment two lines above for; which map() and one line after for which unmap)
     auto s_handle = s_in->handle();
     s_handle->map(true);
     for(size_t offset = 0; offset < tensor.info()->total_size(); offset += tensor.info()->element_size())
@@ -1050,6 +1235,7 @@ void ConnectionAccessor2::my_access_predictions_tensor(ITensor &tensor)
 	*/
 
     //std::copy(output_net, output_net + num_bytes, elements.begin());
+
 }
 
 bool TopNPredictionsAccessor::access_tensor(ITensor &tensor)
