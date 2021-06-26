@@ -21,11 +21,12 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+
 //Ehsan
 #include<chrono>
 #include <sys/types.h>
 #include <dirent.h>
-#include "annotate/streamline_annotate.h"
+
 
 #include "arm_compute/graph.h"
 #include "support/ToolchainSupport.h"
@@ -36,6 +37,7 @@
 using namespace arm_compute::utils;
 using namespace arm_compute::graph::frontend;
 using namespace arm_compute::graph_utils;
+
 
 int core0=0;
 int core1=0;
@@ -60,14 +62,16 @@ size_t image_index=0;
 stringvec images_list;
 bool imgs=0;
 
-/** Example demonstrating how to implement Googlenet's network using the Compute Library's graph API */
-class GraphGooglenetExample : public Example
+/** Example demonstrating how to implement ResNetV1_50 network using the Compute Library's graph API */
+class GraphResNetV1_50Example : public Example
 {
 public:
-    GraphGooglenetExample()
-        : cmd_parser(), common_opts(cmd_parser), common_params(), graph(0, "GoogleNet"), common_params2(), graph2(1,"GoogleNet2"), common_params3(), graph3(1,"GoogleNet3")
+    GraphResNetV1_50Example()
+        : cmd_parser(), common_opts(cmd_parser), common_params(), graph(0, "ResNetV1_50"), common_params2(), graph2(1,"ResNetV1_50_2"), common_params3(), graph3(1,"ResNetV1_50_3")
     {
     }
+
+
 
     void switch_graph(){
         // Finalize graph
@@ -186,7 +190,6 @@ public:
 
     bool do_setup(int argc, char **argv) override
     {
-
         // Parse arguments
         cmd_parser.parse(argc, argv);
         cmd_parser.validate();
@@ -194,12 +197,12 @@ public:
         // Consume common parameters
         common_params = consume_common_graph_parameters(common_opts);
 
-		//Ehsan
-		imgs=!(common_params.image.empty());
-		if(imgs){
-		   read_directory(common_params.image,images_list);
-		   std::cout<<images_list.size()<<" Input images are read from "<<common_params.image<<std::endl;
-		   common_params.image=images_list[image_index];
+        //Ehsan
+        imgs=!(common_params.image.empty());
+        if(imgs){
+        	read_directory(common_params.image,images_list);
+        	std::cout<<images_list.size()<<" Input images are read from "<<common_params.image<<std::endl;
+        	common_params.image=images_list[image_index];
         }
 
         // Return when help menu is requested
@@ -209,17 +212,16 @@ public:
             return false;
         }
 
-        // Checks
-        ARM_COMPUTE_EXIT_ON_MSG(arm_compute::is_data_type_quantized_asymmetric(common_params.data_type), "QASYMM8 not supported for this graph");
-
-
+        // Print parameter values
+        //std::cout << common_params << std::endl;
 
         // Get trainable parameters data path
         std::string data_path = common_params.data_path;
 
         // Create a preprocessor object
         const std::array<float, 3> mean_rgb{ { 122.68f, 116.67f, 104.01f } };
-        std::unique_ptr<IPreprocessor> preprocessor = std::make_unique<CaffePreproccessor>(mean_rgb);
+        std::unique_ptr<IPreprocessor> preprocessor = std::make_unique<CaffePreproccessor>(mean_rgb,
+                                                                                           false /* Do not convert to BGR */);
 
         // Create input descriptor
         const auto        operation_layout = common_params.data_layout;
@@ -228,8 +230,6 @@ public:
 
         // Set weights trained layout
         const DataLayout weights_layout = DataLayout::NCHW;
-
-
 
 
         //Ehsan
@@ -336,306 +336,92 @@ public:
         _common_params=&common_params;
         Layer=0;
         //bool second=false;
-
         annotate=common_params.annotate;
         save_model=common_params.save;
 
         //***************************************************************
 
+        std::string test;
 
         (*sub_graph) << _common_params->target
-              << _common_params->fast_math_hint
-              << InputLayer(input_descriptor, get_input_accessor(*_common_params, std::move(preprocessor)))
-              << ConvolutionLayer(
+              << _common_params->fast_math_hint;
+        (*sub_graph)<< InputLayer(input_descriptor, get_input_accessor(*_common_params, std::move(preprocessor), false /* Do not convert to BGR */));
+        (*sub_graph)<< ConvolutionLayer(
                   7U, 7U, 64U,
-                  get_weights_accessor(data_path, "/cnn_data/googlenet_model/conv1/conv1_7x7_s2_w.npy", weights_layout),
-                  get_weights_accessor(data_path, "/cnn_data/googlenet_model/conv1/conv1_7x7_s2_b.npy"),
+                  get_weights_accessor(data_path, "/cnn_data/resnet50_model/conv1_weights.npy", weights_layout),
+                  std::unique_ptr<arm_compute::graph::ITensorAccessor>(nullptr),
                   PadStrideInfo(2, 2, 3, 3))
-              .set_name("conv1/7x7_s2")
-              << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name("conv1/relu_7x7")
-              << PoolingLayer(PoolingLayerInfo(PoolingType::MAX, 3, operation_layout, PadStrideInfo(2, 2, 0, 0, DimensionRoundingType::CEIL))).set_name("pool1/3x3_s2")
-              << NormalizationLayer(NormalizationLayerInfo(NormType::CROSS_MAP, 5, 0.0001f, 0.75f)).set_name("pool1/norm1");
+              .set_name("conv1/convolution")
+              << BatchNormalizationLayer(
+                  get_weights_accessor(data_path, "/cnn_data/resnet50_model/conv1_BatchNorm_moving_mean.npy"),
+                  get_weights_accessor(data_path, "/cnn_data/resnet50_model/conv1_BatchNorm_moving_variance.npy"),
+                  get_weights_accessor(data_path, "/cnn_data/resnet50_model/conv1_BatchNorm_gamma.npy"),
+                  get_weights_accessor(data_path, "/cnn_data/resnet50_model/conv1_BatchNorm_beta.npy"),
+                  0.0000100099996416f)
+              .set_name("conv1/BatchNorm")
+              << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name("conv1/Relu")
+              << PoolingLayer(PoolingLayerInfo(PoolingType::MAX, 3, operation_layout, PadStrideInfo(2, 2, 0, 1, 0, 1, DimensionRoundingType::FLOOR))).set_name("pool1/MaxPool");
+
+        /*Layer++;
+		if(Layer==p){
+			common_params.labels="transfer";
+			(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
+			sub_graph=&graph2;
+			_common_params=&common_params2;
+			switch_graph();
+			(*sub_graph)<<InputLayer(input_descriptor2, get_input_accessor(*_common_params));
+			second=true;
+		}*/
 
 
-        Layer++;
-        if(Layer==p){
-        	//common_params.labels="transfer_wait";
-        	(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
-        	sub_graph=&graph2;
-        	_common_params=&common_params2;
-        	switch_graph();
-        	(*sub_graph)<<InputLayer(input_descriptor2, get_input_accessor(*_common_params));
-        	second=true;
-
-        }
-        if(Layer==p2){
-        	//common_params2.labels="transfer2";
-        	(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
-        	sub_graph=&graph3;
-        	_common_params=&common_params3;
-        	switch_graph2();
-        	(*sub_graph)<<InputLayer(input_descriptor3, get_input_accessor(*_common_params));
-        	third=true;
-
-        }
+        add_residual_block(data_path, "block1", weights_layout, 64, 3, 2);
 
 
-        // Layer 2
-        (*sub_graph)<< ConvolutionLayer(
-                  1U, 1U, 64U,
-                  get_weights_accessor(data_path, "/cnn_data/googlenet_model/conv2/conv2_3x3_reduce_w.npy", weights_layout),
-                  get_weights_accessor(data_path, "/cnn_data/googlenet_model/conv2/conv2_3x3_reduce_b.npy"),
-                  PadStrideInfo(1, 1, 0, 0))
-              .set_name("conv2/3x3_reduce")
-              << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name("conv2/relu_3x3_reduce");
+        /*Layer++;
+		if(Layer==p){
+			common_params.labels="transfer";
+			(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
+			sub_graph=&graph2;
+			_common_params=&common_params2;
+			switch_graph();
+			(*sub_graph)<<InputLayer(input_descriptor2, get_input_accessor(*_common_params));
+			second=true;
+		}*/
 
 
-        Layer++;
-        if(Layer==p){
-        	//common_params.labels="transfer";
-        	(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
-        	sub_graph=&graph2;
-        	_common_params=&common_params2;
-        	switch_graph();
-        	(*sub_graph)<<InputLayer(input_descriptor2, get_input_accessor(*_common_params));
-        	second=true;
-        }
-        if(Layer==p2){
-        	//common_params2.labels="transfer2";
-        	(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
-        	sub_graph=&graph3;
-        	_common_params=&common_params3;
-        	switch_graph2();
-        	(*sub_graph)<<InputLayer(input_descriptor3, get_input_accessor(*_common_params));
-        	third=true;
 
-        }
-
-        // Layer 3
-        (*sub_graph)<< ConvolutionLayer(
-                  3U, 3U, 192U,
-                  get_weights_accessor(data_path, "/cnn_data/googlenet_model/conv2/conv2_3x3_w.npy", weights_layout),
-                  get_weights_accessor(data_path, "/cnn_data/googlenet_model/conv2/conv2_3x3_b.npy"),
-                  PadStrideInfo(1, 1, 1, 1))
-              .set_name("conv2/3x3")
-              << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name("conv2/relu_3x3")
-              << NormalizationLayer(NormalizationLayerInfo(NormType::CROSS_MAP, 5, 0.0001f, 0.75f)).set_name("conv2/norm2")
-              << PoolingLayer(PoolingLayerInfo(PoolingType::MAX, 3, operation_layout, PadStrideInfo(2, 2, 0, 0, DimensionRoundingType::CEIL))).set_name("pool2/3x3_s2");
+        add_residual_block(data_path, "block2", weights_layout, 128, 4, 2);
 
 
-        Layer++;
-        if(Layer==p){
-        	//common_params.labels="transfer";
-        	(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
-        	sub_graph=&graph2;
-        	_common_params=&common_params2;
-        	switch_graph();
-        	(*sub_graph)<<InputLayer(input_descriptor2, get_input_accessor(*_common_params));
-        	second=true;
-        }
-        if(Layer==p2){
-        	//common_params2.labels="transfer2";
-        	(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
-        	sub_graph=&graph3;
-        	_common_params=&common_params3;
-        	switch_graph2();
-        	(*sub_graph)<<InputLayer(input_descriptor3, get_input_accessor(*_common_params));
-        	third=true;
+        /*Layer++;
+		if(Layer==p){
+			common_params.labels="transfer";
+			(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
+			sub_graph=&graph2;
+			_common_params=&common_params2;
+			switch_graph();
+			(*sub_graph)<<InputLayer(input_descriptor2, get_input_accessor(*_common_params));
+			second=true;
+		}*/
 
-        }
-
-        // Layer 4
-        (*sub_graph) << get_inception_node(data_path, "inception_3a", weights_layout, 64, std::make_tuple(96U, 128U), std::make_tuple(16U, 32U), 32U).set_name("inception_3a/concat");
-
-        Layer++;
-        if(Layer==p){
-        	//common_params.labels="transfer";
-        	(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
-        	sub_graph=&graph2;
-        	_common_params=&common_params2;
-        	switch_graph();
-        	(*sub_graph)<<InputLayer(input_descriptor2, get_input_accessor(*_common_params));
-        	second=true;
-        }
-        if(Layer==p2){
-        	//common_params2.labels="transfer2";
-        	(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
-        	sub_graph=&graph3;
-        	_common_params=&common_params3;
-        	switch_graph2();
-        	(*sub_graph)<<InputLayer(input_descriptor3, get_input_accessor(*_common_params));
-        	third=true;
-
-        }
-        // Layer 5
-        (*sub_graph) << get_inception_node(data_path, "inception_3b", weights_layout, 128, std::make_tuple(128U, 192U), std::make_tuple(32U, 96U), 64U).set_name("inception_3b/concat");
-        (*sub_graph) << PoolingLayer(PoolingLayerInfo(PoolingType::MAX, 3, operation_layout, PadStrideInfo(2, 2, 0, 0, DimensionRoundingType::CEIL))).set_name("pool3/3x3_s2");
+        add_residual_block(data_path, "block3", weights_layout, 256, 6, 2);
 
 
-        Layer++;
-        if(Layer==p){
-        	//common_params.labels="transfer";
-        	(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
-        	sub_graph=&graph2;
-        	_common_params=&common_params2;
-        	switch_graph();
-        	(*sub_graph)<<InputLayer(input_descriptor2, get_input_accessor(*_common_params));
-        	second=true;
-        }
-        if(Layer==p2){
-        	//common_params2.labels="transfer2";
-        	(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
-        	sub_graph=&graph3;
-        	_common_params=&common_params3;
-        	switch_graph2();
-        	(*sub_graph)<<InputLayer(input_descriptor3, get_input_accessor(*_common_params));
-        	third=true;
-
-        }
-        // Layer 6
-        (*sub_graph) << get_inception_node(data_path, "inception_4a", weights_layout, 192, std::make_tuple(96U, 208U), std::make_tuple(16U, 48U), 64U).set_name("inception_4a/concat");
-
-        Layer++;
-        if(Layer==p){
-        	//common_params.labels="transfer";
-        	(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
-        	sub_graph=&graph2;
-        	_common_params=&common_params2;
-        	switch_graph();
-        	(*sub_graph)<<InputLayer(input_descriptor2, get_input_accessor(*_common_params));
-        	second=true;
-        }
-        if(Layer==p2){
-        	//common_params2.labels="transfer2";
-        	(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
-        	sub_graph=&graph3;
-        	_common_params=&common_params3;
-        	switch_graph2();
-        	(*sub_graph)<<InputLayer(input_descriptor3, get_input_accessor(*_common_params));
-        	third=true;
-
-        }
-        // Layer 7
-        (*sub_graph) << get_inception_node(data_path, "inception_4b", weights_layout, 160, std::make_tuple(112U, 224U), std::make_tuple(24U, 64U), 64U).set_name("inception_4b/concat");
+        /*Layer++;
+		if(Layer==p){
+			common_params.labels="transfer";
+			(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
+			sub_graph=&graph2;
+			_common_params=&common_params2;
+			switch_graph();
+			(*sub_graph)<<InputLayer(input_descriptor2, get_input_accessor(*_common_params));
+			second=true;
+		}*/
 
 
-        Layer++;
-        if(Layer==p){
-        	//common_params.labels="transfer";
-        	(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
-        	sub_graph=&graph2;
-        	_common_params=&common_params2;
-        	switch_graph();
-        	(*sub_graph)<<InputLayer(input_descriptor2, get_input_accessor(*_common_params));
-        	second=true;
-        }
-        if(Layer==p2){
-        	//common_params2.labels="transfer2_wait";
-        	(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
-        	sub_graph=&graph3;
-        	_common_params=&common_params3;
-        	switch_graph2();
-        	(*sub_graph)<<InputLayer(input_descriptor3, get_input_accessor(*_common_params));
-        	third=true;
+        add_residual_block(data_path, "block4", weights_layout, 512, 3, 1);
 
-        }
-        // Layer 8
-        (*sub_graph) << get_inception_node(data_path, "inception_4c", weights_layout, 128, std::make_tuple(128U, 256U), std::make_tuple(24U, 64U), 64U).set_name("inception_4c/concat");
-
-        Layer++;
-        if(Layer==p){
-        	//common_params.labels="transfer";
-        	(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
-        	sub_graph=&graph2;
-        	_common_params=&common_params2;
-        	switch_graph();
-        	(*sub_graph)<<InputLayer(input_descriptor2, get_input_accessor(*_common_params));
-        	second=true;
-        }
-        if(Layer==p2){
-        	//common_params2.labels="transfer2";
-        	(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
-        	sub_graph=&graph3;
-        	_common_params=&common_params3;
-        	switch_graph2();
-        	(*sub_graph)<<InputLayer(input_descriptor3, get_input_accessor(*_common_params));
-        	third=true;
-
-        }
-        // Layer 9
-        (*sub_graph) << get_inception_node(data_path, "inception_4d", weights_layout, 112, std::make_tuple(144U, 288U), std::make_tuple(32U, 64U), 64U).set_name("inception_4d/concat");
-
-        Layer++;
-        if(Layer==p){
-        	//common_params.labels="transfer";
-        	(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
-        	sub_graph=&graph2;
-        	_common_params=&common_params2;
-        	switch_graph();
-        	(*sub_graph)<<InputLayer(input_descriptor2, get_input_accessor(*_common_params));
-        	second=true;
-        }
-        if(Layer==p2){
-        	//common_params2.labels="transfer2";
-        	(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
-        	sub_graph=&graph3;
-        	_common_params=&common_params3;
-        	switch_graph2();
-        	(*sub_graph)<<InputLayer(input_descriptor3, get_input_accessor(*_common_params));
-        	third=true;
-
-        }
-        // Layer 10
-        (*sub_graph) << get_inception_node(data_path, "inception_4e", weights_layout, 256, std::make_tuple(160U, 320U), std::make_tuple(32U, 128U), 128U).set_name("inception_4e/concat");
-        (*sub_graph) << PoolingLayer(PoolingLayerInfo(PoolingType::MAX, 3, operation_layout, PadStrideInfo(2, 2, 0, 0, DimensionRoundingType::CEIL))).set_name("pool4/3x3_s2");
-
-        Layer++;
-        if(Layer==p){
-        	//common_params.labels="transfer";
-        	(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
-        	sub_graph=&graph2;
-        	_common_params=&common_params2;
-        	switch_graph();
-        	(*sub_graph)<<InputLayer(input_descriptor2, get_input_accessor(*_common_params));
-        	second=true;
-        }
-        if(Layer==p2){
-        	//common_params2.labels="transfer2";
-        	(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
-        	sub_graph=&graph3;
-        	_common_params=&common_params3;
-        	switch_graph2();
-        	(*sub_graph)<<InputLayer(input_descriptor3, get_input_accessor(*_common_params));
-        	third=true;
-
-        }
-
-        // Layer 11
-        (*sub_graph) << get_inception_node(data_path, "inception_5a", weights_layout, 256, std::make_tuple(160U, 320U), std::make_tuple(32U, 128U), 128U).set_name("inception_5a/concat");
-
-        Layer++;
-        if(Layer==p){
-        	//common_params.labels="transfer";
-        	(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
-        	sub_graph=&graph2;
-        	_common_params=&common_params2;
-        	switch_graph();
-        	(*sub_graph)<<InputLayer(input_descriptor2, get_input_accessor(*_common_params));
-        	second=true;
-        }
-        if(Layer==p2){
-        	//common_params2.labels="transfer2";
-        	(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
-        	sub_graph=&graph3;
-        	_common_params=&common_params3;
-        	switch_graph2();
-        	(*sub_graph)<<InputLayer(input_descriptor3, get_input_accessor(*_common_params));
-        	third=true;
-
-        }
-        // Layer 12
-        (*sub_graph) << get_inception_node(data_path, "inception_5b", weights_layout, 384, std::make_tuple(192U, 384U), std::make_tuple(48U, 128U), 128U).set_name("inception_5b/concat");
-        (*sub_graph) << PoolingLayer(PoolingLayerInfo(PoolingType::AVG, 7, operation_layout, PadStrideInfo(1, 1, 0, 0, DimensionRoundingType::CEIL))).set_name("pool5/7x7_s1");
+        (*sub_graph) << PoolingLayer(PoolingLayerInfo(PoolingType::AVG, operation_layout)).set_name("pool5");
 
 
 
@@ -659,20 +445,23 @@ public:
         	third=true;
 
         }
+
         if(!second){
         	common_params.labels=common_params3.labels;
         }
         else if(!third){
 			common_params2.labels=common_params3.labels;
 		}
-        // Layer 13
-        (*sub_graph)<< FullyConnectedLayer(
-                  1000U,
-                  get_weights_accessor(data_path, "/cnn_data/googlenet_model/loss3/loss3_classifier_w.npy", weights_layout),
-                  get_weights_accessor(data_path, "/cnn_data/googlenet_model/loss3/loss3_classifier_b.npy"))
-              .set_name("loss3/classifier")
-              << SoftmaxLayer().set_name("prob")
+        (*sub_graph)<< ConvolutionLayer(
+                  1U, 1U, 1000U,
+                  get_weights_accessor(data_path, "/cnn_data/resnet50_model/logits_weights.npy", weights_layout),
+                  get_weights_accessor(data_path, "/cnn_data/resnet50_model/logits_biases.npy"),
+                  PadStrideInfo(1, 1, 0, 0))
+              .set_name("logits/convolution")
+              << FlattenLayer().set_name("predictions/Reshape")
+              << SoftmaxLayer().set_name("predictions/Softmax")
               << OutputLayer(get_output_accessor(*_common_params, 5));
+
 
         // Finalize graph
         GraphConfig config;
@@ -718,13 +507,16 @@ public:
         std::cout<<"Total layers:"<<Layer+1<<std::endl<<std::endl;
         return true;
     }
+
+
+private:
     void do_run() override
     {
         // Run graph
         //Ehsan
-    	std::thread First(&GraphGooglenetExample::do_run_1,this,core0);
-    	std::thread Second(&GraphGooglenetExample::do_run_2,this,core1);
-    	std::thread Third(&GraphGooglenetExample::do_run_3,this,core2);
+    	std::thread First(&GraphResNetV1_50Example::do_run_1,this,core0);
+    	std::thread Second(&GraphResNetV1_50Example::do_run_2,this,core1);
+    	std::thread Third(&GraphResNetV1_50Example::do_run_3,this,core2);
     	First.join();
     	Second.join();
     	Third.join();
@@ -931,77 +723,141 @@ private:
     int cluster,cluster2,cluster3 = 0;
 
 
-
-    ConcatLayer get_inception_node(const std::string &data_path, std::string &&param_path, DataLayout weights_layout,
-                                   unsigned int a_filt,
-                                   std::tuple<unsigned int, unsigned int> b_filters,
-                                   std::tuple<unsigned int, unsigned int> c_filters,
-                                   unsigned int d_filt)
+    void add_residual_block(const std::string &data_path, const std::string &name, DataLayout weights_layout,
+                            unsigned int base_depth, unsigned int num_units, unsigned int stride)
     {
-        std::string total_path = "/cnn_data/googlenet_model/" + param_path + "/" + param_path + "_";
-        SubStream   i_a(*sub_graph);
-        i_a << ConvolutionLayer(
-                1U, 1U, a_filt,
-                get_weights_accessor(data_path, total_path + "1x1_w.npy", weights_layout),
-                get_weights_accessor(data_path, total_path + "1x1_b.npy"),
-                PadStrideInfo(1, 1, 0, 0))
-            .set_name(param_path + "/1x1")
-            << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name(param_path + "/relu_1x1");
+        for(unsigned int i = 0; i < num_units; ++i)
+        {
 
-        SubStream i_b(*sub_graph);
-        i_b << ConvolutionLayer(
-                1U, 1U, std::get<0>(b_filters),
-                get_weights_accessor(data_path, total_path + "3x3_reduce_w.npy", weights_layout),
-                get_weights_accessor(data_path, total_path + "3x3_reduce_b.npy"),
-                PadStrideInfo(1, 1, 0, 0))
-            .set_name(param_path + "/3x3_reduce")
-            << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name(param_path + "/relu_3x3_reduce")
-            << ConvolutionLayer(
-                3U, 3U, std::get<1>(b_filters),
-                get_weights_accessor(data_path, total_path + "3x3_w.npy", weights_layout),
-                get_weights_accessor(data_path, total_path + "3x3_b.npy"),
-                PadStrideInfo(1, 1, 1, 1))
-            .set_name(param_path + "/3x3")
-            << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name(param_path + "/relu_3x3");
 
-        SubStream i_c(*sub_graph);
-        i_c << ConvolutionLayer(
-                1U, 1U, std::get<0>(c_filters),
-                get_weights_accessor(data_path, total_path + "5x5_reduce_w.npy", weights_layout),
-                get_weights_accessor(data_path, total_path + "5x5_reduce_b.npy"),
-                PadStrideInfo(1, 1, 0, 0))
-            .set_name(param_path + "/5x5_reduce")
-            << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name(param_path + "/relu_5x5_reduce")
-            << ConvolutionLayer(
-                5U, 5U, std::get<1>(c_filters),
-                get_weights_accessor(data_path, total_path + "5x5_w.npy", weights_layout),
-                get_weights_accessor(data_path, total_path + "5x5_b.npy"),
-                PadStrideInfo(1, 1, 2, 2))
-            .set_name(param_path + "/5x5")
-            << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name(param_path + "/relu_5x5");
+            Layer++;
+            if(Layer==p){
+            	//common_params.labels="transfer";
+            	(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
+            	sub_graph=&graph2;
+            	_common_params=&common_params2;
+            	switch_graph();
+            	(*sub_graph)<<InputLayer(input_descriptor2, get_input_accessor(*_common_params));
+            	second=true;
+            }
+            if(Layer==p2){
+            	//common_params2.labels="transfer2";
+            	(*sub_graph)<<OutputLayer(get_output_accessor(*_common_params, 5));
+            	sub_graph=&graph3;
+            	_common_params=&common_params3;
+            	switch_graph2();
+            	(*sub_graph)<<InputLayer(input_descriptor3, get_input_accessor(*_common_params));
+            	third=true;
 
-        SubStream i_d(*sub_graph);
-        i_d << PoolingLayer(PoolingLayerInfo(PoolingType::MAX, 3, common_params.data_layout, PadStrideInfo(1, 1, 1, 1, DimensionRoundingType::CEIL))).set_name(param_path + "/pool")
-            << ConvolutionLayer(
-                1U, 1U, d_filt,
-                get_weights_accessor(data_path, total_path + "pool_proj_w.npy", weights_layout),
-                get_weights_accessor(data_path, total_path + "pool_proj_b.npy"),
-                PadStrideInfo(1, 1, 0, 0))
-            .set_name(param_path + "/pool_proj")
-            << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name(param_path + "/relu_pool_proj");
+            }
 
-        return ConcatLayer(std::move(i_a), std::move(i_b), std::move(i_c), std::move(i_d));
+
+
+            std::stringstream unit_path_ss;
+            unit_path_ss << "/cnn_data/resnet50_model/" << name << "_unit_" << (i + 1) << "_bottleneck_v1_";
+            std::stringstream unit_name_ss;
+            unit_name_ss << name << "/unit" << (i + 1) << "/bottleneck_v1/";
+
+            std::string unit_path = unit_path_ss.str();
+            std::string unit_name = unit_name_ss.str();
+
+            unsigned int middle_stride = 1;
+
+            if(i == (num_units - 1))
+            {
+                middle_stride = stride;
+            }
+
+            SubStream right(*sub_graph);
+            right << ConvolutionLayer(
+                      1U, 1U, base_depth,
+                      get_weights_accessor(data_path, unit_path + "conv1_weights.npy", weights_layout),
+                      std::unique_ptr<arm_compute::graph::ITensorAccessor>(nullptr),
+                      PadStrideInfo(1, 1, 0, 0))
+                  .set_name(unit_name + "conv1/convolution")
+                  << BatchNormalizationLayer(
+                      get_weights_accessor(data_path, unit_path + "conv1_BatchNorm_moving_mean.npy"),
+                      get_weights_accessor(data_path, unit_path + "conv1_BatchNorm_moving_variance.npy"),
+                      get_weights_accessor(data_path, unit_path + "conv1_BatchNorm_gamma.npy"),
+                      get_weights_accessor(data_path, unit_path + "conv1_BatchNorm_beta.npy"),
+                      0.0000100099996416f)
+                  .set_name(unit_name + "conv1/BatchNorm")
+                  << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name(unit_name + "conv1/Relu")
+
+                  << ConvolutionLayer(
+                      3U, 3U, base_depth,
+                      get_weights_accessor(data_path, unit_path + "conv2_weights.npy", weights_layout),
+                      std::unique_ptr<arm_compute::graph::ITensorAccessor>(nullptr),
+                      PadStrideInfo(middle_stride, middle_stride, 1, 1))
+                  .set_name(unit_name + "conv2/convolution")
+                  << BatchNormalizationLayer(
+                      get_weights_accessor(data_path, unit_path + "conv2_BatchNorm_moving_mean.npy"),
+                      get_weights_accessor(data_path, unit_path + "conv2_BatchNorm_moving_variance.npy"),
+                      get_weights_accessor(data_path, unit_path + "conv2_BatchNorm_gamma.npy"),
+                      get_weights_accessor(data_path, unit_path + "conv2_BatchNorm_beta.npy"),
+                      0.0000100099996416f)
+                  .set_name(unit_name + "conv2/BatchNorm")
+                  << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name(unit_name + "conv1/Relu")
+
+                  << ConvolutionLayer(
+                      1U, 1U, base_depth * 4,
+                      get_weights_accessor(data_path, unit_path + "conv3_weights.npy", weights_layout),
+                      std::unique_ptr<arm_compute::graph::ITensorAccessor>(nullptr),
+                      PadStrideInfo(1, 1, 0, 0))
+                  .set_name(unit_name + "conv3/convolution")
+                  << BatchNormalizationLayer(
+                      get_weights_accessor(data_path, unit_path + "conv3_BatchNorm_moving_mean.npy"),
+                      get_weights_accessor(data_path, unit_path + "conv3_BatchNorm_moving_variance.npy"),
+                      get_weights_accessor(data_path, unit_path + "conv3_BatchNorm_gamma.npy"),
+                      get_weights_accessor(data_path, unit_path + "conv3_BatchNorm_beta.npy"),
+                      0.0000100099996416f)
+                  .set_name(unit_name + "conv2/BatchNorm");
+
+            if(i == 0)
+            {
+                SubStream left(*sub_graph);
+                left << ConvolutionLayer(
+                         1U, 1U, base_depth * 4,
+                         get_weights_accessor(data_path, unit_path + "shortcut_weights.npy", weights_layout),
+                         std::unique_ptr<arm_compute::graph::ITensorAccessor>(nullptr),
+                         PadStrideInfo(1, 1, 0, 0))
+                     .set_name(unit_name + "shortcut/convolution")
+                     << BatchNormalizationLayer(
+                         get_weights_accessor(data_path, unit_path + "shortcut_BatchNorm_moving_mean.npy"),
+                         get_weights_accessor(data_path, unit_path + "shortcut_BatchNorm_moving_variance.npy"),
+                         get_weights_accessor(data_path, unit_path + "shortcut_BatchNorm_gamma.npy"),
+                         get_weights_accessor(data_path, unit_path + "shortcut_BatchNorm_beta.npy"),
+                         0.0000100099996416f)
+                     .set_name(unit_name + "shortcut/BatchNorm");
+
+                *sub_graph << EltwiseLayer(std::move(left), std::move(right), EltwiseOperation::Add).set_name(unit_name + "add");
+            }
+            else if(middle_stride > 1)
+            {
+                SubStream left(*sub_graph);
+                left << PoolingLayer(PoolingLayerInfo(PoolingType::MAX, 1, common_params.data_layout, PadStrideInfo(middle_stride, middle_stride, 0, 0), true)).set_name(unit_name + "shortcut/MaxPool");
+
+                *sub_graph << EltwiseLayer(std::move(left), std::move(right), EltwiseOperation::Add).set_name(unit_name + "add");
+            }
+            else
+            {
+                SubStream left(*sub_graph);
+                *sub_graph << EltwiseLayer(std::move(left), std::move(right), EltwiseOperation::Add).set_name(unit_name + "add");
+            }
+
+            *sub_graph << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name(unit_name + "Relu");
+        }
     }
 };
 
-/** Main program for Googlenet
+/** Main program for ResNetV1_50
  *
  * Model is based on:
- *      https://arxiv.org/abs/1409.4842
- *      "Going deeper with convolutions"
- *      Christian Szegedy, Wei Liu, Yangqing Jia, Pierre Sermanet, Scott Reed, Dragomir Anguelov, Dumitru Erhan, Vincent Vanhoucke, Andrew Rabinovich
+ *      https://arxiv.org/abs/1512.03385
+ *      "Deep Residual Learning for Image Recognition"
+ *      Kaiming He, Xiangyu Zhang, Shaoqing Ren, Jian Sun
  *
- * Provenance: https://github.com/BVLC/caffe/tree/master/models/bvlc_googlenet
+ * Provenance: download.tensorflow.org/models/resnet_v1_50_2016_08_28.tar.gz
  *
  * @note To list all the possible arguments execute the binary appended with the --help option
  *
@@ -1010,6 +866,5 @@ private:
  */
 int main(int argc, char **argv)
 {
-    //ANNOTATE_SETUP;
-    return arm_compute::utils::run_example<GraphGooglenetExample>(argc, argv);
+    return arm_compute::utils::run_example<GraphResNetV1_50Example>(argc, argv);
 }
