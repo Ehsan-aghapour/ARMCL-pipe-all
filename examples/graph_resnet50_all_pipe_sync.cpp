@@ -558,6 +558,11 @@ private:
         auto tstart=std::chrono::high_resolution_clock::now();
         //std::cout<<tstart.time_since_epoch().count()<<std::endl;
         //std::cout<<tt<<std::endl;
+        if(p==111){
+			std::cout<<"Press key to start running...\n";
+			std::string g;
+			std::cin>>g;
+        }
         for(int i=0;i<(tt+1);i++){
         	if(i==1){
         		std::this_thread::sleep_for(std::chrono::milliseconds(1000));
