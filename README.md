@@ -7,6 +7,16 @@ git clone https://github.com/Ehsan-aghapour/ARMCL-PipeALL.git -b pipe-all
 <br/>
 
 
+# Compiling for Android
+
+First it is required to prepare cross compile tools to compile source code in linux system for android target. Here is the steps to download and settup tools.
+
+1- Download Android NDK:
+https://developer.android.com/ndk/downloads
+
+2- Now we should create a standalone toolchains for compiling source code for android. 
+
+$NDK/build/tools/make_standalone_toolchain.py --arch arm/arm64 --api 23 --stl gnustl --install-dir /media/ehsan/Data/UvA/ARM-CL/ML/CL/toolchains/aarch64
 
 
 
