@@ -8,11 +8,22 @@ We create the pipe-all for AlexNet, GoogleNet, MobileNet, ResNet50 and SqueezeNe
 
 After compiling the source code and preparing the libraries based on your platform run the following command:
 
-./graph_file --threads=$N1 --threads2=$N2 --image=$image_dir --data=$data_dir --labels=$label_dir --partition_point=$P1 --partition_point2=$P2 --order=$component_orders
+./graph_file --threads=4 --threads2=2 --partition_point=3 --partition_point2=5 --order=G-L-B --n=60 --image=data_dir/images/ --data=data_dir/ --labels=data_dir/label.txt
 <br/>
 <br/>
-## Arguments
 --threads: Number of threads for Big cluster.
+--threads2: Number of threads for little cluster.
+--partition_point: The first partitioning point. First partitioning will happen after layer specified with this argument.
+--partition_point2: The second partitioning point. second partitioning will happen after layer specified with this argument.
+--order: The order of components in the pipeline. (G:GPU, B:CPU Big cluster, L:CPU Little cluster). For example G-B-L order means first subgraph runs in GPU, Second subgraph runs in CPU Big cluster and third subgraph runs in CPU little cluster.
+--n: Number or runs. For example 60 means running graph for 60 frames.
+
+The following image, data and lablels should specified if you want to run the graph for real data. But if you want to run the network for dummy data (random data and image) do not specify this arguments:
+--image: dir which include image files. graph will run for images inside this dir.
+--data: dir of graph parameters.
+--labels: label file
+
+
 
 <br/>
 <br/>
