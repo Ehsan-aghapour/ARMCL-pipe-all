@@ -8,11 +8,12 @@ We create the pipe-all for AlexNet, GoogleNet, MobileNet, ResNet50 and SqueezeNe
 
 After compiling the source code and preparing the libraries based on your platform run the following command:
 
-./graph_file --threads=4 --threads2=2 --partition_point=3 --partition_point2=5 --order=G-L-B --n=60 --image=data_dir/images/ --data=data_dir/ --labels=data_dir/label.txt
+./graph_AlexNet_all_pip_sync --threads=4 --threads2=2 --total_cores=6 --partition_point=3 --partition_point2=5 --order=G-L-B --n=60 --image=data_dir/images/ --data=data_dir/ --labels=data_dir/label.txt
 <br/>
 <br/>
 --threads: Number of threads for Big cluster.<br/>
 --threads2: Number of threads for little cluster.<br/>
+--total_cores: Number of all cores of CPU. <br/>
 --partition_point: The first partitioning point. First partitioning will happen after layer specified with this argument.<br/>
 --partition_point2: The second partitioning point. second partitioning will happen after layer specified with this argument.<br/>
 --order: The order of components in the pipeline. (G:GPU, B:CPU Big cluster, L:CPU Little cluster). For example G-B-L order means first subgraph runs in GPU, Second subgraph runs in CPU Big cluster and third subgraph runs in CPU little cluster.<br/>
