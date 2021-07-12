@@ -3,7 +3,7 @@ Pipe-line implementation in ARM Compute Library (See pipe-all branch).
 
 git clone https://github.com/Ehsan-aghapour/ARMCL-PipeALL.git -b pipe-all
 
-
+\\
 
 
 
