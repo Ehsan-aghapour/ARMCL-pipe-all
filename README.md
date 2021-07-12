@@ -22,7 +22,7 @@ The following image, data and lablels should specified if you want to run the gr
 --image: dir which include image files. graph will run for images inside this dir.<br/>
 --data: dir of graph parameters.<br/>
 --labels: label file<br/>
-
+![plot](Pipe-All_0.png)
 
 
 <br/>
