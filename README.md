@@ -30,6 +30,7 @@ The following image, data and lablels should specified if you want to run the gr
 The following parts explain compiling and running ARMCL for android and linux platforms.
 <br/>
 <br/>
+
 # Compiling for Android
 
 First it is required to prepare cross compile tools to compile source code in linux system for android target. Here is the steps to download and settup tools.
