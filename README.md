@@ -35,8 +35,27 @@ Then use the following command to compile. Based on your platform set arch to ar
 scons Werror=0 -j16 debug=0 asserts=0 neon=1 opencl=1 os=linux arch=armv7a/arm64-v8a
 
 
-# Running for Android
+# Running in Android
 For android it is required to specify the path of libOpenCL.so. First copy this library into an arbitrary dir ($lib_dir) and set LD_LIBRARY_PATH to this dir:<br/>
+cp /system/lib64/egl/libGLES_mali.so $lib_dir/libOpenCL.so <br/>
+export LD_LIBRARY_PATH=$lib_dir
+
+Now it is ready to run built binaries in build dir of ARMCL. <br/> <br/>
+For AlexNet there is a zip file of model paramters, sample images and a label file. So you can run this graph for real data and see the results. For this purpose first download this zip file at: <br/> https://developer.arm.com/-/media/Arm%20Developer%20Community/Images/Tutorial%20Guide%20Diagrams%20and%20Screenshots/Machine%20Learning/Running%20AlexNet%20on%20Pi%20with%20Compute%20Library/compute_library_alexnet.zip?revision=c1a232fa-f328-451f-9bd6-250b83511e01&la=en&hash=7371AEC619F8192A9DE3E42FE6D9D18B5119E30C
+
+make a directory and extract this zip file: <br/>
+mkdir $assets_alexnet <br/>
+unzip compute_library_alexnet.zip -d $assets_alexnet
+<br/> <br/>
+Run the AlexNet graph with this command. Select NEON or CL to run it on CPU or GPU respectively: <br/>
+./build/examples/graph_alexnet Neon/CL $assets_alexnet $assets_alexnet/go_kart.ppm $assets_alexnet/labels.txt
+
+
+# Running in Linux
+For linux in addition to libOpencL.so, these three libraries should be copied into target. So first copy these libraries from the ARMCL dir:<br/>
+cp build/libarm_compute.so build/libarm_compute_core.so build/libarm_compute_graph.so $lib_dir
+<br/>
+Then copy libOpenCL.so into $lib_dir and set LD_LIBRARY_PATH to them:<br/>
 cp /system/lib64/egl/libGLES_mali.so $lib_dir/libOpenCL.so <br/>
 export LD_LIBRARY_PATH=$lib_dir
 
