@@ -23,10 +23,23 @@ This command create cross compile toolchains at $cross-compile-dir.
 3- Add $cross-compile-dir/bin to the path:
 export PATH=$cross-compile-dir/bin/:$PATH
 
-4- Go to the ARMCL source dir (cd $ARMCL-source-dir) and use the following command to compile it:
-CXX=clang++ CC=clang scons Werror=0 debug=0 asserts=0 neon=1 opencl=1 os=android arch=arm64-v8a -j8
+4- Go to the ARMCL source dir (cd $ARMCL-source-dir) and use the following command to compile it. Based on your platform set arch to armv7a or arm64-v8a in this command.
+CXX=clang++ CC=clang scons Werror=0 debug=0 asserts=0 neon=1 opencl=1 os=android arch=armv7a/arm64-v8a -j8
+
+# Compiling for linux
+For cross compiling the source code in linux host for linux host you require:
+gcc-linaro-6.3.1-2017.05-x86_64_arm-linux-gnueabihf for 32 bit target 
+gcc-linaro-6.3.1-2017.05-x86_64_aarch64-linux-gnu for 64 bit target
+
+Then use the following command to compile. Based on your platform set arch to armv7a or arm64-v8a in this command.
+scons Werror=0 -j16 debug=0 asserts=0 neon=1 opencl=1 os=linux arch=armv7a/arm64-v8a
 
 
+
+
+
+<br/>
+<br/>
 <div align="center">
  <img src="https://raw.githubusercontent.com/ARM-software/ComputeLibrary/gh-pages/ACL_logo.png"><br><br>
 </div>
