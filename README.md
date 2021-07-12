@@ -27,8 +27,8 @@ export PATH=$cross-compile-dir/bin/:$PATH
 CXX=clang++ CC=clang scons Werror=0 debug=0 asserts=0 neon=1 opencl=1 os=android arch=armv7a/arm64-v8a -j8
 
 # Compiling for linux
-For cross compiling the source code in linux host for linux host you require:
-gcc-linaro-6.3.1-2017.05-x86_64_arm-linux-gnueabihf for 32 bit target 
+For cross compiling the source code in linux host for linux host you require:<br/>
+gcc-linaro-6.3.1-2017.05-x86_64_arm-linux-gnueabihf for 32 bit target <br/>
 gcc-linaro-6.3.1-2017.05-x86_64_aarch64-linux-gnu for 64 bit target
 
 Then use the following command to compile. Based on your platform set arch to armv7a or arm64-v8a in this command.
