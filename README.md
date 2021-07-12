@@ -3,10 +3,22 @@ Pipe-line implementation in ARM Compute Library (See pipe-all branch).
 
 git clone https://github.com/Ehsan-aghapour/ARMCL-PipeALL.git -b pipe-all
 
+# Run the Pipe-all
+We create the pipe-all for AlexNet, GoogleNet, MobileNet, ResNet50 and SqueezeNet graphs. The pipe-all versions of these graphs are graph_AlexNet_all_pipe_sync, graph_GoogleNet_all_pipe_sync, graph_MobileNet_all_pipe_sync, graph_ResNet50_all_pipe_sync, and graph_SqueezeNet_all_pipe_sync respectively.
+
+After compiling the source code and preparing the libraries based on your platform run the following command:
+
+./graph_file --threads=$N1 --threads2=$N2 --image=$image_dir --data=$data_dir --labels=$label_dir --partition_point=$P1 --partition_point2=$P2 --order=$component_orders
 <br/>
 <br/>
+## Arguments
+--threads: Number of threads for Big cluster.
 
-
+<br/>
+<br/>
+The following parts explain compiling and running ARMCL for android and linux platforms.
+<br/>
+<br/>
 # Compiling for Android
 
 First it is required to prepare cross compile tools to compile source code in linux system for android target. Here is the steps to download and settup tools.
