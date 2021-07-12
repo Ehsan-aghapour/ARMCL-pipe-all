@@ -40,13 +40,13 @@ For android it is required to specify the path of libOpenCL.so. First copy this 
 cp /system/lib64/egl/libGLES_mali.so $lib_dir/libOpenCL.so <br/>
 export LD_LIBRARY_PATH=$lib_dir
 
-Now it is ready to run built binaries in build dir of ARMCL. <br/>
+Now it is ready to run built binaries in build dir of ARMCL. <br/> <br/>
 For AlexNet there is a zip file of model paramters, sample images and a label file. So you can run this graph for real data and see the results. For this purpose first download this zip file at: <br/> https://developer.arm.com/-/media/Arm%20Developer%20Community/Images/Tutorial%20Guide%20Diagrams%20and%20Screenshots/Machine%20Learning/Running%20AlexNet%20on%20Pi%20with%20Compute%20Library/compute_library_alexnet.zip?revision=c1a232fa-f328-451f-9bd6-250b83511e01&la=en&hash=7371AEC619F8192A9DE3E42FE6D9D18B5119E30C
 
 make a directory and extract this zip file: <br/>
 mkdir $assets_alexnet <br/>
 unzip compute_library_alexnet.zip -d $assets_alexnet
-<br/>
+<br/> <br/>
 Run the AlexNet graph with this command. Select NEON or CL to run it on CPU or GPU respectively: <br/>
 ./build/examples/graph_alexnet Neon/CL $assets_alexnet $assets_alexnet/go_kart.ppm $assets_alexnet/labels.txt
 
