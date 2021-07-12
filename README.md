@@ -14,11 +14,17 @@ First it is required to prepare cross compile tools to compile source code in li
 1- Download Android NDK:
 https://developer.android.com/ndk/downloads
 
-2- Now we should create a standalone toolchains for compiling source code for android. 
+2- We should create a standalone toolchains for compiling source code for android. Based on your platform set --arch to arm or arm64 in the following command. $corss-compile-dir is your arbitrary dir at which cross compile toolchains will be created.
 
-$NDK/build/tools/make_standalone_toolchain.py --arch arm/arm64 --api 23 --stl gnustl --install-dir /media/ehsan/Data/UvA/ARM-CL/ML/CL/toolchains/aarch64
+$NDK/build/tools/make_standalone_toolchain.py --arch arm/arm64 --api 23 --stl gnustl --install-dir $cross_compile_dir
 
+This command create cross compile toolchains at $cross-compile-dir.
 
+3- Add $cross-compile-dir/bin to the path:
+export PATH=$cross-compile-dir/bin/:$PATH
+
+4- Go to the ARMCL source dir (cd $ARMCL-source-dir) and use the following command to compile it:
+CXX=clang++ CC=clang scons Werror=0 debug=0 asserts=0 neon=1 opencl=1 os=android arch=arm64-v8a -j8
 
 
 <div align="center">
