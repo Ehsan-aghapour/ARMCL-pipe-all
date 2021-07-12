@@ -11,19 +11,19 @@ git clone https://github.com/Ehsan-aghapour/ARMCL-PipeALL.git -b pipe-all
 
 First it is required to prepare cross compile tools to compile source code in linux system for android target. Here is the steps to download and settup tools.
 
-1- Download Android NDK:
+1- Download Android NDK:<br/>
 https://developer.android.com/ndk/downloads
 
-2- We should create a standalone toolchains for compiling source code for android. Based on your platform set --arch to arm or arm64 in the following command. $corss-compile-dir is your arbitrary dir at which cross compile toolchains will be created.
+2- We should create a standalone toolchains for compiling source code for android. Based on your platform set --arch to arm or arm64 in the following command. $corss-compile-dir is your arbitrary dir at which cross compile toolchains will be created.<br/>
 
-$NDK/build/tools/make_standalone_toolchain.py --arch arm/arm64 --api 23 --stl gnustl --install-dir $cross_compile_dir
+$NDK/build/tools/make_standalone_toolchain.py --arch arm/arm64 --api 23 --stl gnustl --install-dir $cross_compile_dir<br/>
 
 This command create cross compile toolchains at $cross-compile-dir.
 
-3- Add $cross-compile-dir/bin to the path:
+3- Add $cross-compile-dir/bin to the path:<br/>
 export PATH=$cross-compile-dir/bin/:$PATH
 
-4- Go to the ARMCL source dir (cd $ARMCL-source-dir) and use the following command to compile it. Based on your platform set arch to armv7a or arm64-v8a in this command.
+4- Go to the ARMCL source dir (cd $ARMCL-source-dir) and use the following command to compile it. Based on your platform set arch to armv7a or arm64-v8a in this command.<br/>
 CXX=clang++ CC=clang scons Werror=0 debug=0 asserts=0 neon=1 opencl=1 os=android arch=armv7a/arm64-v8a -j8
 
 # Compiling for linux
@@ -31,7 +31,7 @@ For cross compiling the source code in linux host for linux host you require:<br
 gcc-linaro-6.3.1-2017.05-x86_64_arm-linux-gnueabihf for 32 bit target <br/>
 gcc-linaro-6.3.1-2017.05-x86_64_aarch64-linux-gnu for 64 bit target
 
-Then use the following command to compile. Based on your platform set arch to armv7a or arm64-v8a in this command.
+Then use the following command to compile. Based on your platform set arch to armv7a or arm64-v8a in this command.<br/>
 scons Werror=0 -j16 debug=0 asserts=0 neon=1 opencl=1 os=linux arch=armv7a/arm64-v8a
 
 
