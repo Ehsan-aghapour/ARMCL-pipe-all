@@ -49,6 +49,16 @@ void Stream::run()
     _manager.execute_graph(_g);
 }
 
+//Ehsan run with measurement
+void Stream::run(double &in,double &task, double &out)
+{
+    _manager.execute_graph(_g,in,task,out);
+}
+void Stream::run(double &in,double &task, double &out, bool anotate)
+{
+    _manager.execute_graph(_g,in,task,out);
+}
+
 void Stream::add_layer(ILayer &layer)
 {
     auto nid   = layer.create_layer(*this);

@@ -72,6 +72,8 @@ public:
      * @param[in] graph Graph to execute
      */
     void execute_graph(Graph &graph);
+    //Ehsan execute graph with measurement
+    void execute_graph(Graph &graph, double &in, double &task, double &out);
     /** Invalidates the graph execution workload
      *
      * @param[in] graph Graph to invalidate

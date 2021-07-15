@@ -63,9 +63,13 @@ public:
         _real_scheduler.set_num_threads(num_threads);
     }
 
-    void set_num_threads_with_affinity(unsigned int num_threads, BindFunc func) override
+    //Ehsan
+    //void set_num_threads_with_affinity(unsigned int num_threads, BindFunc func) override
+    void set_num_threads_with_affinity(unsigned int num_threads, arm_compute::graph::GraphConfig cfg, BindFunc func) override
     {
-        _real_scheduler.set_num_threads_with_affinity(num_threads, func);
+    	//Ehsan
+        //_real_scheduler.set_num_threads_with_affinity(num_threads, func);
+    	_real_scheduler.set_num_threads_with_affinity(num_threads, cfg, func);
     }
 
     unsigned int num_threads() const override

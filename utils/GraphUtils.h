@@ -39,6 +39,9 @@
 #include <string>
 #include <vector>
 
+//Ehsan
+#include "arm_compute/gl_vs.h"
+
 namespace arm_compute
 {
 namespace graph_utils
@@ -130,7 +133,9 @@ public:
      *
      * @param[in] maximum Maximum elements to write
      */
-    DummyAccessor(unsigned int maximum = 1);
+	//Ehsan type(input/output)
+    //DummyAccessor(unsigned int maximum = 1);
+	DummyAccessor(bool type, unsigned int maximum = 1);
     /** Allows instances to move constructed */
     DummyAccessor(DummyAccessor &&) = default;
 
@@ -140,6 +145,43 @@ public:
 private:
     unsigned int _iterator;
     unsigned int _maximum;
+    //Ehsan type(input/output)
+    bool                _type;
+};
+
+//Ehsan
+/** Receiver accessor (Second graph input) class */
+class ReceiverAccessor final : public graph::ITensorAccessor
+{
+public:
+    /** Constructor
+     *
+     */
+    ReceiverAccessor(bool tran, unsigned int maximum = 1);
+    /** Allows instances to move constructed */
+    ReceiverAccessor(ReceiverAccessor &&) = default;
+    // Inherited methods overriden:
+    bool access_tensor(ITensor &tensor) override;
+
+private:
+    bool               transition=false;
+};
+
+//Ehsan
+/** Receiver accessor (third graph input) class */
+class ReceiverAccessor2 final : public graph::ITensorAccessor
+{
+public:
+    /** Constructor */
+    ReceiverAccessor2(bool tran, unsigned int maximum = 1);
+    /** Allows instances to move constructed */
+    ReceiverAccessor2(ReceiverAccessor2 &&) = default;
+
+    // Inherited methods overriden:
+    bool access_tensor(ITensor &tensor) override;
+
+private:
+    bool               transition=false;
 };
 
 /** NumPy accessor class */
@@ -242,10 +284,14 @@ public:
 
     // Inherited methods overriden:
     bool access_tensor(ITensor &tensor) override;
+    //Ehsan
+    bool set_filename(std::string filename);
 
 private:
     bool                           _already_loaded;
-    const std::string              _filename;
+    //Ehsan
+    //const std::string              _filename;
+    std::string              	   _filename;
     const bool                     _bgr;
     std::unique_ptr<IPreprocessor> _preprocessor;
 };
@@ -402,6 +448,70 @@ private:
     size_t                   _top_n;
 };
 
+
+//Ehsan
+/** Sender accessor class, Sender of first sub-graph */
+class SenderAccessor final : public graph::ITensorAccessor
+{
+public:
+    /** Constructor
+     *
+     * @param[in]  labels_path   Path to labels text file.
+     * @param[in]  top_n         (Optional) Number of output classes to print
+     * @param[out] output_stream (Optional) Output stream
+     */
+	SenderAccessor(bool tran);
+    /** Allow instances of this class to be move constructed */
+	SenderAccessor(SenderAccessor &&) = default;
+    /** Prevent instances of this class from being copied (As this class contains pointers) */
+	SenderAccessor(const SenderAccessor &) = delete;
+    /** Prevent instances of this class from being copied (As this class contains pointers) */
+	SenderAccessor &operator=(const SenderAccessor &) = delete;
+
+    // Inherited methods overriden:
+    bool access_tensor(ITensor &tensor) override;
+
+private:
+
+    //Ehsan
+    template <typename T>
+    void my_access_predictions_tensor(ITensor &tensor);
+    bool               transition=false;
+
+};
+
+//Ehsan
+/** Sender accessor class, Sender of second sub-graph */
+class SenderAccessor2 final : public graph::ITensorAccessor
+{
+public:
+    /** Constructor
+     *
+     * @param[in]  labels_path   Path to labels text file.
+     * @param[in]  top_n         (Optional) Number of output classes to print
+     * @param[out] output_stream (Optional) Output stream
+     */
+    SenderAccessor2(bool tran);
+    /** Allow instances of this class to be move constructed */
+    SenderAccessor2(SenderAccessor2 &&) = default;
+    /** Prevent instances of this class from being copied (As this class contains pointers) */
+    SenderAccessor2(const SenderAccessor2 &) = delete;
+    /** Prevent instances of this class from being copied (As this class contains pointers) */
+    SenderAccessor2 &operator=(const SenderAccessor2 &) = delete;
+
+    // Inherited methods overriden:
+    bool access_tensor(ITensor &tensor) override;
+
+private:
+
+    //Ehsan
+    template <typename T>
+    void my_access_predictions_tensor(ITensor &tensor);
+    bool               transition=false;
+
+};
+
+
 /** Random accessor class */
 class RandomAccessor final : public graph::ITensorAccessor
 {
@@ -478,7 +588,9 @@ inline std::unique_ptr<graph::ITensorAccessor> get_weights_accessor(const std::s
 {
     if(path.empty())
     {
-        return std::make_unique<DummyAccessor>();
+    	//Ehsan
+        //return std::make_unique<DummyAccessor>();
+    	return std::make_unique<DummyAccessor>(1);
     }
     else
     {
@@ -521,9 +633,29 @@ inline std::unique_ptr<graph::ITensorAccessor> get_input_accessor(const arm_comp
         {
             return std::make_unique<ImageAccessor>(image_file, bgr, std::move(preprocessor));
         }
+        //Ehsan selecting intermediate transfer nodes
+		else if( graph_parameters.image == "transfer" )
+		{
+			   return std::make_unique<ReceiverAccessor>(1);
+		}
+		else if( graph_parameters.image == "transfer_wait" )
+			   {
+					   return std::make_unique<ReceiverAccessor>(0);
+			   }
+		else if( graph_parameters.image == "transfer2" )
+		{
+			   return std::make_unique<ReceiverAccessor2>(1);
+		}
+		else if( graph_parameters.image == "transfer2_wait" )
+		{
+			   return std::make_unique<ReceiverAccessor2>(0);
+		}
+
         else
         {
-            return std::make_unique<DummyAccessor>();
+        	//Ehsan
+            //return std::make_unique<DummyAccessor>();
+            return std::make_unique<DummyAccessor>(1);
         }
     }
 }
@@ -555,8 +687,29 @@ inline std::unique_ptr<graph::ITensorAccessor> get_output_accessor(const arm_com
     }
     else if(graph_parameters.labels.empty())
     {
-        return std::make_unique<DummyAccessor>(0);
+    	//Ehsan
+        //return std::make_unique<DummyAccessor>(0);
+    	return std::make_unique<DummyAccessor>(0,0);
     }
+
+    //Ehsan
+    else if( graph_parameters.labels == "transfer" )
+	{
+	   return std::make_unique<SenderAccessor>(1);
+	}
+	else if( graph_parameters.labels == "transfer_wait" )
+	{
+		return std::make_unique<SenderAccessor>(0);
+	}
+	else if( graph_parameters.labels == "transfer2" )
+	{
+	   return std::make_unique<SenderAccessor2>(1);
+	}
+	else if( graph_parameters.labels == "transfer2_wait")
+   {
+		   return std::make_unique<SenderAccessor2>(0);
+   }
+
     else
     {
         return std::make_unique<TopNPredictionsAccessor>(graph_parameters.labels, top_n, output_stream);

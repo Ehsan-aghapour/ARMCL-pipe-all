@@ -80,6 +80,7 @@ namespace utils
     std::string true_str  = std::string("true");
 
     os << "Threads : " << common_params.threads << std::endl;
+    os << "Small Cores Threads : " << common_params.threads2 << std::endl;
     os << "Target : " << common_params.target << std::endl;
     os << "Data type : " << common_params.data_type << std::endl;
     os << "Data layout : " << common_params.data_layout << std::endl;
@@ -93,14 +94,14 @@ namespace utils
     {
         os << "Data path : " << common_params.data_path << std::endl;
     }
-    if(!common_params.image.empty())
-    {
+    //if(!common_params.image.empty())
+    //{
         os << "Image file : " << common_params.image << std::endl;
-    }
-    if(!common_params.labels.empty())
-    {
+    //}
+    //if(!common_params.labels.empty())
+    //{
         os << "Labels file : " << common_params.labels << std::endl;
-    }
+    //}
     if(!common_params.validation_file.empty())
     {
         os << "Validation range : " << common_params.validation_range_start << "-" << common_params.validation_range_end << std::endl;
@@ -110,13 +111,40 @@ namespace utils
             os << "Validation path : " << common_params.validation_path << std::endl;
         }
     }
+    //Ehsan
+    os << "Partition point is : "
+    		<< common_params.partition_point
+    		<< std::endl;
 
+    os << "Second partition point is : "
+    		<< common_params.partition_point2
+    		<< std::endl;
+
+    os << "Order is : "
+    		<< common_params.order
+    		<< std::endl;
+
+    os << "Total number of cores is : "
+    		<< common_params.total_cores
+    		<< std::endl;
+
+
+    if(common_params.save){
+    	os<<"Saving model to "<<common_params.data_path<<std::endl;
+    }
+
+    if(common_params.annotate){
+    	os<<"Streamline annotation is enable"<<std::endl;
+    }
+
+    os<<"Run network for "<<common_params.n<<" times.\n";
     return os;
 }
 
 CommonGraphOptions::CommonGraphOptions(CommandLineParser &parser)
     : help(parser.add_option<ToggleOption>("help")),
       threads(parser.add_option<SimpleOption<int>>("threads", 1)),
+	  threads2(parser.add_option<SimpleOption<int>>("threads2", 1)),
       target(),
       data_type(),
       data_layout(),
@@ -131,7 +159,15 @@ CommonGraphOptions::CommonGraphOptions(CommandLineParser &parser)
       validation_path(parser.add_option<SimpleOption<std::string>>("validation-path")),
       validation_range(parser.add_option<SimpleOption<std::string>>("validation-range")),
       tuner_file(parser.add_option<SimpleOption<std::string>>("tuner-file")),
-      mlgo_file(parser.add_option<SimpleOption<std::string>>("mlgo-file"))
+      mlgo_file(parser.add_option<SimpleOption<std::string>>("mlgo-file")),
+	  //Ehsan
+	  partition_point(parser.add_option<SimpleOption<int>>("partition_point", 0)),
+	  partition_point2(parser.add_option<SimpleOption<int>>("partition_point2", 0)),
+	  annotate(parser.add_option<SimpleOption<int>>("annotate", 0)),
+	  save(parser.add_option<SimpleOption<int>>("save", 0)),
+	  n(parser.add_option<SimpleOption<int>>("n", 1)),
+	  total_cores(parser.add_option<SimpleOption<int>>("total_cores", 6)),
+	  order(parser.add_option<SimpleOption<std::string>>("order"))
 {
     std::set<arm_compute::graph::Target> supported_targets
     {
@@ -167,6 +203,8 @@ CommonGraphOptions::CommonGraphOptions(CommandLineParser &parser)
 
     help->set_help("Show this help message");
     threads->set_help("Number of threads to use");
+    //Ehsan
+    threads2->set_help("Number of little threads to use");
     target->set_help("Target to execute on");
     data_type->set_help("Data type to use");
     data_layout->set_help("Data layout to use");
@@ -186,6 +224,14 @@ CommonGraphOptions::CommonGraphOptions(CommandLineParser &parser)
     validation_range->set_help("Range of the images to validate for (Format : start,end)");
     tuner_file->set_help("File to load/save CLTuner values");
     mlgo_file->set_help("File to load MLGO heuristics");
+    //Ehsan
+    partition_point->set_help("Point at which graph wanted to be partitioned");
+    partition_point2->set_help("Second point at which graph wanted to be partitioned");
+    annotate->set_help("Use streamline for annotation");
+    save->set_help("Save graph parameters");
+    n->set_help("number of run");
+    total_cores->set_help("total number of cores");
+    order->set_help("order of processors for sub graphs, eg., B-L-G");
 }
 
 CommonGraphParams consume_common_graph_parameters(CommonGraphOptions &options)
@@ -196,6 +242,7 @@ CommonGraphParams consume_common_graph_parameters(CommonGraphOptions &options)
     CommonGraphParams common_params;
     common_params.help      = options.help->is_set() ? options.help->value() : false;
     common_params.threads   = options.threads->value();
+    common_params.threads2   = options.threads2->value();
     common_params.target    = options.target->value();
     common_params.data_type = options.data_type->value();
     if(options.data_layout->is_set())
@@ -215,6 +262,14 @@ CommonGraphParams consume_common_graph_parameters(CommonGraphOptions &options)
     common_params.validation_range_end   = validation_range.second;
     common_params.tuner_file             = options.tuner_file->value();
     common_params.mlgo_file              = options.mlgo_file->value();
+    //Ehsan
+    common_params.partition_point		 = options.partition_point->value();
+    common_params.partition_point2		 = options.partition_point2->value();
+    common_params.annotate		 		 = options.annotate->value();
+    common_params.save		 			 = options.save->value();
+    common_params.n						 = options.n->value();
+    common_params.total_cores			 = options.total_cores->value();
+    common_params.order              = options.order->value();
 
     return common_params;
 }

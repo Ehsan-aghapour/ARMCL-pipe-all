@@ -64,6 +64,9 @@ public:
     /** Executes the stream **/
     void run();
 
+    //Ehsan other variants of run for measuring times and for streamline annotation
+    void run(double &in, double &task, double &out);
+    void run(double &in, double &task, double &out, bool annotate);
     // Inherited overridden methods
     void add_layer(ILayer &layer) override;
     Graph       &graph() override;

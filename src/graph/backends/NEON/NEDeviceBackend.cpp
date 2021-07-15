@@ -76,7 +76,19 @@ void NEDeviceBackend::setup_backend_context(GraphContext &ctx)
     // Set number of threads
     if(ctx.config().num_threads >= 0)
     {
-        Scheduler::get().set_num_threads(ctx.config().num_threads);
+    	//Ehsan set number of threads with affinity
+        //Scheduler::get().set_num_threads(ctx.config().num_threads);
+    	Scheduler::get().set_num_threads_with_affinity(ctx.config().num_threads,ctx.config(),[](int t_id,int max_cores, arm_compute::graph::GraphConfig cfg){
+    		int total_cores=cfg.total_cores;
+    		int big_cores=cfg.big_cores;
+    		int little_cores=cfg.little_cores;
+    		bool first_big=cfg.first_big;
+    		if(cfg.cluster>0)
+    			return ((total_cores-1)-(t_id%total_cores));
+		   else
+			    return t_id;
+    	});
+
     }
 
     // Create function level memory manager

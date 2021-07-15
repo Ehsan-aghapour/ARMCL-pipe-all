@@ -99,13 +99,26 @@ PassManager create_default_pass_manager(Target target, const GraphConfig &cfg)
 
 void release_default_graph_context(GraphContext &ctx)
 {
-    for(const auto &backend : backends::BackendRegistry::get().backends())
+	//Ehsan
+	/*for(const auto &backend : backends::BackendRegistry::get().backends())
     {
         if(backend.second->is_backend_supported())
         {
             backend.second->release_backend_context(ctx);
         }
-    }
+    }*/
+	int t = ctx.config().cluster;
+	Target target;
+	if(t<2){
+		target=static_cast<arm_compute::graph::Target>(1);
+	}
+	else if(t==2){
+		target=static_cast<arm_compute::graph::Target>(2);
+	}
+	const auto &backend = backends::BackendRegistry::get().find_backend(target);
+	if(backend->is_backend_supported()){
+		backend->release_backend_context(ctx);
+	}
 }
 
 void setup_requested_backend_context(GraphContext &ctx, Target target)

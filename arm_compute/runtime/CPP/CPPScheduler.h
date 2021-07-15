@@ -49,7 +49,9 @@ public:
 
     // Inherited functions overridden
     void set_num_threads(unsigned int num_threads) override;
-    void set_num_threads_with_affinity(unsigned int num_threads, BindFunc func) override;
+    //Ehsan
+    //void set_num_threads_with_affinity(unsigned int num_threads, BindFunc func) override;
+    void set_num_threads_with_affinity(unsigned int num_threads, arm_compute::graph::GraphConfig cfg, BindFunc func) override;
     unsigned int num_threads() const override;
     void schedule(ICPPKernel *kernel, const Hints &hints) override;
     void schedule_op(ICPPKernel *kernel, const Hints &hints, const Window &window, ITensorPack &tensors) override;

@@ -31,6 +31,9 @@
 #include <functional>
 #include <limits>
 
+//Ehsan
+#include "arm_compute/graph/Types.h"
+
 namespace arm_compute
 {
 class ICPPKernel;
@@ -53,7 +56,8 @@ public:
      * Mapping function expects the thread index and total number of cores as input,
      * and returns the logical core index to bind against
      */
-    using BindFunc = std::function<int(int, int)>;
+    //Ehsan: add GraphConfig arg for little/big thread mapping
+    using BindFunc = std::function<int(int, int, arm_compute::graph::GraphConfig)>;
 
     /** When arm_compute::ISchedular::Hints::_split_dimension is initialized with this value
      * then the schedular is free to break down the problem space over as many dimensions
@@ -150,7 +154,9 @@ public:
      * @param[in] num_threads If set to 0, then one thread per CPU core available on the system will be used, otherwise the number of threads specified.
      * @param[in] func        Binding function to use.
      */
-    virtual void set_num_threads_with_affinity(unsigned int num_threads, BindFunc func);
+    //Ehsan: add GraphConfig arg to determine thread mapping based on big/little cpu
+    //virtual void set_num_threads_with_affinity(unsigned int num_threads, BindFunc func);
+    virtual void set_num_threads_with_affinity(unsigned int num_threads, arm_compute::graph::GraphConfig cfg, BindFunc func);
 
     /** Returns the number of threads that the SingleThreadScheduler has in his pool.
      *

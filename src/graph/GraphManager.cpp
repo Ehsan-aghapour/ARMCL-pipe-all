@@ -34,6 +34,9 @@
 
 #include "arm_compute/graph/algorithms/TopologicalSort.h"
 
+//Ehsan
+#include<chrono>
+
 namespace arm_compute
 {
 namespace graph
@@ -133,6 +136,34 @@ void GraphManager::execute_graph(Graph &graph)
         }
     }
 }
+
+//Ehsan execute_graph with measurement
+void GraphManager::execute_graph(Graph &graph,double &in, double &task, double &out)
+{
+    // Check if graph is finalized
+    auto it = _workloads.find(graph.id());
+    ARM_COMPUTE_ERROR_ON_MSG(it == std::end(_workloads), "Graph is not registered!");
+    while(true){
+    	// Call input accessors
+    	auto tstart=std::chrono::high_resolution_clock::now();
+    	if(!detail::call_all_input_node_accessors(it->second)){
+    		return;
+    	}
+    	auto tfinish=std::chrono::high_resolution_clock::now();
+    	in += std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+    	detail::call_all_tasks(it->second);
+    	tstart=std::chrono::high_resolution_clock::now();
+    	task += std::chrono::duration_cast<std::chrono::duration<double>>(tstart-tfinish).count();
+    	if(!detail::call_all_output_node_accessors(it->second)){
+    		tfinish=std::chrono::high_resolution_clock::now();
+    		out += std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+    		return;
+    	}
+    	tfinish=std::chrono::high_resolution_clock::now();
+    	out += std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+    }
+}
+
 
 void GraphManager::invalidate_graph(Graph &graph)
 {
