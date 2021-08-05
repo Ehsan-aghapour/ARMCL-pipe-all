@@ -22,11 +22,6 @@
  * SOFTWARE.
  */
 //Ehsan
-#include <mutex>
-#include <condition_variable>
-#include <queue>
-
-
 #ifndef My_print2
 #include "arm_compute/gl_vs.h"
 #endif
@@ -50,20 +45,6 @@ static arm_compute::graph::Target g1t;
 #include <random>
 #include <string>
 #include <vector>
-
-
-extern std::vector<arm_compute::graph::Tensor*> Transmitters;
-extern std::vector<arm_compute::graph::Tensor*> Receivers;
-
-static std::vector<std::mutex*> mx;
-static std::vector<std::condition_variable*> cvs;
-
-static std::vector<arm_compute::Tensor*> buffer_tensors;
-
-static std::vector<std::queue<arm_compute::Tensor*>*> Qs;
-
-//std::vector<bool> __waiting;//=true
-//std::vector<bool> __ready;//=false
 
 namespace arm_compute
 {
@@ -169,36 +150,16 @@ private:
     bool 		 _type;
 };
 
-//Ehsan
-
-class PrintThread: public std::ostringstream
-{
-public:
-    PrintThread() = default;
-
-    ~PrintThread()
-    {
-        std::lock_guard<std::mutex> guard(_mutexPrint);
-        std::cout << this->str();
-    }
-
-private:
-    static std::mutex _mutexPrint;
-};
-
-
-
-
 /** Transfer accessor (Second graph input) class */
-class ReceiverAccessor final : public graph::ITensorAccessor
+class TransferAccessor final : public graph::ITensorAccessor
 {
 public:
     /** Constructor
      *
      */
-	ReceiverAccessor(bool tran, int src_id, unsigned int maximum = 1);
+	TransferAccessor(bool tran, unsigned int maximum = 1);
     /** Allows instances to move constructed */
-	ReceiverAccessor(ReceiverAccessor &&) = default;
+	TransferAccessor(TransferAccessor &&) = default;
 
     // Inherited methods overriden:
     bool access_tensor(ITensor &tensor) override;
@@ -207,11 +168,26 @@ private:
     //unsigned int _iterator;
     //unsigned int _maximum;
     bool		transition=false;
-    int			Source_id;
-    int frame;
 };
 
+class TransferAccessor2 final : public graph::ITensorAccessor
+{
+public:
+    /** Constructor
+     *
+     */
+	TransferAccessor2(bool tran, unsigned int maximum = 1);
+    /** Allows instances to move constructed */
+	TransferAccessor2(TransferAccessor2 &&) = default;
 
+    // Inherited methods overriden:
+    bool access_tensor(ITensor &tensor) override;
+
+private:
+    //unsigned int _iterator;
+    //unsigned int _maximum;
+    bool 		transition=false;
+};
 
 
 /** Dummy accessor class */
@@ -512,7 +488,7 @@ private:
 //Ehsan
 
 /** Connection accessor class */
-class SenderAccessor final : public graph::ITensorAccessor
+class ConnectionAccessor final : public graph::ITensorAccessor
 {
 public:
     /** Constructor
@@ -521,13 +497,13 @@ public:
      * @param[in]  top_n         (Optional) Number of output classes to print
      * @param[out] output_stream (Optional) Output stream
      */
-	SenderAccessor(bool tran,int Dest_id);
+	ConnectionAccessor(bool tran);
     /** Allow instances of this class to be move constructed */
-	SenderAccessor(SenderAccessor &&) = default;
+	ConnectionAccessor(ConnectionAccessor &&) = default;
     /** Prevent instances of this class from being copied (As this class contains pointers) */
-	SenderAccessor(const SenderAccessor &) = delete;
+	ConnectionAccessor(const ConnectionAccessor &) = delete;
     /** Prevent instances of this class from being copied (As this class contains pointers) */
-	SenderAccessor &operator=(const SenderAccessor &) = delete;
+	ConnectionAccessor &operator=(const ConnectionAccessor &) = delete;
 
     // Inherited methods overriden:
     bool access_tensor(ITensor &tensor) override;
@@ -538,12 +514,37 @@ private:
     template <typename T>
     void my_access_predictions_tensor(ITensor &tensor);
     bool		transition=false;
-    int			Destination_id;
-    int frame;
 
 };
 
+class ConnectionAccessor2 final : public graph::ITensorAccessor
+{
+public:
+    /** Constructor
+     *
+     * @param[in]  labels_path   Path to labels text file.
+     * @param[in]  top_n         (Optional) Number of output classes to print
+     * @param[out] output_stream (Optional) Output stream
+     */
+	ConnectionAccessor2(bool tran);
+    /** Allow instances of this class to be move constructed */
+	ConnectionAccessor2(ConnectionAccessor2 &&) = default;
+    /** Prevent instances of this class from being copied (As this class contains pointers) */
+	ConnectionAccessor2(const ConnectionAccessor2 &) = delete;
+    /** Prevent instances of this class from being copied (As this class contains pointers) */
+	ConnectionAccessor2 &operator=(const ConnectionAccessor2 &) = delete;
 
+    // Inherited methods overriden:
+    bool access_tensor(ITensor &tensor) override;
+
+private:
+
+    //Ehsan
+    template <typename T>
+    void my_access_predictions_tensor(ITensor &tensor);
+    bool		transition=false;
+
+};
 
 /** Random accessor class */
 class RandomAccessor final : public graph::ITensorAccessor
@@ -639,47 +640,6 @@ inline std::unique_ptr<graph::ITensorAccessor> get_weights_accessor(const std::s
     }
 }
 
-
-//Ehsan
-
-inline void del(){
-
-	for (auto p : Transmitters)
-	{
-		 delete p;
-	}
-	 Transmitters.clear();
-
-	for (auto p : Receivers)
-	{
-		delete p;
-	}
-	Receivers.clear();
-
-	for (auto p : mx)
-	{
-		delete p;
-	}
-	mx.clear();
-
-	for (auto p : cvs)
-	{
-		delete p;
-	}
-	cvs.clear();
-
-	for (auto p : buffer_tensors)
-	{
-		delete p;
-	}
-	buffer_tensors.clear();
-
-	for (auto p : Qs)
-	{
-		delete p;
-	}
-	Qs.clear();
-}
 /** Generates appropriate input accessor according to the specified graph parameters
  *
  * @param[in] graph_parameters Graph parameters
@@ -719,48 +679,28 @@ inline std::unique_ptr<graph::ITensorAccessor> get_input_accessor(const arm_comp
             return std::make_unique<ImageAccessor>(image_file, bgr, std::move(preprocessor));
         }
         //else if( arm_compute::utility::endswith(graph_parameters.image, "transfer") )
-        /*else if( graph_parameters.image == "transfer" )
+        else if( graph_parameters.image == "transfer" )
         {
-        	return std::make_unique<ReceiverAccessor>(1);
+        	return std::make_unique<TransferAccessor>(1);
         }
         else if( graph_parameters.image == "transfer_wait" )
 		{
-			return std::make_unique<ReceiverAccessor>(0);
-		}*/
-
+			return std::make_unique<TransferAccessor>(0);
+		}
+        else if( graph_parameters.image == "transfer2" )
+        {
+        	return std::make_unique<TransferAccessor2>(1);
+        }
+        else if( graph_parameters.image == "transfer2_wait" )
+        {
+        	return std::make_unique<TransferAccessor2>(0);
+        }
 
         else
         {
             return std::make_unique<DummyAccessor>(1);
         }
     }
-}
-
-inline std::unique_ptr<graph::ITensorAccessor> get_Receiver_accessor(const arm_compute::utils::CommonGraphParams &graph_parameters,
-                                                                  	  int	Source_id
-                                                                  	  )
-{
-
-#if My_print2 > 0
-        	std::cout<<"Input accessor is ImageAccessor.\n";
-#endif
-
-
-        //else if( arm_compute::utility::endswith(graph_parameters.image, "transfer") )
-        if( graph_parameters.image == "transfer" )
-        {
-        	return std::make_unique<ReceiverAccessor>(1,Source_id);
-        }
-        else if( graph_parameters.image == "transfer_wait" )
-		{
-			return std::make_unique<ReceiverAccessor>(0,Source_id);
-		}
-
-        else
-        {
-            return std::make_unique<DummyAccessor>(1);
-        }
-
 }
 
 /** Generates appropriate output accessor according to the specified graph parameters
@@ -793,47 +733,29 @@ inline std::unique_ptr<graph::ITensorAccessor> get_output_accessor(const arm_com
         return std::make_unique<DummyAccessor>(0,0);
     }
     //else if(arm_compute::utility::endswith(graph_parameters.labels, "transfer") )
-    /*else if( graph_parameters.labels == "transfer" )
-    {
-    	g1t=graph_parameters.target;
-    	return std::make_unique<SenderAccessor>(1);
-    }
-    else if( graph_parameters.labels == "transfer_wait" )
-    {
-        g1t=graph_parameters.target;
-        return std::make_unique<SenderAccessor>(0);
-    }*/
-
-    else
-    {
-        return std::make_unique<TopNPredictionsAccessor>(graph_parameters.labels, top_n, output_stream);
-    }
-}
-
-inline std::unique_ptr<graph::ITensorAccessor> get_Sender_accessor(const arm_compute::utils::CommonGraphParams &graph_parameters,
-                                                                   int		Destination_id,
-                                                                   std::ostream                                &output_stream = std::cout)
-{
-
-    if(graph_parameters.labels.empty())
-    {
-        return std::make_unique<DummyAccessor>(0,0);
-    }
-    //else if(arm_compute::utility::endswith(graph_parameters.labels, "transfer") )
     else if( graph_parameters.labels == "transfer" )
     {
     	g1t=graph_parameters.target;
-    	return std::make_unique<SenderAccessor>(1,Destination_id);
+    	return std::make_unique<ConnectionAccessor>(1);
     }
     else if( graph_parameters.labels == "transfer_wait" )
     {
         g1t=graph_parameters.target;
-        return std::make_unique<SenderAccessor>(0,Destination_id);
+        return std::make_unique<ConnectionAccessor>(0);
     }
-
+    else if( graph_parameters.labels == "transfer2" )
+    {
+    	g1t=graph_parameters.target;
+    	return std::make_unique<ConnectionAccessor2>(1);
+    }
+    else if( graph_parameters.labels == "transfer2_wait")
+	{
+		g1t=graph_parameters.target;
+		return std::make_unique<ConnectionAccessor2>(0);
+	}
     else
     {
-        return std::make_unique<TopNPredictionsAccessor>(graph_parameters.labels, 5, output_stream);
+        return std::make_unique<TopNPredictionsAccessor>(graph_parameters.labels, top_n, output_stream);
     }
 }
 /** Generates appropriate output accessor according to the specified graph parameters

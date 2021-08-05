@@ -266,6 +266,7 @@ bool call_all_input_node_accessors(ExecutionWorkload &workload)
 {
     bool is_valid = true;
     //Ehsan: size of inputs is 1
+    //std::string c;
     //std::cout<<"inputs size: "<<workload.inputs.size()<<std::endl;
     std::for_each(std::begin(workload.inputs), std::end(workload.inputs), [&](Tensor * input_tensor)
     {

@@ -126,6 +126,9 @@ bool Tensor::my_call_accessor()
     //std::cout<<"\n3\n";
     ANNOTATE_CHANNEL_COLOR(c,ANNOTATE_BLUE,"access");
     // Call accessor
+    //std::string cc;
+    //std::cout<<"salammm\n";
+
     bool retval = _accessor->access_tensor(_handle->tensor());
     ANNOTATE_CHANNEL_END(c++);
     ANNOTATE_CHANNEL_COLOR(c,ANNOTATE_RED,"unmap");

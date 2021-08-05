@@ -61,7 +61,7 @@ void GraphManager::finalize_graph(Graph &graph, GraphContext &ctx, PassManager &
     {
         ARM_COMPUTE_ERROR("Graph is already registered!");
     }
-
+    //std::cout<<"graph id:"<<graph.id()<<std::endl;
     // Apply IR mutating passes
     pm.run_type(graph, IGraphMutator::MutationType::IR);
     // Force target to all graph construct
@@ -202,6 +202,7 @@ void GraphManager::execute_graph(Graph &graph,double &in, double &task, double &
         {
             return;
         }
+        //std::cout<<"call all input called\n";
 	auto tfinish=std::chrono::high_resolution_clock::now();
 	//ANNOTATE_CHANNEL_END(1);
 	//ANNOTATE_CHANNEL_COLOR(2,ANNOTATE_YELLOW,"task");
@@ -210,9 +211,9 @@ void GraphManager::execute_graph(Graph &graph,double &in, double &task, double &
         // Run graph
 	//std::cout<<"\ntask:"<<task<<std::endl;
 	//if(!task)
-        detail::call_all_tasks(it->second);
+    detail::call_all_tasks(it->second);
+    //std::cout<<"call all tasks called\n";
 	tstart=std::chrono::high_resolution_clock::now();
-
         //std::cout<<"task_previous:"<<task<<std::endl;
 
 	//ANNOTATE_CHANNEL_END(2);
@@ -234,6 +235,7 @@ void GraphManager::execute_graph(Graph &graph,double &in, double &task, double &
         }
 	tfinish=std::chrono::high_resolution_clock::now();
 	out += std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+
 	//tot = in+task+out;
 	//std::cout<<"Output accessor duration: "<<out<<std::endl;
 	//std::cout<<"tot_:"<<tot<<std::endl;
