@@ -84,86 +84,139 @@ public:
     }
 
     void Attach_Layer(){
+    	//std::cerr<<"attaching layer "<<Layer<<" on graph:"<<gr_layer[Layer]<<std::endl;
     	static int P_Layer=0;
     	Layer++;
     	bool graph_finished=false;
     	if(Layer==Layers)
     		graph_finished=true;
-    	else if(classes[gr_layer[Layer]]!=classes[gr_layer[Layer-1]]){
+    	//else if(classes[gr_layer[Layer]]!=classes[gr_layer[Layer-1]]){
+    	else if(gr_layer[Layer]!=gr_layer[Layer-1]){
     		graph_finished=true;
     		P_Layer=Layer-1;
     	}
-		if( graph_finished ){
-			if(Layer!=Layers){
-				if(targets[gr_layer[Layer-1]]==arm_compute::graph::Target ::CL){
-					common_params.labels="transfer";
-					//common_params.image="transfer";
+    	//std::cerr<<common_params.order[Layer-1]<<", finish: "<<graph_finished<<std::endl;
+		if( graph_finished){
+			if(gr_layer[Layer-1]!=-1){
+				if(Layer!=Layers){
+					if(targets[gr_layer[Layer-1]]==arm_compute::graph::Target ::CL){
+						common_params.labels="transfer";
+						//common_params.image="transfer";
+					}
+					else{
+						common_params.labels="transfer_wait";
+					}
+					if(gr_layer[Layer]==-1)
+						common_params.labels="";
+					//(*sub_graph)<<OutputLayer(get_Sender_accessor(common_params, gr_layer[Layer-1]+1));
+					(*sub_graph)<<OutputLayer(get_Sender_accessor(common_params, Transmitters.size()+1));
+				}
+
+				GraphConfig config;
+				if(classes[gr_layer[Layer-1]]==0){
+					config.num_threads = common_params.threads2;
+					//config.cluster=0;
 				}
 				else{
-					common_params.labels="transfer_wait";
+					config.num_threads = common_params.threads;
+					//config.cluster=1;
 				}
+				config.cluster=classes[gr_layer[Layer-1]];
+				config.use_tuner   = common_params.enable_tuner;
+				config.tuner_mode  = common_params.tuner_mode;
+				config.tuner_file  = common_params.tuner_file;
+				config.mlgo_file   = common_params.mlgo_file;
+				//std::cout<<"Finalizing graph_"<<gr_layer[Layer-1]<<"\t after Layer:"<<Layer-1<<std::endl;
+				//std::cout<<"class:"<<config.cluster<<"\t target:"<<int(targets[gr_layer[Layer-1]])<<'='<<int(common_params.target)<<std::endl;
+				sub_graph->finalize(common_params.target, config);
+				if(gr_layer[Layer-1]>0){
+					for(auto &node : sub_graph->graph().nodes())
+					{
+						if(node != nullptr && node->type() == arm_compute::graph::NodeType::Input)
+						{
+							//PrintThread{}<<"adding rec "<<Layer<<std::endl;
+							if(common_params.image!=""){
+								Receivers.push_back(node->output(0));
+								continue;
+							}
+						}
+					}
+				}
+			}
+
+			else if(Layer!=Layers){
+				common_params.labels="";
 				(*sub_graph)<<OutputLayer(get_Sender_accessor(common_params, gr_layer[Layer]));
 			}
 
-			GraphConfig config;
-			if(classes[gr_layer[Layer-1]]==0){
-				config.num_threads = common_params.threads2;
-				//config.cluster=0;
-			}
-			else{
-				config.num_threads = common_params.threads;
-				//config.cluster=1;
-			}
-			config.cluster=classes[gr_layer[Layer-1]];
-			config.use_tuner   = common_params.enable_tuner;
-			config.tuner_mode  = common_params.tuner_mode;
-			config.tuner_file  = common_params.tuner_file;
-			config.mlgo_file   = common_params.mlgo_file;
-			//std::cout<<"Finalizing graph_"<<gr_layer[Layer-1]<<"\t after Layer:"<<Layer-1<<std::endl;
-			//std::cout<<"class:"<<config.cluster<<"\t target:"<<int(targets[gr_layer[Layer-1]])<<'='<<int(common_params.target)<<std::endl;
-			sub_graph->finalize(common_params.target, config);
-			if(gr_layer[Layer-1]>0){
-				for(auto &node : sub_graph->graph().nodes())
-				{
-					if(node != nullptr && node->type() == arm_compute::graph::NodeType::Input)
-					{
-						//PrintThread{}<<"adding rec "<<Layer<<std::endl;
-						Receivers.push_back(node->output(0));
-						continue;
-					}
-				}
-			}
-			std::string l;
 			if(Layer!=Layers){
-				for(auto &node : sub_graph->graph().nodes())
-				{
-					if(node != nullptr && node->type() == arm_compute::graph::NodeType::Output)
+				arm_compute::graph::Tensor* temp_sender;
+				TensorShape tshape;
+				//if(gr_layer[Layer]!=-1){
+					for(auto &node : sub_graph->graph().nodes())
 					{
-						Transmitters.push_back(node->input(0));
-						continue;
+						if(node != nullptr && node->type() == arm_compute::graph::NodeType::Output)
+						{
+							if(gr_layer[Layer-1]!=-1 && gr_layer[Layer]!=-1){
+								Transmitters.push_back(node->input(0));
+								//tshape=Transmitters[gr_layer[Layer-1]]->desc().shape;
+								tshape=Transmitters[Transmitters.size()-1]->desc().shape;
+							}
+							else{
+								temp_sender=node->input(0);
+								tshape=temp_sender->desc().shape;
+							}
+							continue;
+						}
 					}
-				}
-				sub_graph=(graphs[gr_layer[Layer]]);
-				if(classes[gr_layer[Layer-1]]==2){
-					common_params.image="transfer_wait";
+
+				if(gr_layer[Layer]!=-1){
+					sub_graph=(graphs[gr_layer[Layer]]);
+
+					if(gr_layer[Layer-1]==-1){
+						common_params.image="";
+					}
+					else{
+						if(classes[gr_layer[Layer-1]]==2){
+							common_params.image="transfer_wait";
+						}
+						else{
+							common_params.image="transfer";
+						}
+					}
+
+					common_params.target=targets[gr_layer[Layer]];
+					const auto        operation_layout = common_params.data_layout;
+					TensorDescriptor input_descriptor = TensorDescriptor(tshape, common_params.data_type).set_layout(operation_layout);
+					(*sub_graph) << common_params.target
+								  << common_params.fast_math_hint;
+					//std::cout<<common_params.image<<", "<<Transmitters.size()-1<<std::endl;
+
+					//auto tt=InputLayer(input_descriptor, get_Receiver_accessor(common_params,gr_layer[Layer]-1));
+					//auto tt=InputLayer(input_descriptor, get_Receiver_accessor(common_params,Transmitters.size()-1));
+
+					(*sub_graph)<<InputLayer(input_descriptor, get_Receiver_accessor(common_params,Transmitters.size()-1));
+
+					cpu_set_t set;
+					CPU_ZERO(&set);
+					CPU_SET(core[classes[gr_layer[Layer]]],&set);
+					ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
 				}
 				else{
-					common_params.image="transfer";
+					delete dump_graph;
+					dump_graph=new Stream(1000,"AlexNet");
+					sub_graph=dump_graph;
+					common_params.target=arm_compute::graph::Target ::NEON;
+					const auto        operation_layout = common_params.data_layout;
+					TensorDescriptor input_descriptor = TensorDescriptor(tshape, common_params.data_type).set_layout(operation_layout);
+					(*sub_graph) << common_params.target
+								  << common_params.fast_math_hint;
+					common_params.image="";
+					(*sub_graph)<<InputLayer(input_descriptor, get_Receiver_accessor(common_params,gr_layer[Layer]-1));
 				}
-				common_params.target=targets[gr_layer[Layer]];
-				const auto        operation_layout = common_params.data_layout;
-				TensorDescriptor input_descriptor = TensorDescriptor(Transmitters[gr_layer[Layer-1]]->desc().shape, common_params.data_type).set_layout(operation_layout);
-				(*sub_graph) << common_params.target
-				              << common_params.fast_math_hint;
-				(*sub_graph)<<InputLayer(input_descriptor, get_Receiver_accessor(common_params,gr_layer[Layer-1]));
-				cpu_set_t set;
-				CPU_ZERO(&set);
-				CPU_SET(core[classes[gr_layer[Layer]]],&set);
-				ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
 			}
-
-
 		}
+		//std::cerr<<"Attached\n";
     }
 
 
@@ -234,33 +287,56 @@ public:
 					targets.push_back(arm_compute::graph::Target ::CL);
 					classes.push_back(2);
 				}
-				graphs.push_back(new Stream(g,"AlexNet"));
-				gr_layer[i]=g;
+				if (order[i]!='-'){
+					graphs.push_back(new Stream(g,"AlexNet"));
+					gr_layer[i]=g;
+				}
+				if(order[i]=='-'){
+					gr_layer[i]=-1;
+				}
         	}
 
         	else if (order[i]!=order[i-1]){
         		//Stream graph(i,"AlexNet");
-				if (order[i]=='B'){
-					targets.push_back(arm_compute::graph::Target ::NEON);
-					classes.push_back(1);
-				}
-				if (order[i]=='L'){
-					targets.push_back(arm_compute::graph::Target ::NEON);
-					classes.push_back(0);
-				}
-				if (order[i]=='G'){
-					targets.push_back(arm_compute::graph::Target ::CL);
-					classes.push_back(2);
-				}
-				g++;
-				graphs.push_back(new Stream(g,"AlexNet"));
-				gr_layer[i]=g;
+        		if(order[i]=='-'){
+        			gr_layer[i]=-1;
+        		}
+        		else{
+        			if (order[i]=='B'){
+						targets.push_back(arm_compute::graph::Target ::NEON);
+						classes.push_back(1);
+					}
+					if (order[i]=='L'){
+						targets.push_back(arm_compute::graph::Target ::NEON);
+						classes.push_back(0);
+					}
+					if (order[i]=='G'){
+						targets.push_back(arm_compute::graph::Target ::CL);
+						classes.push_back(2);
+					}
+
+					graphs.push_back(new Stream(g,"AlexNet"));
+					gr_layer[i]=graphs.size()-1;
+					g=graphs.size()-1;
+        		}
+
         	}
 
         	else{
-        		gr_layer[i]=g;
+        		if(order[i]!='-')
+        			gr_layer[i]=g;
+        		else
+        			gr_layer[i]=-1;
         	}
         }
+        for(int i=0;i<Layers;i++){
+        	//std::cerr<<i<<"\t"<<gr_layer[i]<<std::endl;
+        	if(order[i]=='-'){
+        		dump_graph=new Stream(1000,"AlexNEt");
+        		continue;
+        	}
+        }
+
         /*for(int i=0;i<8;i++){
         	std::cout<<"Layer:"<<i<<'\t'<<"graph:"<<gr_layer[i]<<'\t'<<"class:"<<classes[gr_layer[i]]<<'\t'<<"target:"<<int(targets[gr_layer[i]])<<std::endl;
         }*/
@@ -285,11 +361,20 @@ public:
 		ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
 
         std::cout << common_params << std::endl;
-        sub_graph=(graphs[gr_layer[Layer]]);
+
         annotate=common_params.annotate;
-        ann=annotate;
-        save_model=common_params.save;
-        common_params.target=targets[gr_layer[Layer]];
+		ann=annotate;
+		save_model=common_params.save;
+
+        if(gr_layer[Layer]==-1){
+        	sub_graph=dump_graph;
+        	common_params.target=arm_compute::graph::Target ::NEON;
+        }
+        else{
+        	sub_graph=(graphs[gr_layer[Layer]]);
+        	common_params.target=targets[gr_layer[Layer]];
+        }
+
         (*sub_graph) << common_params.target
               << common_params.fast_math_hint;
         		auto ii=InputLayer(input_descriptor, get_input_accessor(common_params, std::move(preprocessor)));
@@ -406,7 +491,7 @@ public:
     {
         // Run graph
         //Ehsan
-
+    	std::string t;
     	std::vector<std::thread*> stages;
     	for(int i=0;i<graphs.size();i++){
     		stages.push_back(new std::thread(&GraphAlexnetExample::run,this,i));
@@ -477,6 +562,7 @@ private:
     bool			   annotate{false};
     std::map<int, int> core = {{0, 1}, {1, 5}, {2, 4}};
     ImageAccessor *im_acc=NULL;
+    Stream *dump_graph=NULL;
 };
 
 /** Main program for AlexNet
