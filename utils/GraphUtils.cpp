@@ -197,6 +197,7 @@ bool DummyAccessor::access_tensor(ITensor &tensor)
 	//Ehsan
 	//First_NEON
 	//tensor.copy_from(f_out->handle()->tensor());
+	//std::cerr<<"dummy accessor type:"<<_type<<std::endl;
 	return _type;
 
     ARM_COMPUTE_UNUSED(tensor);

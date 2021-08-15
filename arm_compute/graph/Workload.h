@@ -32,6 +32,7 @@
 #include <functional>
 #include <memory>
 #include <vector>
+//extern std::map<std::string,double> task_times;
 
 namespace arm_compute
 {
@@ -44,7 +45,9 @@ class Graph;
 
 struct ExecutionTask;
 
+//void execute_task(ExecutionTask &task, const std::map<std::string,double>& tt=std::map<std::string, double>());
 void execute_task(ExecutionTask &task);
+double execute_task2(ExecutionTask &task,int nn);
 
 /** Task executor */
 class TaskExecutor final
@@ -61,6 +64,8 @@ public:
     static TaskExecutor &get();
     /** Function that is responsible for executing tasks */
     std::function<decltype(execute_task)> execute_function;
+    std::function<decltype(execute_task2)> execute_function2;
+    //std::function<void(ExecutionTask &task, const std::map<std::string,double>& tt= std::map<std::string, double>())> execute_function;
 };
 
 /** Execution task
@@ -89,9 +94,17 @@ struct ExecutionTask
 
     /** Function operator */
     void operator()();
+    void operator()(int nn);
 
     /** Prepare execution task */
     void prepare();
+
+    double time(int n);
+    void reset();
+    double t;
+    int n=0;
+    bool block=0;
+    bool ending=0;
 };
 
 /** Execution workload */

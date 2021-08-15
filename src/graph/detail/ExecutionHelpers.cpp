@@ -162,12 +162,14 @@ ExecutionWorkload configure_all_nodes(Graph &g, GraphContext &ctx, const std::ve
     {
         auto node = g.node(node_id);
         //Ehsan
-        /*std::cout<<"\n*******************************\nnode name: "<<node->name()<<" ID: "<<node->id()<<" num inputs: "<<node->num_inputs()<<std::endl<<std::flush;
+        /*
+        std::cout<<"\n*******************************\nnode name: "<<node->name()<<" ID: "<<node->id()<<" num inputs: "<<node->num_inputs()<<std::endl<<std::flush;
         for(int k=0; k < node->num_inputs(); k++){
         	INode *cc=node->input_edge(k)->producer();
         	std::cout<<"\ninput "<<k<<" node_name: "<<cc->name()<<" ID: "<<cc->id()<<std::endl<<std::flush;
         	TensorShape shape=node->input(k)->desc().shape;
-            for(int i=0;i<shape.num_dimensions();i++) std::cout<<shape[i]<<'\t'<<std::flush;
+        	std::cout<<shape<<std::endl;
+            //for(int i=0;i<shape.num_dimensions();i++) std::cout<<shape[i]<<'\t'<<std::flush;
             //std::cout<<"Padding: "<<_padding.left<<_padding.right<<_padding.top<<_padding.bottom<<std::endl;
         }*/
 
@@ -290,7 +292,7 @@ void prepare_all_tasks(ExecutionWorkload &workload)
     }
 }
 
-void call_all_tasks(ExecutionWorkload &workload)
+void call_all_tasks(ExecutionWorkload &workload,int nn)
 {
     ARM_COMPUTE_ERROR_ON(workload.ctx == nullptr);
 
@@ -306,7 +308,10 @@ void call_all_tasks(ExecutionWorkload &workload)
     // Execute tasks
     for(auto &task : workload.tasks)
     {
-        task();
+    	if(nn==0)
+    		task();
+    	else
+    		task(nn);
         auto t0=std::chrono::high_resolution_clock::now();
         auto nanosec = t0.time_since_epoch();
 #if My_print > 0

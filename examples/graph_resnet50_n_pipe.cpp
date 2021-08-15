@@ -21,48 +21,37 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-#ifndef My_print
-#include "arm_compute/gl_vs.h"
-#endif
 
 //Ehsan
 #include<chrono>
-#include<thread>
 #include <sys/types.h>
 #include <dirent.h>
-//#include<unistd.h>
-//#include<sched.h>
-#include "arm_compute/graph/Types.h"
-#include "arm_compute/gl_vs.h"
 
 
 #include "arm_compute/graph.h"
-#ifdef ARM_COMPUTE_CL
-#include "arm_compute/runtime/CL/Utils.h"
-#endif /* ARM_COMPUTE_CL */
 #include "support/ToolchainSupport.h"
 #include "utils/CommonGraphOptions.h"
 #include "utils/GraphUtils.h"
 #include "utils/Utils.h"
 
-using namespace arm_compute;
 using namespace arm_compute::utils;
 using namespace arm_compute::graph::frontend;
 using namespace arm_compute::graph_utils;
 
 
+
+//std::map<int,int> core;
+
 //Ehsan 
 typedef std::vector<std::string> stringvec;
 void read_directory(const std::string& name, stringvec& v)
 {
-
     DIR* dirp = opendir(name.c_str());
     struct dirent * dp;
     while ((dp = readdir(dirp)) != NULL) {
         if(arm_compute::utility::endswith(dp->d_name, ".ppm"))
            v.push_back(name+(dp->d_name));
     }
-
     closedir(dirp);
 }
 
@@ -70,22 +59,18 @@ void read_directory(const std::string& name, stringvec& v)
 size_t image_index=0;
 stringvec images_list;
 bool imgs=0;
-//bool ann=0;
-std::set<int> alex_blocking {2,7,8,11,15,16,17,19};
+std::set<int> res_blocking {1,6,10,15,20,24,28,33,38,42,46,50,54,59,64,68,73,76};
 
-
-
-
-
-
-/** Example demonstrating how to implement AlexNet's network using the Compute Library's graph API */
-class GraphAlexnetExample : public Example
+/** Example demonstrating how to implement ResNetV1_50 network using the Compute Library's graph API */
+class GraphResNetV1_50Example : public Example
 {
 public:
-    GraphAlexnetExample()
+    GraphResNetV1_50Example()
         : cmd_parser(), common_opts(cmd_parser), common_params()
     {
     }
+
+
 
     void Attach_Layer(){
     	//std::cerr<<"attaching layer "<<Layer<<" on graph:"<<gr_layer[Layer]<<std::endl;
@@ -132,7 +117,7 @@ public:
 				config.mlgo_file   = common_params.mlgo_file;
 				//std::cout<<"Finalizing graph_"<<gr_layer[Layer-1]<<"\t after Layer:"<<Layer-1<<std::endl;
 				//std::cout<<"class:"<<config.cluster<<"\t target:"<<int(targets[gr_layer[Layer-1]])<<'='<<int(common_params.target)<<std::endl;
-				sub_graph->finalize(common_params.target, config, &alex_blocking,common_params.layer_time);
+				sub_graph->finalize(common_params.target, config, &res_blocking,common_params.layer_time);
 				if(gr_layer[Layer-1]>0){
 					for(auto &node : sub_graph->graph().nodes())
 					{
@@ -223,7 +208,6 @@ public:
 		//std::cerr<<"Attached\n";
     }
 
-
     bool do_setup(int argc, char **argv) override
     {
         // Parse arguments
@@ -232,14 +216,13 @@ public:
 
         // Consume common parameters
         common_params = consume_common_graph_parameters(common_opts);
-        //common_params2 = consume_common_graph_parameters(common_opts);
-        
-	    //Ehsan
-	    imgs=!(common_params.image.empty());
-	    if(imgs){
-			read_directory(common_params.image,images_list);
-			std::cout<<images_list.size()<<" Input images are read from "<<common_params.image<<std::endl;
-			common_params.image=images_list[image_index];
+
+        //Ehsan
+        imgs=!(common_params.image.empty());
+        if(imgs){
+        	read_directory(common_params.image,images_list);
+        	std::cout<<images_list.size()<<" Input images are read from "<<common_params.image<<std::endl;
+        	common_params.image=images_list[image_index];
         }
 
         // Return when help menu is requested
@@ -249,20 +232,20 @@ public:
             return false;
         }
 
-        // Checks
-        ARM_COMPUTE_EXIT_ON_MSG(arm_compute::is_data_type_quantized_asymmetric(common_params.data_type), "QASYMM8 not supported for this graph");
-
+        // Print parameter values
+        //std::cout << common_params << std::endl;
 
         // Get trainable parameters data path
         std::string data_path = common_params.data_path;
 
         // Create a preprocessor object
         const std::array<float, 3> mean_rgb{ { 122.68f, 116.67f, 104.01f } };
-        std::unique_ptr<IPreprocessor> preprocessor = std::make_unique<CaffePreproccessor>(mean_rgb);
+        std::unique_ptr<IPreprocessor> preprocessor = std::make_unique<CaffePreproccessor>(mean_rgb,
+                                                                                           false /* Do not convert to BGR */);
 
         // Create input descriptor
         const auto        operation_layout = common_params.data_layout;
-        const TensorShape tensor_shape     = permute_shape(TensorShape(227U, 227U, 3U, 1U), DataLayout::NCHW, operation_layout);
+        const TensorShape tensor_shape     = permute_shape(TensorShape(224U, 224U, 3U, 1U), DataLayout::NCHW, operation_layout);
         TensorDescriptor  input_descriptor = TensorDescriptor(tensor_shape, common_params.data_type).set_layout(operation_layout);
 
         // Set weights trained layout
@@ -341,23 +324,6 @@ public:
         	}
         }
 
-        /*for(int i=0;i<8;i++){
-        	std::cout<<"Layer:"<<i<<'\t'<<"graph:"<<gr_layer[i]<<'\t'<<"class:"<<classes[gr_layer[i]]<<'\t'<<"target:"<<int(targets[gr_layer[i]])<<std::endl;
-        }*/
-        //std::vector<Stream> _graphs(g);
-        //graphs.swap(_graphs);
-        //static std::vector<std::mutex> _mx(graphs.size()-1);
-        //mx.swap(_mx);
-        //static std::vector<std::condition_variable> _cvs(graphs.size()-1);
-        //cvs.swap(_cvs);
-        //std::vector<arm_compute::Tensor> _buffer_tensors(graphs.size()-1);
-       // std::cout<<"heyyyy:"<<_buffer_tensors.size()<<std::endl;
-        //std::string mm;
-        //std::cin>>mm;
-        //buffer_tensors.swap(_buffer_tensors);
-        //std::cout<<"heyyyy2:"<<buffer_tensors.size()<<std::endl;
-               // std::string mm;
-          //      std::cin>>mm;
 
         cpu_set_t set;
 		CPU_ZERO(&set);
@@ -379,100 +345,57 @@ public:
         	common_params.target=targets[gr_layer[Layer]];
         }
 
+        //***************************************************************
+
+        std::string test;
+
         (*sub_graph) << common_params.target
               << common_params.fast_math_hint;
-        		auto ii=InputLayer(input_descriptor, get_input_accessor(common_params, std::move(preprocessor)));
-        		(*sub_graph)  << ii;
-              // Layer 1
-		        		(*sub_graph) << ConvolutionLayer(
-                  11U, 11U, 96U,
-                  get_weights_accessor(data_path, "/cnn_data/alexnet_model/conv1_w.npy", weights_layout),
-                  get_weights_accessor(data_path, "/cnn_data/alexnet_model/conv1_b.npy"),
-                  PadStrideInfo(4, 4, 0, 0))
-              .set_name("conv1")
-              << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name("relu1")
-              << NormalizationLayer(NormalizationLayerInfo(NormType::CROSS_MAP, 5, 0.0001f, 0.75f)).set_name("norm1")
-              << PoolingLayer(PoolingLayerInfo(PoolingType::MAX, 3, operation_layout, PadStrideInfo(2, 2, 0, 0))).set_name("pool1");
+        (*sub_graph)<< InputLayer(input_descriptor, get_input_accessor(common_params, std::move(preprocessor), false /* Do not convert to BGR */));
+        (*sub_graph)<< ConvolutionLayer(
+                  7U, 7U, 64U,
+                  get_weights_accessor(data_path, "/cnn_data/resnet50_model/conv1_weights.npy", weights_layout),
+                  std::unique_ptr<arm_compute::graph::ITensorAccessor>(nullptr),
+                  PadStrideInfo(2, 2, 3, 3))
+              .set_name("conv1/convolution")
+              << BatchNormalizationLayer(
+                  get_weights_accessor(data_path, "/cnn_data/resnet50_model/conv1_BatchNorm_moving_mean.npy"),
+                  get_weights_accessor(data_path, "/cnn_data/resnet50_model/conv1_BatchNorm_moving_variance.npy"),
+                  get_weights_accessor(data_path, "/cnn_data/resnet50_model/conv1_BatchNorm_gamma.npy"),
+                  get_weights_accessor(data_path, "/cnn_data/resnet50_model/conv1_BatchNorm_beta.npy"),
+                  0.0000100099996416f)
+              .set_name("conv1/BatchNorm")
+              << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name("conv1/Relu")
+              << PoolingLayer(PoolingLayerInfo(PoolingType::MAX, 3, operation_layout, PadStrideInfo(2, 2, 0, 1, 0, 1, DimensionRoundingType::FLOOR))).set_name("pool1/MaxPool");
+
+
+        add_residual_block(data_path, "block1", weights_layout, 64, 3, 2);
+
+
+        add_residual_block(data_path, "block2", weights_layout, 128, 4, 2);
+
+
+        add_residual_block(data_path, "block3", weights_layout, 256, 6, 2);
+
+
+        add_residual_block(data_path, "block4", weights_layout, 512, 3, 1);
+
+        (*sub_graph) << PoolingLayer(PoolingLayerInfo(PoolingType::AVG, operation_layout)).set_name("pool5");
+
+
 
         Attach_Layer();
+        common_params.labels=lbl;
 
-		// Layer 2
-		(*sub_graph) << ConvolutionLayer(
-				  5U, 5U, 256U,
-				  get_weights_accessor(data_path, "/cnn_data/alexnet_model/conv2_w.npy", weights_layout),
-				  get_weights_accessor(data_path, "/cnn_data/alexnet_model/conv2_b.npy"),
-				  PadStrideInfo(1, 1, 2, 2), 2)
-			  .set_name("conv2")
-			  << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name("relu2")
-			  << NormalizationLayer(NormalizationLayerInfo(NormType::CROSS_MAP, 5, 0.0001f, 0.75f)).set_name("norm2")
-			  << PoolingLayer(PoolingLayerInfo(PoolingType::MAX, 3, operation_layout, PadStrideInfo(2, 2, 0, 0))).set_name("pool2");
-
-		Attach_Layer();
-
-		// Layer 3
-		(*sub_graph)<< ConvolutionLayer(
-						  3U, 3U, 384U,
-						  get_weights_accessor(data_path, "/cnn_data/alexnet_model/conv3_w.npy", weights_layout),
-						  get_weights_accessor(data_path, "/cnn_data/alexnet_model/conv3_b.npy"),
-						  PadStrideInfo(1, 1, 1, 1))
-					  .set_name("conv3")
-		<< ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name("relu3");
-
-		Attach_Layer();
-
-		// Layer 4
-		(*sub_graph)<< ConvolutionLayer(
-			3U, 3U, 384U,
-			get_weights_accessor(data_path, "/cnn_data/alexnet_model/conv4_w.npy", weights_layout),
-			get_weights_accessor(data_path, "/cnn_data/alexnet_model/conv4_b.npy"),
-			PadStrideInfo(1, 1, 1, 1), 2)
-		.set_name("conv4")
-		<< ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name("relu4");
-
-		Attach_Layer();
-
-		// Layer 5
-		(*sub_graph)<< ConvolutionLayer(
-			3U, 3U, 256U,
-			get_weights_accessor(data_path, "/cnn_data/alexnet_model/conv5_w.npy", weights_layout),
-			get_weights_accessor(data_path, "/cnn_data/alexnet_model/conv5_b.npy"),
-			PadStrideInfo(1, 1, 1, 1), 2)
-		.set_name("conv5")
-		<< ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name("relu5")
-		<< PoolingLayer(PoolingLayerInfo(PoolingType::MAX, 3, operation_layout, PadStrideInfo(2, 2, 0, 0))).set_name("pool5");
-
-		Attach_Layer();
-
-		// Layer 6
-		(*sub_graph)<< FullyConnectedLayer(
-			4096U,
-			get_weights_accessor(data_path, "/cnn_data/alexnet_model/fc6_w.npy", weights_layout),
-			get_weights_accessor(data_path, "/cnn_data/alexnet_model/fc6_b.npy"))
-		.set_name("fc6")
-		<< ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name("relu6");
-
-		Attach_Layer();
-
-		// Layer 7
-		(*sub_graph)<< FullyConnectedLayer(
-			4096U,
-			get_weights_accessor(data_path, "/cnn_data/alexnet_model/fc7_w.npy", weights_layout),
-			get_weights_accessor(data_path, "/cnn_data/alexnet_model/fc7_b.npy"))
-		.set_name("fc7")
-		<< ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name("relu7");
-
-		Attach_Layer();
-		common_params.labels=lbl;
-
-		// Layer 8
-		(*sub_graph)<< FullyConnectedLayer(
-			1000U,
-			get_weights_accessor(data_path, "/cnn_data/alexnet_model/fc8_w.npy", weights_layout),
-			get_weights_accessor(data_path, "/cnn_data/alexnet_model/fc8_b.npy"))
-		.set_name("fc8")
-		// Softmax
-		<< SoftmaxLayer().set_name("prob")
-		<< OutputLayer(get_output_accessor(common_params, 5));
+        (*sub_graph)<< ConvolutionLayer(
+                  1U, 1U, 1000U,
+                  get_weights_accessor(data_path, "/cnn_data/resnet50_model/logits_weights.npy", weights_layout),
+                  get_weights_accessor(data_path, "/cnn_data/resnet50_model/logits_biases.npy"),
+                  PadStrideInfo(1, 1, 0, 0))
+              .set_name("logits/convolution")
+              << FlattenLayer().set_name("predictions/Reshape")
+              << SoftmaxLayer().set_name("predictions/Softmax")
+              << OutputLayer(get_output_accessor(common_params, 5));
 
 		Attach_Layer();
 
@@ -480,17 +403,11 @@ public:
 
 		std::cout<<"Total layers:"<<Layer<<std::endl<<std::endl;
 
-		// Save the opencl kernels to a file
-		if(common_opts.enable_cl_cache)
-		{
-		#ifdef ARM_COMPUTE_CL
-			save_program_cache_to_file();
-		#endif /* ARM_COMPUTE_CL */
-		}
-
 		return true;
     }
 
+
+private:
     void do_run() override
     {
         // Run graph
@@ -498,7 +415,7 @@ public:
     	std::string t;
     	std::vector<std::thread*> stages;
     	for(int i=0;i<graphs.size();i++){
-    		stages.push_back(new std::thread(&GraphAlexnetExample::run,this,i));
+    		stages.push_back(new std::thread(&GraphResNetV1_50Example::run,this,i));
     		//std::cout<<"thread "<< i<<" created\n";
     		//stages[i]->join();
     	}
@@ -509,9 +426,9 @@ public:
 
     }
     void run(int graph_id){
-		int cl=classes[graph_id];
-		int core_id=core[cl];
-		cpu_set_t set;
+    	int cl=classes[graph_id];
+    	int core_id=core[cl];
+    	cpu_set_t set;
 		CPU_ZERO(&set);
 		CPU_SET(core_id,&set);
 		ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
@@ -555,9 +472,9 @@ public:
 		std::cout<<"***************************************\n\n";
 		if(layer_timing)
 			graphs[graph_id]->measure(n);
-	}
+    }
 
-	
+
 
 private:
     CommandLineParser  cmd_parser;
@@ -576,26 +493,131 @@ private:
     ImageAccessor *im_acc=NULL;
     Stream *dump_graph=NULL;
     std::map<int,int> gr_layer;
+
+
+    void add_residual_block(const std::string &data_path, const std::string &name, DataLayout weights_layout,
+                            unsigned int base_depth, unsigned int num_units, unsigned int stride)
+    {
+        for(unsigned int i = 0; i < num_units; ++i)
+        {
+
+
+        	Attach_Layer();
+
+
+
+            std::stringstream unit_path_ss;
+            unit_path_ss << "/cnn_data/resnet50_model/" << name << "_unit_" << (i + 1) << "_bottleneck_v1_";
+            std::stringstream unit_name_ss;
+            unit_name_ss << name << "/unit" << (i + 1) << "/bottleneck_v1/";
+
+            std::string unit_path = unit_path_ss.str();
+            std::string unit_name = unit_name_ss.str();
+
+            unsigned int middle_stride = 1;
+
+            if(i == (num_units - 1))
+            {
+                middle_stride = stride;
+            }
+
+            SubStream right(*sub_graph);
+            right << ConvolutionLayer(
+                      1U, 1U, base_depth,
+                      get_weights_accessor(data_path, unit_path + "conv1_weights.npy", weights_layout),
+                      std::unique_ptr<arm_compute::graph::ITensorAccessor>(nullptr),
+                      PadStrideInfo(1, 1, 0, 0))
+                  .set_name(unit_name + "conv1/convolution")
+                  << BatchNormalizationLayer(
+                      get_weights_accessor(data_path, unit_path + "conv1_BatchNorm_moving_mean.npy"),
+                      get_weights_accessor(data_path, unit_path + "conv1_BatchNorm_moving_variance.npy"),
+                      get_weights_accessor(data_path, unit_path + "conv1_BatchNorm_gamma.npy"),
+                      get_weights_accessor(data_path, unit_path + "conv1_BatchNorm_beta.npy"),
+                      0.0000100099996416f)
+                  .set_name(unit_name + "conv1/BatchNorm")
+                  << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name(unit_name + "conv1/Relu")
+
+                  << ConvolutionLayer(
+                      3U, 3U, base_depth,
+                      get_weights_accessor(data_path, unit_path + "conv2_weights.npy", weights_layout),
+                      std::unique_ptr<arm_compute::graph::ITensorAccessor>(nullptr),
+                      PadStrideInfo(middle_stride, middle_stride, 1, 1))
+                  .set_name(unit_name + "conv2/convolution")
+                  << BatchNormalizationLayer(
+                      get_weights_accessor(data_path, unit_path + "conv2_BatchNorm_moving_mean.npy"),
+                      get_weights_accessor(data_path, unit_path + "conv2_BatchNorm_moving_variance.npy"),
+                      get_weights_accessor(data_path, unit_path + "conv2_BatchNorm_gamma.npy"),
+                      get_weights_accessor(data_path, unit_path + "conv2_BatchNorm_beta.npy"),
+                      0.0000100099996416f)
+                  .set_name(unit_name + "conv2/BatchNorm")
+                  << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name(unit_name + "conv1/Relu")
+
+                  << ConvolutionLayer(
+                      1U, 1U, base_depth * 4,
+                      get_weights_accessor(data_path, unit_path + "conv3_weights.npy", weights_layout),
+                      std::unique_ptr<arm_compute::graph::ITensorAccessor>(nullptr),
+                      PadStrideInfo(1, 1, 0, 0))
+                  .set_name(unit_name + "conv3/convolution")
+                  << BatchNormalizationLayer(
+                      get_weights_accessor(data_path, unit_path + "conv3_BatchNorm_moving_mean.npy"),
+                      get_weights_accessor(data_path, unit_path + "conv3_BatchNorm_moving_variance.npy"),
+                      get_weights_accessor(data_path, unit_path + "conv3_BatchNorm_gamma.npy"),
+                      get_weights_accessor(data_path, unit_path + "conv3_BatchNorm_beta.npy"),
+                      0.0000100099996416f)
+                  .set_name(unit_name + "conv2/BatchNorm");
+
+            if(i == 0)
+            {
+                SubStream left(*sub_graph);
+                left << ConvolutionLayer(
+                         1U, 1U, base_depth * 4,
+                         get_weights_accessor(data_path, unit_path + "shortcut_weights.npy", weights_layout),
+                         std::unique_ptr<arm_compute::graph::ITensorAccessor>(nullptr),
+                         PadStrideInfo(1, 1, 0, 0))
+                     .set_name(unit_name + "shortcut/convolution")
+                     << BatchNormalizationLayer(
+                         get_weights_accessor(data_path, unit_path + "shortcut_BatchNorm_moving_mean.npy"),
+                         get_weights_accessor(data_path, unit_path + "shortcut_BatchNorm_moving_variance.npy"),
+                         get_weights_accessor(data_path, unit_path + "shortcut_BatchNorm_gamma.npy"),
+                         get_weights_accessor(data_path, unit_path + "shortcut_BatchNorm_beta.npy"),
+                         0.0000100099996416f)
+                     .set_name(unit_name + "shortcut/BatchNorm");
+
+                *sub_graph << EltwiseLayer(std::move(left), std::move(right), EltwiseOperation::Add).set_name(unit_name + "add");
+            }
+            else if(middle_stride > 1)
+            {
+                SubStream left(*sub_graph);
+                left << PoolingLayer(PoolingLayerInfo(PoolingType::MAX, 1, common_params.data_layout, PadStrideInfo(middle_stride, middle_stride, 0, 0), true)).set_name(unit_name + "shortcut/MaxPool");
+
+                *sub_graph << EltwiseLayer(std::move(left), std::move(right), EltwiseOperation::Add).set_name(unit_name + "add");
+            }
+            else
+            {
+                SubStream left(*sub_graph);
+                *sub_graph << EltwiseLayer(std::move(left), std::move(right), EltwiseOperation::Add).set_name(unit_name + "add");
+            }
+
+            *sub_graph << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name(unit_name + "Relu");
+        }
+    }
 };
 
-/** Main program for AlexNet
+/** Main program for ResNetV1_50
  *
  * Model is based on:
- *      https://papers.nips.cc/paper/4824-imagenet-classification-with-deep-convolutional-neural-networks
- *      "ImageNet Classification with Deep Convolutional Neural Networks"
- *      Alex Krizhevsky and Sutskever, Ilya and Hinton, Geoffrey E
+ *      https://arxiv.org/abs/1512.03385
+ *      "Deep Residual Learning for Image Recognition"
+ *      Kaiming He, Xiangyu Zhang, Shaoqing Ren, Jian Sun
  *
- * Provenance: https://github.com/BVLC/caffe/tree/master/models/bvlc_alexnet
+ * Provenance: download.tensorflow.org/models/resnet_v1_50_2016_08_28.tar.gz
  *
  * @note To list all the possible arguments execute the binary appended with the --help option
  *
  * @param[in] argc Number of arguments
  * @param[in] argv Arguments
- *
- * @return Return code
  */
 int main(int argc, char **argv)
 {
-    //Ehsan
-    return arm_compute::utils::run_example<GraphAlexnetExample>(argc, argv);
+    return arm_compute::utils::run_example<GraphResNetV1_50Example>(argc, argv);
 }

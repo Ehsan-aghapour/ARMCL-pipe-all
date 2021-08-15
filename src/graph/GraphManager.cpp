@@ -54,7 +54,7 @@ GraphManager::GraphManager()
 }
 
 //#include "arm_compute/graph/backends/BackendRegistry.h"
-void GraphManager::finalize_graph(Graph &graph, GraphContext &ctx, PassManager &pm, Target target)
+void GraphManager::finalize_graph(Graph &graph, GraphContext &ctx, PassManager &pm, Target target, std::set<int> *blocking_set, int blocking)
 {
     // Check if graph has been registered
     if(_workloads.find(graph.id()) != std::end(_workloads))
@@ -113,6 +113,30 @@ void GraphManager::finalize_graph(Graph &graph, GraphContext &ctx, PassManager &
     // Prepare graph
     detail::prepare_all_tasks(workload);
 
+    //Ehsan
+    int ii=0;
+    //std::set<int> blocking_set1 {1, 2, 3, 4};
+    //std::set<int> *blocking_set=&blocking_set1;
+    for(auto &task : workload.tasks)
+    {
+    	bool b=false;
+    	if(blocking_set->find(ii) != blocking_set->end()){
+    	      b=true;
+    	      task.ending=true;
+    	}
+    	if(blocking==1){
+    		if(blocking_set!=NULL and b && target==arm_compute::graph::Target ::CL)
+    		    task.block=1;
+    	}
+    	if(blocking==2){
+    		if(blocking_set!=NULL && target==arm_compute::graph::Target ::CL){
+    			task.block=1;
+    		}
+    	}
+
+    	ii++;
+    }
+
 #if My_print > 0
     //Ehsan
         DotGraphPrinter p;
@@ -141,6 +165,37 @@ void GraphManager::finalize_graph(Graph &graph, GraphContext &ctx, PassManager &
     ARM_COMPUTE_LOG_GRAPH_VERBOSE("Created workload for graph with ID : " << graph.id() << std::endl);
 }
 //Ehsan
+
+void GraphManager::print_times(Graph &graph, int n)
+{
+	auto it = _workloads.find(graph.id());
+	ExecutionWorkload *workload = &it->second;
+	double sum=0;
+	int c=0;
+	int l=0;
+	double tt=0;
+	for(auto &task:workload->tasks){
+		std::cout<<c++<<"\tLayer Name: "<<task.node->name()<<" \t Layer time: "<<task.time(n)<<std::endl;
+		tt+=task.time(n);
+		if(task.ending){
+			std::cout<<"Layer Number: "<<l<<" \t time: "<<tt<<std::endl;
+			tt=0;
+			l++;
+			std::cout<<"----------------------------\n";
+		}
+		sum+=task.time(n);
+	}
+	std::cout<<"\n Sum of Layers time: "<<sum<<std::endl;
+}
+
+void GraphManager::reset(Graph &graph)
+{
+	auto it = _workloads.find(graph.id());
+	ExecutionWorkload *workload = &it->second;
+	for(auto &task:workload->tasks){
+		task.reset();
+	}
+}
 
 void GraphManager::execute_graph(Graph &graph)
 {
@@ -186,7 +241,7 @@ void GraphManager::execute_graph(Graph &graph)
 }
 
 
-void GraphManager::execute_graph(Graph &graph,double &in, double &task, double &out)
+void GraphManager::execute_graph(Graph &graph,double &in, double &task, double &out, int nn)
 {
     // Check if graph is finalized
     auto it = _workloads.find(graph.id());
@@ -211,7 +266,7 @@ void GraphManager::execute_graph(Graph &graph,double &in, double &task, double &
         // Run graph
 	//std::cout<<"\ntask:"<<task<<std::endl;
 	//if(!task)
-    detail::call_all_tasks(it->second);
+    detail::call_all_tasks(it->second,nn);
     //std::cout<<"call all tasks called\n";
 	tstart=std::chrono::high_resolution_clock::now();
         //std::cout<<"task_previous:"<<task<<std::endl;
@@ -244,12 +299,13 @@ void GraphManager::execute_graph(Graph &graph,double &in, double &task, double &
 }
 
 
+
 //Ehsan
-void GraphManager::execute_graph(Graph &graph,double &in, double &task, double &out, bool anotate)
+void GraphManager::execute_graph(Graph &graph,double &in, double &task, double &out, bool anotate, int nn)
 {
 	if(!anotate)
 	{
-		execute_graph(graph, in, task, out);
+		execute_graph(graph, in, task, out, nn);
 		return;
 	}
     // Check if graph is finalized

@@ -116,7 +116,8 @@ void prepare_all_tasks(ExecutionWorkload &workload);
  *
  * @param[in] workload Workload to execute
  */
-void call_all_tasks(ExecutionWorkload &workload);
+void call_all_tasks(ExecutionWorkload &workload,int n=0);
+//void call_all_tasks(ExecutionWorkload &workload, const std::map<std::string,double>& tt=std::map<std::string, double>() ,int n=0);
 } // namespace detail
 } // namespace graph
 } // namespace arm_compute

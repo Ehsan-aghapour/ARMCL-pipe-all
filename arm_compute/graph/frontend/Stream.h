@@ -60,12 +60,14 @@ public:
      * @param[in] target Execution target
      * @param[in] config (Optional) Graph configuration to use
      */
-    void finalize(Target target, const GraphConfig &config);
+    void finalize(Target target, const GraphConfig &config, std::set<int> *b=NULL, int blocking=0);
     /** Executes the stream **/
     //Ehsan
     void run();
     void run(double &in, double &task, double &out);
-    void run(double &in, double &task, double &out, bool annotate);
+    void run(double &in, double &task, double &out, bool annotate, int nn=0);
+    void measure(int n);
+    void reset();
     // Inherited overridden methods
     void add_layer(ILayer &layer) override;
     Graph       &graph() override;
