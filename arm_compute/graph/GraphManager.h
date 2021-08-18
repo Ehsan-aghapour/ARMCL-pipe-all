@@ -74,9 +74,11 @@ public:
      * @param[in] graph Graph to execute
      */
     //Ehsan
-    void execute_graph(Graph &graph);
-    void execute_graph(Graph &graph, double &in, double &task, double &out, int nn=0);
-    void execute_graph(Graph &graph, double &in, double &task, double &out, bool annotate, int nn=0);
+    //void execute_graph(Graph &graph);
+    void execute_graph(Graph &graph, int nn=0);
+    void execute_graph(Graph &graph, bool annotate, int nn=0);
+    //void execute_graph(Graph &graph, double &in, double &task, double &out, int nn=0);
+    //void execute_graph(Graph &graph, double &in, double &task, double &out, bool annotate, int nn=0);
     /** Invalidates the graph execution workload
      *
      * @param[in] graph Graph to invalidate
@@ -87,8 +89,33 @@ public:
     void print_times(Graph &graph, int n);
     void reset(Graph &graph);
 
+    void set_input_time(double t){
+    	input_time=t;
+    }
+    void set_task_time(double t){
+        task_time=t;
+    }
+    void set_output_time(double t){
+        output_time=t;
+    }
+
+
+    double get_input_time(){
+    	return input_time;
+    }
+    double get_task_time(){
+    	return task_time;
+    }
+    double get_output_time(){
+    	return output_time;
+    }
+
+
 private:
     std::map<GraphID, ExecutionWorkload> _workloads = {}; /**< Graph workloads */
+    double input_time=0;
+    double task_time=0;
+    double output_time=0;
 };
 } // namespace graph
 } // namespace arm_compute

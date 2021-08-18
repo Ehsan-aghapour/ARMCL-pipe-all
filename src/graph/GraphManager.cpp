@@ -63,6 +63,9 @@ void GraphManager::finalize_graph(Graph &graph, GraphContext &ctx, PassManager &
     }
     //std::cout<<"graph id:"<<graph.id()<<std::endl;
     // Apply IR mutating passes
+    //std::cerr<<"befor pass 1 graph "<<graph.id()<<std::endl;
+    //print_times(graph,1);
+
     pm.run_type(graph, IGraphMutator::MutationType::IR);
     // Force target to all graph construct
     // TODO (COMPMID-2014) : Support heterogeneous execution
@@ -94,6 +97,9 @@ void GraphManager::finalize_graph(Graph &graph, GraphContext &ctx, PassManager &
      */
     detail::configure_all_tensors(graph);
     // Apply backend mutating passes
+
+    //std::cerr<<"befor pass 2 graph "<<graph.id()<<std::endl;
+    //print_times(graph,1);
     pm.run_type(graph, IGraphMutator::MutationType::Backend);
     // Perform topological sort
     std::vector<NodeID> topological_sorted_nodes = dfs(graph);
@@ -119,6 +125,8 @@ void GraphManager::finalize_graph(Graph &graph, GraphContext &ctx, PassManager &
     //std::set<int> *blocking_set=&blocking_set1;
     for(auto &task : workload.tasks)
     {
+    	if(!task.task)
+    		continue;
     	bool b=false;
     	if(blocking_set->find(ii) != blocking_set->end()){
     	      b=true;
@@ -163,6 +171,8 @@ void GraphManager::finalize_graph(Graph &graph, GraphContext &ctx, PassManager &
     // Register graph
     _workloads.insert(std::make_pair(graph.id(), std::move(workload)));
     ARM_COMPUTE_LOG_GRAPH_VERBOSE("Created workload for graph with ID : " << graph.id() << std::endl);
+    //std::cerr<<"after pass graph "<<graph.id()<<std::endl;
+    //print_times(graph,1);
 }
 //Ehsan
 
@@ -175,6 +185,10 @@ void GraphManager::print_times(Graph &graph, int n)
 	int l=0;
 	double tt=0;
 	for(auto &task:workload->tasks){
+		if(!task.task){
+			std::cerr<<"nadareeeeeeeee\n";
+			continue;
+		}
 		std::cout<<c++<<"\tLayer Name: "<<task.node->name()<<" \t Layer time: "<<task.time(n)<<std::endl;
 		tt+=task.time(n);
 		if(task.ending){
@@ -197,6 +211,7 @@ void GraphManager::reset(Graph &graph)
 	}
 }
 
+/*
 void GraphManager::execute_graph(Graph &graph)
 {
     // Check if graph is finalized
@@ -239,11 +254,15 @@ void GraphManager::execute_graph(Graph &graph)
 
     }
 }
+*/
 
-
-void GraphManager::execute_graph(Graph &graph,double &in, double &task, double &out, int nn)
+void GraphManager::execute_graph(Graph &graph, int nn)
 {
     // Check if graph is finalized
+	/*if(graph.id()==1){
+		std::cerr<<"test:\n";
+		print_times(graph,1);
+	}*/
     auto it = _workloads.find(graph.id());
     ARM_COMPUTE_ERROR_ON_MSG(it == std::end(_workloads), "Graph is not registered!");
     //Ehsan measure input, task and output timings:
@@ -253,6 +272,7 @@ void GraphManager::execute_graph(Graph &graph,double &in, double &task, double &
 	//double tot=0;
 	//ANNOTATE_CHANNEL_COLOR(1,ANNOTATE_GREEN,"input");
 	auto tstart=std::chrono::high_resolution_clock::now();
+	//std::cerr<<"graph_id:"<<graph.id()<<std::endl;
         if(!detail::call_all_input_node_accessors(it->second))
         {
             return;
@@ -261,7 +281,9 @@ void GraphManager::execute_graph(Graph &graph,double &in, double &task, double &
 	auto tfinish=std::chrono::high_resolution_clock::now();
 	//ANNOTATE_CHANNEL_END(1);
 	//ANNOTATE_CHANNEL_COLOR(2,ANNOTATE_YELLOW,"task");
-	in += std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+	/*in += std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();*/
+	input_time += std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+
 	//std::cout<<"Input accessor duration: "<<Cost0<<std::endl;
         // Run graph
 	//std::cout<<"\ntask:"<<task<<std::endl;
@@ -274,7 +296,8 @@ void GraphManager::execute_graph(Graph &graph,double &in, double &task, double &
 	//ANNOTATE_CHANNEL_END(2);
 	//ANNOTATE_CHANNEL_COLOR(3,ANNOTATE_BLACK,"output");
 	//if(!task)
-	task += std::chrono::duration_cast<std::chrono::duration<double>>(tstart-tfinish).count();
+	/*task += std::chrono::duration_cast<std::chrono::duration<double>>(tstart-tfinish).count();*/
+	task_time += std::chrono::duration_cast<std::chrono::duration<double>>(tstart-tfinish).count();
 
 	//std::cout<<"\n2task:"<<task<<std::endl;
 	//std::cout<<"task duration: "<<task<<std::endl;
@@ -282,14 +305,15 @@ void GraphManager::execute_graph(Graph &graph,double &in, double &task, double &
         if(!detail::call_all_output_node_accessors(it->second))
         {
 	    tfinish=std::chrono::high_resolution_clock::now();
-	    out += std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+	    output_time += std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
             // std::cout<<"__Output accessor duration: "<<out<<std::endl;
 	    //std::cout<<"tot_(input+tasks+output):"<<tot<<std::endl;
 	    //ANNOTATE_CHANNEL_END(3);
             return;
         }
 	tfinish=std::chrono::high_resolution_clock::now();
-	out += std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+	/*out += std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();*/
+	output_time += std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
 
 	//tot = in+task+out;
 	//std::cout<<"Output accessor duration: "<<out<<std::endl;
@@ -301,13 +325,14 @@ void GraphManager::execute_graph(Graph &graph,double &in, double &task, double &
 
 
 //Ehsan
-void GraphManager::execute_graph(Graph &graph,double &in, double &task, double &out, bool anotate, int nn)
+void GraphManager::execute_graph(Graph &graph, bool anotate, int nn)
 {
 	if(!anotate)
 	{
-		execute_graph(graph, in, task, out, nn);
+		execute_graph(graph, nn);
 		return;
 	}
+	//std::cerr<<"ajab\n";
     // Check if graph is finalized
     auto it = _workloads.find(graph.id());
     ARM_COMPUTE_ERROR_ON_MSG(it == std::end(_workloads), "Graph is not registered!");
@@ -334,7 +359,7 @@ void GraphManager::execute_graph(Graph &graph,double &in, double &task, double &
 #if My_print > 0
             std::cout<<"in: "<<in<<'\t';
 #endif
-            in += std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+            input_time += std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
 #if My_print > 0
             std::cout<<"updated in: "<<in<<std::endl;
             std::cout<<"input exit\n";
@@ -346,7 +371,7 @@ void GraphManager::execute_graph(Graph &graph,double &in, double &task, double &
 #if My_print > 0
         std::cout<<"in: "<<in<<'\t';
 #endif
-        in += std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+        input_time += std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
 #if My_print > 0
         std::cout<<"updated in: "<<in<<std::endl;
         //std::cout<<"Input accessor duration: "<<Cost0<<std::endl;
@@ -364,7 +389,7 @@ void GraphManager::execute_graph(Graph &graph,double &in, double &task, double &
 #if My_print > 0
         std::cout<<"task: "<<task<<'\t';
 #endif
-        task += std::chrono::duration_cast<std::chrono::duration<double>>(tstart-tfinish).count();
+        task_time += std::chrono::duration_cast<std::chrono::duration<double>>(tstart-tfinish).count();
 #if My_print > 0
         std::cout<<"updated task: "<<task<<std::endl;
         //std::cout<<"task duration: "<<task<<std::endl;
@@ -377,7 +402,7 @@ void GraphManager::execute_graph(Graph &graph,double &in, double &task, double &
 #if My_print > 0
             std::cout<<"out: "<<out<<'\t';
 #endif
-            out += std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+            output_time += std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
 #if My_print > 0
             std::cout<<"updated out: "<<out<<std::endl;
              std::cout<<"__Output accessor duration: "<<out<<std::endl;
@@ -393,7 +418,7 @@ void GraphManager::execute_graph(Graph &graph,double &in, double &task, double &
 #if My_print > 0
         std::cout<<"out: "<<out<<'\t';
 #endif
-        out += std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+        output_time += std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
 #if My_print > 0
         std::cout<<"updated out: "<<out<<std::endl;
         //tot = in+task+out;
@@ -402,7 +427,6 @@ void GraphManager::execute_graph(Graph &graph,double &in, double &task, double &
 #endif
     }
 }
-
 
 void GraphManager::invalidate_graph(Graph &graph)
 {

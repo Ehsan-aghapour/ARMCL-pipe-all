@@ -239,16 +239,16 @@ public:
 					im_acc->set_filename(images_list[image_index++]);
 			}
 			if(annotate)
-				graph.run(in,task,out,annotate);
+				graph.run(annotate);
 			else
-				graph.run(in,task,out);
+				graph.run();
 		}
         auto tfinish=std::chrono::high_resolution_clock::now();
         double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
         double Cost=cost0/tt;
-        in=in/tt;
-        task=task/tt;
-        out=out/tt;
+        in=graph.get_input_time()/tt;
+        task=graph.get_task_time()/tt;
+        out=graph.get_output_time()/tt;
         double tot=in+task+out;
         std::cout<<"Cost:"<<Cost<<std::endl;
         std::cout<<"input_time:"<<in<<"\ntask_time:"<<task<<"\noutput_time:"<<out<<"\ntotal_time:"<<tot<<std::endl;

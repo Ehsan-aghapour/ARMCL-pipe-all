@@ -39,6 +39,8 @@ std::vector<arm_compute::graph::Tensor*> Receivers;
 std::vector<bool*> __waiting;//=true
 std::vector<bool*> __ready;//=false
 
+bool *start_frame=new bool(true);
+
 
 //static std::queue<std::shared_ptr<arm_compute::ITensor>> Tensors_Q;
 //arm_compute::Tensor transit_tensor1;
@@ -67,6 +69,9 @@ std::vector<bool*> __ready;//=false
 
 using namespace arm_compute::graph_utils;
 std::mutex PrintThread::_mutexPrint{};
+
+bool per_frame;
+
 namespace
 {
 std::pair<arm_compute::TensorShape, arm_compute::PermutationVector> compute_permutation_parameters(const arm_compute::TensorShape &shape,
@@ -185,7 +190,7 @@ bool PPMWriter::access_tensor(ITensor &tensor)
     return _iterator < _maximum;
 }
 
-DummyAccessor::DummyAccessor(bool type, unsigned int maximum)
+DummyAccessor::DummyAccessor(int type, unsigned int maximum)
     : _iterator(0), _maximum(maximum), _type(type)
 {
 }
@@ -198,6 +203,31 @@ bool DummyAccessor::access_tensor(ITensor &tensor)
 	//First_NEON
 	//tensor.copy_from(f_out->handle()->tensor());
 	//std::cerr<<"dummy accessor type:"<<_type<<std::endl;
+	//std::cerr<<"dummy type:"<<_type<<std::endl;
+	static int i=0;
+	if(per_frame){
+		//input
+		if(_type==2){
+			std::unique_lock<std::mutex> lk(inout);
+			//std::cerr<<"input decide if wait\n";
+			//std::cerr<<i<<" input  time:"<<(std::chrono::high_resolution_clock::now().time_since_epoch().count()/1000000)%10000<<std::endl;
+			inout_cv.wait(lk,[]{return *start_frame;});
+			//std::cerr<<i<<" input  time2:"<<(std::chrono::high_resolution_clock::now().time_since_epoch().count()/1000000)%10000<<std::endl;
+			//std::cerr<<"input after wait decision\n";
+			*start_frame=false;
+			lk.unlock();
+		}
+		//output
+		if(!_type){
+			std::lock_guard<std::mutex> lk(inout);
+			//std::cerr<<"output notify\n";
+			*start_frame=true;
+			inout_cv.notify_all();
+			//std::cerr<<i++<<" output  time:"<<(std::chrono::high_resolution_clock::now().time_since_epoch().count()/1000000)%10000<<std::endl;
+
+		}
+	}
+
 	return _type;
 
     ARM_COMPUTE_UNUSED(tensor);

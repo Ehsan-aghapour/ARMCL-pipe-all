@@ -62,6 +62,10 @@ static std::vector<arm_compute::Tensor*> buffer_tensors;
 
 static std::vector<std::queue<arm_compute::Tensor*>*> Qs;
 
+static std::mutex inout;
+static std::condition_variable inout_cv;
+extern bool per_frame;
+
 //std::vector<bool> __waiting;//=true
 //std::vector<bool> __ready;//=false
 
@@ -156,7 +160,7 @@ public:
      *
      * @param[in] maximum Maximum elements to write
      */
-    DummyAccessor(bool type, unsigned int maximum = 1);
+    DummyAccessor(int type, unsigned int maximum = 1);
     /** Allows instances to move constructed */
     DummyAccessor(DummyAccessor &&) = default;
 
@@ -166,7 +170,7 @@ public:
 private:
     unsigned int _iterator;
     unsigned int _maximum;
-    bool 		 _type;
+    int 		 _type;
 };
 
 //Ehsan
@@ -731,7 +735,7 @@ inline std::unique_ptr<graph::ITensorAccessor> get_input_accessor(const arm_comp
 
         else
         {
-            return std::make_unique<DummyAccessor>(1);
+            return std::make_unique<DummyAccessor>(2);
         }
     }
 }

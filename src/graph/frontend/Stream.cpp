@@ -55,19 +55,23 @@ void Stream::reset()
 }
 
 
-void Stream::run()
+void Stream::run(int n)
 {
-    _manager.execute_graph(_g);
+    _manager.execute_graph(_g,n);
 }
 
-void Stream::run(double &in,double &task, double &out)
+/*void Stream::run(double &in,double &task, double &out)
 {
     _manager.execute_graph(_g,in,task,out);
-}
-void Stream::run(double &in,double &task, double &out, bool anotate, int nn)
+}*/
+void Stream::run(bool anotate, int nn)
 {
-    _manager.execute_graph(_g,in,task,out, anotate, nn);
+	//start=std::chrono::high_resolution_clock::now();
+    _manager.execute_graph(_g, anotate, nn);
+    //finish=std::chrono::high_resolution_clock::now();
 }
+
+
 
 
 void Stream::add_layer(ILayer &layer)

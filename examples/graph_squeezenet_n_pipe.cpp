@@ -58,6 +58,7 @@ size_t image_index=0;
 stringvec images_list;
 bool imgs=0;
 std::set<int> squeeze_blocking {1,2,5,6,9,10,14,15,18,19,22,23,26,27,31,32,35,37,39};
+int end_tasks[]={1,2,5,6,9,10,14,15,18,19,22,23,26,27,31,32,35,37,39};
 
 /** Example demonstrating how to implement Squeezenet's network using the Compute Library's graph API */
 class GraphSqueezenetExample : public Example
@@ -71,7 +72,8 @@ public:
 
     void Attach_Layer(){
     	//std::cerr<<"attaching layer "<<Layer<<" on graph:"<<gr_layer[Layer]<<std::endl;
-    	static int P_Layer=0;
+    	static int start_Layer=0;
+    	static int end_Layer=0;
     	Layer++;
     	bool graph_finished=false;
     	if(Layer==Layers)
@@ -79,10 +81,10 @@ public:
     	//else if(classes[gr_layer[Layer]]!=classes[gr_layer[Layer-1]]){
     	else if(gr_layer[Layer]!=gr_layer[Layer-1]){
     		graph_finished=true;
-    		P_Layer=Layer-1;
     	}
     	//std::cerr<<common_params.order[Layer-1]<<", finish: "<<graph_finished<<std::endl;
 		if( graph_finished){
+			end_Layer=Layer-1;
 			if(gr_layer[Layer-1]!=-1){
 				if(Layer!=Layers){
 					if(targets[gr_layer[Layer-1]]==arm_compute::graph::Target ::CL){
@@ -114,7 +116,21 @@ public:
 				config.mlgo_file   = common_params.mlgo_file;
 				//std::cout<<"Finalizing graph_"<<gr_layer[Layer-1]<<"\t after Layer:"<<Layer-1<<std::endl;
 				//std::cout<<"class:"<<config.cluster<<"\t target:"<<int(targets[gr_layer[Layer-1]])<<'='<<int(common_params.target)<<std::endl;
-				sub_graph->finalize(common_params.target, config, &squeeze_blocking,common_params.layer_time);
+				std::set<int> e_t;
+				int offset=0;
+				if(start_Layer>0)
+					offset=end_tasks[start_Layer-1]+1;
+				for(int i=start_Layer;i<=end_Layer;i++){
+					e_t.insert(end_tasks[i]-offset);
+				}
+				std::cout<<"Start_Layer:"<<start_Layer<<" \t End layer:"<<end_Layer<<"\n set:";
+				for (auto itr = e_t.begin(); itr != e_t.end(); itr++)
+				{
+					std::cout << *itr<<" ";
+				}
+				std::cout<<std::endl;
+				//sub_graph->finalize(common_params.target, config, &squeeze_blocking,common_params.layer_time);
+				sub_graph->finalize(common_params.target, config, &e_t,common_params.layer_time);
 				if(gr_layer[Layer-1]>0){
 					for(auto &node : sub_graph->graph().nodes())
 					{
@@ -201,6 +217,7 @@ public:
 					(*sub_graph)<<InputLayer(input_descriptor, get_Receiver_accessor(common_params,gr_layer[Layer]-1));
 				}
 			}
+			start_Layer=Layer;
 		}
 		//std::cerr<<"Attached\n";
     }
@@ -299,7 +316,7 @@ public:
 						classes.push_back(2);
 					}
 
-					graphs.push_back(new Stream(g,"AlexNet"));
+					graphs.push_back(new Stream(g+1,"AlexNet"));
 					gr_layer[i]=graphs.size()-1;
 					g=graphs.size()-1;
         		}
@@ -320,7 +337,7 @@ public:
         		break;
         	}
         }
-
+        per_frame=(graphs.size()>1);
         /*for(int i=0;i<8;i++){
         	std::cout<<"Layer:"<<i<<'\t'<<"graph:"<<gr_layer[i]<<'\t'<<"class:"<<classes[gr_layer[i]]<<'\t'<<"target:"<<int(targets[gr_layer[i]])<<std::endl;
         }*/
@@ -521,6 +538,7 @@ public:
         //Ehsan
     	std::string t;
     	std::vector<std::thread*> stages;
+    	int n=common_params.n;
     	for(int i=0;i<graphs.size();i++){
     		stages.push_back(new std::thread(&GraphSqueezenetExample::run,this,i));
     		//std::cout<<"thread "<< i<<" created\n";
@@ -529,6 +547,20 @@ public:
     	for(int i=0;i<stages.size();i++){
 			stages[i]->join();
     	}
+    	for(int i=0;i<graphs.size();i++){
+			//std::cout<<"graph_id: "<<i<<" \t start: "<<graphs[i]->get_start_time().time_since_epoch().count()<<" \t end: "<<graphs[i]->get_finish_time().time_since_epoch().count()<<std::endl;
+    		if(common_params.layer_time)
+    				graphs[i]->measure(n);
+
+			double tot=graphs[i]->get_input_time()+graphs[i]->get_task_time()+graphs[i]->get_output_time();
+			PrintThread{}<<"\n\nCost"<<i<<":"<<1000*graphs[i]->get_cost_time()/n<<std::endl;
+			PrintThread{}<<"input"<<i<<"_time:"<<1000*graphs[i]->get_input_time()/n<<"\ntask"<<i<<"_time:"<<1000*graphs[i]->get_task_time()/n<<"\noutput"<<i<<"_time:"<<1000*graphs[i]->get_output_time()/n<<"\ntotal"<<i<<"_time:"<<1000*tot/n<<std::endl;
+			std::cout<<"***************************************\n\n";
+
+		}
+
+
+    	std::cout<<"Frame Latency: "<<1000*latency/(common_params.n)<<std::endl;
     	del();
 
     }
@@ -545,16 +577,42 @@ public:
 		double out=0;
 		int n=(common_params.n);
 		bool layer_timing=common_params.layer_time;
+		bool end=(graph_id==graphs.size()-1);
+		latency=0;
+		//auto tstart=std::chrono::high_resolution_clock::now();
+		//std::cerr<<"graph__id:"<<graph_id<<"   time:"<<tstart.time_since_epoch().count()<<std::endl;
+		if(imgs && graph_id==0){
+			if(image_index>=images_list.size())
+					image_index=image_index%images_list.size();
+			PrintThread{}<<"\n\nFirst graph inferencing image: "<<image_index<<":"<<images_list[image_index]<<std::endl;
+			//std::unique_ptr<ImageAccessor> im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
+			im_acc->set_filename(images_list[image_index++]);
+		}
+		if(layer_timing){
+			//std::cerr<<i<<" graph_id:"<<graph_id<<"   time:"<<std::chrono::high_resolution_clock::now().time_since_epoch().count()<<std::endl;
+			graphs[graph_id]->run(annotate,n);
+			//graphs[graph_id]->set_finish_time(std::chrono::high_resolution_clock::now());
+		}
+		else{
+			graphs[graph_id]->run(annotate);
+		}
+
+		graphs[graph_id]->set_input_time(0);
+		graphs[graph_id]->set_task_time(0);
+		graphs[graph_id]->set_output_time(0);
+		graphs[graph_id]->set_cost_time(0);
+		if(layer_timing)
+			graphs[graph_id]->reset();
+		std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+		if(graph_id==0){
+			std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+		}
 		auto tstart=std::chrono::high_resolution_clock::now();
-		for(int i=0;i<(n+1);i++){
-			if(i==1){
-				in=task=out=0;
-				if(layer_timing)
-					graphs[graph_id]->reset();
-				std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-				tstart=std::chrono::high_resolution_clock::now();
-				//std::cout<<tstart.time_since_epoch().count()<<std::endl;
-			}
+
+		//std::cout<<tstart.time_since_epoch().count()<<std::endl;
+		if(graph_id==0)
+			start=std::chrono::high_resolution_clock::now();
+		for(int i=0;i<n;i++){
 			if(imgs && graph_id==0){
 				if(image_index>=images_list.size())
 						image_index=image_index%images_list.size();
@@ -562,23 +620,37 @@ public:
 				//std::unique_ptr<ImageAccessor> im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
 				im_acc->set_filename(images_list[image_index++]);
 			}
-			if(layer_timing)
-				graphs[graph_id]->run(in,task,out,annotate,n);
-			else
-				graphs[graph_id]->run(in,task,out,annotate);
+			if(layer_timing){
+				//std::cerr<<i<<" graph_id:"<<graph_id<<"   time:"<<std::chrono::high_resolution_clock::now().time_since_epoch().count()<<std::endl;
+
+				graphs[graph_id]->run(annotate,n);
+				//graphs[graph_id]->set_finish_time(std::chrono::high_resolution_clock::now());
+				if(end){
+					//latency += std::chrono::duration_cast<std::chrono::duration<double>>(graphs[graph_id]->get_finish_time() - graphs[0]->get_start_time()).count();
+					latency += std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - start).count();
+					start=std::chrono::high_resolution_clock::now();
+				}
+			}
+			else{
+				graphs[graph_id]->run(annotate);
+			}
 		}
 		auto tfinish=std::chrono::high_resolution_clock::now();
 		double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
-		double Cost=cost0/n;
+		//graphs[graph_id]->set_input_time(in);
+		//graphs[graph_id]->set_task_time(task);
+		//graphs[graph_id]->set_output_time(out);
+		graphs[graph_id]->set_cost_time(cost0);
+		/*double Cost=cost0/n;
 		in=in/n;
 		task=task/n;
 		out=out/n;
 		double tot=in+task+out;
 		PrintThread{}<<"\n\nCost"<<graph_id<<":"<<Cost<<std::endl;
 		PrintThread{}<<"input"<<graph_id<<"_time:"<<in<<"\ntask"<<graph_id<<"_time:"<<task<<"\noutput"<<graph_id<<"_time:"<<out<<"\ntotal"<<graph_id<<"_time:"<<tot<<std::endl;
-		std::cout<<"***************************************\n\n";
-		if(layer_timing)
-			graphs[graph_id]->measure(n);
+		std::cout<<"***************************************\n\n";*/
+
+
 	}
 
 
@@ -600,6 +672,9 @@ private:
     ImageAccessor *im_acc=NULL;
     Stream *dump_graph=NULL;
     std::map<int,int> gr_layer;
+    std::chrono::time_point<std::chrono::high_resolution_clock> start;
+    //std::chrono::time_point<std::chrono::high_resolution_clock> finish;
+    double latency=0;
 
     ConcatLayer get_expand_fire_node(const std::string &data_path, std::string &&param_path, DataLayout weights_layout,
                                      unsigned int expand1_filt, unsigned int expand3_filt)
