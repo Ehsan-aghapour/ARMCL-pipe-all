@@ -42,6 +42,8 @@ int core0=0;
 int core1=0;
 int core2=0;
 //std::map<int,int> core;
+double process_times[3]={0.0};
+
 //Ehsan 
 typedef std::vector<std::string> stringvec;
 void read_directory(const std::string& name, stringvec& v)
@@ -330,9 +332,9 @@ public:
         // Print parameter values
         std::cout << common_params << std::endl;
 
-        std::cout <<"\nGraph2:\n"<< common_params2 << std::endl;
+        /*std::cout <<"\nGraph2:\n"<< common_params2 << std::endl;
 
-        std::cout <<"\nGraph3:\n"<< common_params3 << std::endl;
+        std::cout <<"\nGraph3:\n"<< common_params3 << std::endl;*/
 
 
         sub_graph=&graph;
@@ -409,9 +411,9 @@ public:
             }
         }
 
-        std::cout<<"Partition layer:"<<p<<std::endl;
-        std::cout<<"Second partition layer:"<<p2<<std::endl;
-        std::cout<<"Total layers:"<<Layer+1<<std::endl<<std::endl;
+        std::cout<<"First partition point:"<<p<<std::endl;
+        std::cout<<"Second partition point:"<<p2<<std::endl;
+        std::cout<<"Total parts:"<<Layer+1<<std::endl<<std::endl;
         return true;
     }
     void do_run() override
@@ -424,6 +426,19 @@ public:
     	First.join();
     	Second.join();
     	Third.join();
+    	double max=process_times[0];
+    	if (process_times[1]>max){
+    		max=process_times[1];
+    	}
+    	if (process_times[2]>max){
+    		max=process_times[2];
+    	}
+    	double throughput=1000.0/max;
+    	double latency=process_times[0]+process_times[1]+process_times[2];
+    	std::cout<<"\n************************************************\n\n";
+    	std::cout<<"Frame rate is: "<<throughput<<" FPS"<<std::endl;
+    	std::cout<<"Frame latency is: "<<latency<<" ms"<<std::endl;
+    	std::cout<<"\n************************************************\n";
     }
 
 
@@ -469,7 +484,8 @@ public:
         }
         for(int i=0;i<(tt+1);i++){
         	if(i==1){
-        		std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        		std::this_thread::sleep_for(std::chrono::milliseconds(3000));
+        		std::cerr<<"\nRunning Inference ... ";
         		tstart=std::chrono::high_resolution_clock::now();
         		//std::cout<<tstart.time_since_epoch().count()<<std::endl;
         		in=task=out=0;
@@ -488,13 +504,15 @@ public:
         auto tfinish=std::chrono::high_resolution_clock::now();
         //std::cout<<tfinish.time_since_epoch().count()<<std::endl;
         double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
-        double Cost=cost0/tt;
-        in=in/tt;
-        task=task/tt;
-        out=out/tt;
+        double Cost=1000*cost0/tt;
+        in=1000*in/tt;
+        task=1000*task/tt;
+        out=1000*out/tt;
         double tot=in+task+out;
-        std::cout<<"\n\nCost:"<<Cost<<std::endl;
-        std::cout<<"input_time:"<<in<<"\ntask_time:"<<task<<"\noutput_time:"<<out<<"\ntotal_time:"<<tot<<std::endl;
+        process_times[0]=tot;
+        //std::cout<<"\n\nCost:"<<Cost<<std::endl;
+        //std::cout<<"input_time:"<<in<<"\ntask_time:"<<task<<"\noutput_time:"<<out<<"\ntotal_time:"<<tot<<std::endl;
+        std::cout<<"\n\nstage1_input_time: "<<in<<" ms"<<"\nstage1_inference_time: "<<task+out<<" ms"<<"\nstage1_total_time: "<<tot<<" ms"<<std::endl;
     }
     void do_run_2(int core_id)
     {
@@ -541,14 +559,16 @@ public:
         auto tfinish=std::chrono::high_resolution_clock::now();
         //std::cout<<tfinish.time_since_epoch().count()<<std::endl;
         double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
-        double Cost=cost0/tt;
-        std::cout<<"\n\nCost:"<<Cost<<std::endl;
-        in2=in2/tt;
-        task2=task2/tt;
-        out2=out2/tt;
+        double Cost=1000*cost0/tt;
+        //std::cout<<"\n\nCost:"<<Cost<<std::endl;
+        in2=1000*in2/tt;
+        task2=1000*task2/tt;
+        out2=1000*out2/tt;
         double tot2=in2+task2+out2;
+        process_times[1]=tot2;
         //std::cout<<"Cost:"<<Cost<<std::endl;
-        std::cout<<"\n\ninput2_time:"<<in2<<"\ntask2_time:"<<task2<<"\noutput2_time:"<<out2<<"\ntotal2_time:"<<tot2<<std::endl;
+        //std::cout<<"\n\ninput2_time:"<<in2<<"\ntask2_time:"<<task2<<"\noutput2_time:"<<out2<<"\ntotal2_time:"<<tot2<<std::endl;
+        std::cout<<"\n\nstage2_input_time: "<<in2<<" ms"<<"\nstage2_inference_time: "<<task2+out2<<" ms"<<"\nstage2_total_time: "<<tot2<<" ms"<<std::endl;
     }
     void do_run_3(int core_id)
         {
@@ -595,14 +615,16 @@ public:
             auto tfinish=std::chrono::high_resolution_clock::now();
             //std::cout<<tfinish.time_since_epoch().count()<<std::endl;
             double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
-            double Cost=cost0/tt;
-            std::cout<<"\n\nCost:"<<Cost<<std::endl;
-            in3=in3/tt;
-            task3=task3/tt;
-            out3=out3/tt;
+            double Cost=1000*cost0/tt;
+            //std::cout<<"\n\nCost:"<<Cost<<std::endl;
+            in3=1000*in3/tt;
+            task3=1000*task3/tt;
+            out3=1000*out3/tt;
             double tot3=in3+task3+out3;
+            process_times[2]=tot3;
             //std::cout<<"Cost:"<<Cost<<std::endl;
-            std::cout<<"\n\ninput3_time:"<<in3<<"\ntask3_time:"<<task3<<"\noutput3_time:"<<out3<<"\ntotal3_time:"<<tot3<<std::endl;
+            //std::cout<<"\n\ninput3_time:"<<in3<<"\ntask3_time:"<<task3<<"\noutput3_time:"<<out3<<"\ntotal3_time:"<<tot3<<std::endl;
+            std::cout<<"\n\nstage3_input_time: "<<in3<<" ms"<<"\nstage3_inference_time: "<<task3+out3<<" ms"<<"\nstage3_total_time: "<<tot3<<" ms"<<std::endl;
         }
 
 
