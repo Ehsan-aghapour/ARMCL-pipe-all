@@ -1071,6 +1071,8 @@ public:
 			{
 				graph2.run(in2,task2,out2,annotate);
 			}
+			if(i==1)
+				in2=0;
         }
         auto tfinish=std::chrono::high_resolution_clock::now();
         //std::cout<<tfinish.time_since_epoch().count()<<std::endl;
@@ -1127,6 +1129,8 @@ public:
     			{
     				graph3.run(in3,task3,out3,annotate);
     			}
+    			if(i==1)
+    				in3=0;
             }
             auto tfinish=std::chrono::high_resolution_clock::now();
             //std::cout<<tfinish.time_since_epoch().count()<<std::endl;
