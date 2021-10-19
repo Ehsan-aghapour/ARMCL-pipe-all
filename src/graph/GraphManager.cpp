@@ -24,7 +24,8 @@
 
 //Ehsan
 #include<chrono>
-#include"annotate/Sr_ann.c"
+//#include"annotate/Sr_ann.c"
+//#include "utils/streamline_annotate.h"
 #include "arm_compute/graph/printers/DotGraphPrinter.h"
 #ifndef My_print
 #include "arm_compute/gl_vs.h"
@@ -189,7 +190,12 @@ void GraphManager::print_times(Graph &graph, int n)
 			std::cerr<<"nadareeeeeeeee\n";
 			continue;
 		}
-		std::cout<<c++<<"\tLayer Name: "<<task.node->name()<<" \t Layer time: "<<task.time(n)<<std::endl;
+		std::cout<<c++<<"\tLayer Name: "<<task.node->name()
+				<<" \t Layer time: "<<task.time(n)
+				<<" \t number of inputs: "<<task.node->num_inputs()
+				<<" \t input shape: "<<task.node->input(0)->desc().shape
+				<<" \t output shape: "<<task.node->output(0)->desc().shape<<std::endl;
+
 		tt+=task.time(n);
 		if(task.ending){
 			std::cout<<"Layer Number: "<<l<<" \t time: "<<tt<<std::endl;
@@ -332,6 +338,7 @@ void GraphManager::execute_graph(Graph &graph, bool anotate, int nn)
 		execute_graph(graph, nn);
 		return;
 	}
+	/*
 	//std::cerr<<"ajab\n";
     // Check if graph is finalized
     auto it = _workloads.find(graph.id());
@@ -426,6 +433,7 @@ void GraphManager::execute_graph(Graph &graph, bool anotate, int nn)
         //std::cout<<"tot_:"<<tot<<std::endl;
 #endif
     }
+    */
 }
 
 void GraphManager::invalidate_graph(Graph &graph)

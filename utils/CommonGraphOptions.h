@@ -121,6 +121,12 @@ struct CommonGraphParams
     int								 total_cores{6};
     int								 layer_time{0};
     std::string						 order{"B-L-G"};
+
+    int								 input_c{3};
+    int								 input_s{227};
+    int								 kernel_c{96};
+    int								 kernel_s{11};
+    int								 stride{2};
 };
 
 /** Formatted output of the CommonGraphParams type
@@ -187,6 +193,12 @@ public:
     SimpleOption<int>					   *n;
     SimpleOption<int>					   *total_cores;
     SimpleOption<int>					   *layer_time;
+
+    SimpleOption<int>					   *input_c;
+    SimpleOption<int>					   *input_s;
+    SimpleOption<int>					   *kernel_c;
+    SimpleOption<int>					   *kernel_s;
+    SimpleOption<int>					   *stride;
 
 };
 

@@ -106,7 +106,7 @@ bool Tensor::call_accessor()
 //Ehsan
 bool Tensor::my_call_accessor()
 {
-	ANNOTATE_MARKER_STR("input_output accessor start");
+	////ANNOTATE_MARKER_STR("input_output accessor start");
     // Early exit guard
 	//std::cout<<"\n1\n";
     if(!_accessor || !_handle)
@@ -114,22 +114,22 @@ bool Tensor::my_call_accessor()
         return false;
     }
     //std::cout<<"\n2\n";
-    static int c=4;
-    ANNOTATE_CHANNEL_COLOR(c,ANNOTATE_GREEN,"map");
+    ////static int c=4;
+    ///ANNOTATE_CHANNEL_COLOR(c,ANNOTATE_GREEN,"map");
     // Map tensor
     //auto start=std::chrono::high_resolution_clock::now();
     _handle->map(true);
     //auto finish=std::chrono::high_resolution_clock::now();
     //std::cerr<<"mapping: "<<1000*(std::chrono::duration_cast<std::chrono::duration<double>>(finish - start).count())<<std::endl;
     //std::cerr<<"*******************************\n\n";
-    ANNOTATE_CHANNEL_END(c++);
+    ////ANNOTATE_CHANNEL_END(c++);
     // Return in case of null backend buffer
     if(_handle->tensor().buffer() == nullptr)
     {
         return false;
     }
     //std::cout<<"\n3\n";
-    ANNOTATE_CHANNEL_COLOR(c,ANNOTATE_BLUE,"access");
+    ////ANNOTATE_CHANNEL_COLOR(c,ANNOTATE_BLUE,"access");
     // Call accessor
     //std::string cc;
     //std::cout<<"salammm\n";
@@ -137,14 +137,14 @@ bool Tensor::my_call_accessor()
     bool retval = _accessor->access_tensor(_handle->tensor());
     ////finish=std::chrono::high_resolution_clock::now();
     ////std::cerr<<"access: "<<(std::chrono::duration_cast<std::chrono::duration<double>>(finish - start).count())<<std::endl;
-    ANNOTATE_CHANNEL_END(c++);
-    ANNOTATE_CHANNEL_COLOR(c,ANNOTATE_RED,"unmap");
+    ////ANNOTATE_CHANNEL_END(c++);
+    ////ANNOTATE_CHANNEL_COLOR(c,ANNOTATE_RED,"unmap");
     // Unmap tensor
     ////start=std::chrono::high_resolution_clock::now();
     _handle->unmap();
     ////finish=std::chrono::high_resolution_clock::now();
     ////std::cerr<<"unmap: "<<(std::chrono::duration_cast<std::chrono::duration<double>>(finish - start).count())<<std::endl;
-    ANNOTATE_CHANNEL_END(c++);
+    ////ANNOTATE_CHANNEL_END(c++);
     return retval;
 }
 

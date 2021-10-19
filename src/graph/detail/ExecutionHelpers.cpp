@@ -22,10 +22,15 @@
  * SOFTWARE.
  */
 //Ehsan
+#define streamline 0
 #include<chrono>
 #ifndef My_print
 #include "arm_compute/gl_vs.h"
 #endif
+#if streamline > 0
+#include"annotate/Sr_ann.c"
+#endif
+//#include "src/graph/GraphManager.cpp"
 
 #include "arm_compute/graph/detail/ExecutionHelpers.h"
 
@@ -308,12 +313,27 @@ void call_all_tasks(ExecutionWorkload &workload,int nn)
     }
 
     // Execute tasks
+#if streamline > 0
+    ANNOTATE_SETUP;
+    ANNOTATE_MARKER_STR("start_running tasks");
+    static int cc=0;
+    static int c=0;
+#endif
     for(auto &task : workload.tasks)
     {
     	if(nn==0)
     		task();
-    	else
+    	else{
+#if streamline > 0
+    		ANNOTATE_CHANNEL_COLOR(cc,((c%2)==0)?ANNOTATE_GREEN:ANNOTATE_YELLOW, (std::to_string(c)+" "+task.node->name()).c_str() );
+#endif
     		task(nn);
+#if streamline > 0
+    		if(task.ending)
+    			c=c+1;
+    		ANNOTATE_CHANNEL_END(cc++);
+#endif
+    	}
         auto t0=std::chrono::high_resolution_clock::now();
         auto nanosec = t0.time_since_epoch();
 #if My_print > 0

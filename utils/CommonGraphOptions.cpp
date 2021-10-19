@@ -167,7 +167,12 @@ CommonGraphOptions::CommonGraphOptions(CommandLineParser &parser)
 	  n(parser.add_option<SimpleOption<int>>("n", 1)),
 	  total_cores(parser.add_option<SimpleOption<int>>("total_cores", 6)),
 	  layer_time(parser.add_option<SimpleOption<int>>("layer_time", 0)),
-	  order(parser.add_option<SimpleOption<std::string>>("order"))
+	  order(parser.add_option<SimpleOption<std::string>>("order")),
+	  input_s(parser.add_option<SimpleOption<int>>("input_s", 227)),
+	  input_c(parser.add_option<SimpleOption<int>>("input_c", 3)),
+	  kernel_s(parser.add_option<SimpleOption<int>>("kernel_s", 11)),
+	  kernel_c(parser.add_option<SimpleOption<int>>("kernel_c", 96)),
+	  stride(parser.add_option<SimpleOption<int>>("stride", 2))
 {
     std::set<arm_compute::graph::Target> supported_targets
     {
@@ -269,6 +274,12 @@ CommonGraphParams consume_common_graph_parameters(CommonGraphOptions &options)
     common_params.total_cores			 = options.total_cores->value();
     common_params.layer_time			 = options.layer_time->value();
     common_params.order              = options.order->value();
+
+    common_params.input_c			 = options.input_c->value();
+    common_params.input_s			 = options.input_s->value();
+    common_params.kernel_c			 = options.kernel_c->value();
+    common_params.kernel_s			 = options.kernel_s->value();
+    common_params.stride			 = options.stride->value();
 
     return common_params;
 }

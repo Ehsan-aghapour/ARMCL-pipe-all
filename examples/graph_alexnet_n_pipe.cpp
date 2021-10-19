@@ -494,7 +494,20 @@ public:
 		<< SoftmaxLayer().set_name("prob")
 		<< OutputLayer(get_output_accessor(common_params, 5));
 
+
+
+
+		/*for(auto &node : sub_graph->graph().nodes())
+		{
+			if(node.get()->num_outputs())
+			{
+				std::cout<<"Node name: "<<node.get()->name()<<" \t output shape: "<<node.get()->output(0)->desc().shape<<std::endl<<std::flush;
+			}
+		}*/
+
+
 		Attach_Layer();
+
 
 		im_acc=dynamic_cast<ImageAccessor*>(graphs[0]->graph().node(0)->output(0)->accessor());
 
@@ -554,7 +567,8 @@ public:
 		CPU_ZERO(&set);
 		CPU_SET(core_id,&set);
 		ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
-		PrintThread{}<<"start running graph "<<graph_id<<std::flush<<std::endl;
+		//PrintThread{}<<"start running graph "<<graph_id<<std::flush<<std::endl;
+		std::cerr<<"start running graph "<<graph_id<<std::flush<<std::endl;
 		double in=0;
 		double task=0;
 		double out=0;
@@ -573,7 +587,7 @@ public:
 		}
 		if(layer_timing){
 			//std::cerr<<i<<" graph_id:"<<graph_id<<"   time:"<<std::chrono::high_resolution_clock::now().time_since_epoch().count()<<std::endl;
-			graphs[graph_id]->run(annotate,n);
+			graphs[graph_id]->run(annotate);
 			//graphs[graph_id]->set_finish_time(std::chrono::high_resolution_clock::now());
 		}
 		else{

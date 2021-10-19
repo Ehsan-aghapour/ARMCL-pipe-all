@@ -21,18 +21,31 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+#ifndef My_print
+#include "arm_compute/gl_vs.h"
+#endif
+
 //Ehsan
 #include<chrono>
+#include<thread>
 #include <sys/types.h>
 #include <dirent.h>
-#include "annotate/streamline_annotate.h"
+//#include<unistd.h>
+//#include<sched.h>
+#include "arm_compute/graph/Types.h"
+#include "arm_compute/gl_vs.h"
+
 
 #include "arm_compute/graph.h"
+#ifdef ARM_COMPUTE_CL
+#include "arm_compute/runtime/CL/Utils.h"
+#endif /* ARM_COMPUTE_CL */
 #include "support/ToolchainSupport.h"
 #include "utils/CommonGraphOptions.h"
 #include "utils/GraphUtils.h"
 #include "utils/Utils.h"
 
+using namespace arm_compute;
 using namespace arm_compute::utils;
 using namespace arm_compute::graph::frontend;
 using namespace arm_compute::graph_utils;
@@ -42,12 +55,14 @@ using namespace arm_compute::graph_utils;
 typedef std::vector<std::string> stringvec;
 void read_directory(const std::string& name, stringvec& v)
 {
+
     DIR* dirp = opendir(name.c_str());
     struct dirent * dp;
     while ((dp = readdir(dirp)) != NULL) {
         if(arm_compute::utility::endswith(dp->d_name, ".ppm"))
            v.push_back(name+(dp->d_name));
     }
+
     closedir(dirp);
 }
 
@@ -55,19 +70,25 @@ void read_directory(const std::string& name, stringvec& v)
 size_t image_index=0;
 stringvec images_list;
 bool imgs=0;
-std::set<int> google_blocking {2,3,6,14,23,31,39,47,55,64,72,81,83};
-int end_tasks[]={2,3,6,14,23,31,39,47,55,64,72,81,83};
+//bool ann=0;
+std::set<int> alex_blocking {2,7,8,11,15,16,17,19};
+int end_tasks[]={2,7,8,11,15,16,17,19};
 
-/** Example demonstrating how to implement Googlenet's network using the Compute Library's graph API */
-class GraphGooglenetExample : public Example
+
+
+//static std::mutex inout;
+
+
+
+/** Example demonstrating how to implement AlexNet's network using the Compute Library's graph API */
+class GraphAlexnetExample : public Example
 {
 public:
-    GraphGooglenetExample()
+    GraphAlexnetExample()
         : cmd_parser(), common_opts(cmd_parser), common_params()
     {
     }
 
-//Ehsan
     void Attach_Layer(){
     	//std::cerr<<"attaching layer "<<Layer<<" on graph:"<<gr_layer[Layer]<<std::endl;
     	static int start_Layer=0;
@@ -79,6 +100,7 @@ public:
     	//else if(classes[gr_layer[Layer]]!=classes[gr_layer[Layer-1]]){
     	else if(gr_layer[Layer]!=gr_layer[Layer-1]){
     		graph_finished=true;
+    		//P_Layer=Layer-1;
     	}
     	//std::cerr<<common_params.order[Layer-1]<<", finish: "<<graph_finished<<std::endl;
 		if( graph_finished){
@@ -127,8 +149,8 @@ public:
 					std::cout << *itr<<" ";
 				}
 				std::cout<<std::endl;
-				//sub_graph->finalize(common_params.target, config, &squeeze_blocking,common_params.layer_time);
 				sub_graph->finalize(common_params.target, config, &e_t,common_params.layer_time);
+				//sub_graph->finalize(common_params.target, config, &alex_blocking,common_params.layer_time);
 				if(gr_layer[Layer-1]>0){
 					for(auto &node : sub_graph->graph().nodes())
 					{
@@ -220,22 +242,48 @@ public:
 		//std::cerr<<"Attached\n";
     }
 
+    TensorShape output_shape(Stream* g){
+    	arm_compute::graph::Tensor* temp_sender;
+		TensorShape tshape;
+		//if(gr_layer[Layer]!=-1){
+
+		for(auto &node : sub_graph->graph().nodes())
+		{
+			std::cout<<"Node name: "<<node.get()->name()<<" \t output shape: "<<node.get()->output(0)->desc().shape<<std::endl<<std::flush;
+			/*if(node != nullptr && node->type() == arm_compute::graph::NodeType::Output)
+			{
+				temp_sender=node->input(0);
+				tshape=temp_sender->desc().shape;
+				std::cerr<<"Node name: "<<node.get()->name();
+				continue;
+			}*/
+		}
+
+		auto *last_node=&(sub_graph->graph().nodes()[sub_graph->tail_node()]);
+		tshape=last_node[0]->output(0)->desc().shape;
+		std::cout<<"\nLast node name:"<<last_node[0]->name()<<" \t shape:"<<tshape<<std::endl<<std::endl<<std::flush;
+
+		return tshape;
+    }
+
 
     bool do_setup(int argc, char **argv) override
     {
+
         // Parse arguments
         cmd_parser.parse(argc, argv);
         cmd_parser.validate();
 
         // Consume common parameters
         common_params = consume_common_graph_parameters(common_opts);
-
-	//Ehsan
-	imgs=!(common_params.image.empty());
-	if(imgs){
-	   read_directory(common_params.image,images_list);
-	   std::cout<<images_list.size()<<" Input images are read from "<<common_params.image<<std::endl;
-	   common_params.image=images_list[image_index];
+        //common_params2 = consume_common_graph_parameters(common_opts);
+        
+	    //Ehsan
+	    imgs=!(common_params.image.empty());
+	    if(imgs){
+			read_directory(common_params.image,images_list);
+			std::cout<<images_list.size()<<" Input images are read from "<<common_params.image<<std::endl;
+			common_params.image=images_list[image_index];
         }
 
         // Return when help menu is requested
@@ -248,8 +296,6 @@ public:
         // Checks
         ARM_COMPUTE_EXIT_ON_MSG(arm_compute::is_data_type_quantized_asymmetric(common_params.data_type), "QASYMM8 not supported for this graph");
 
-        // Print parameter values
-        //std::cout << common_params << std::endl;
 
         // Get trainable parameters data path
         std::string data_path = common_params.data_path;
@@ -260,7 +306,7 @@ public:
 
         // Create input descriptor
         const auto        operation_layout = common_params.data_layout;
-        const TensorShape tensor_shape     = permute_shape(TensorShape(224U, 224U, 3U, 1U), DataLayout::NCHW, operation_layout);
+        const TensorShape tensor_shape     = permute_shape(TensorShape(common_params.input_s, common_params.input_s, common_params.input_c, 1U), DataLayout::NCHW, operation_layout);
         TensorDescriptor  input_descriptor = TensorDescriptor(tensor_shape, common_params.data_type).set_layout(operation_layout);
 
         // Set weights trained layout
@@ -290,7 +336,7 @@ public:
 					classes.push_back(2);
 				}
 				if (order[i]!='-'){
-					graphs.push_back(new Stream(g,"AlexNet"));
+					graphs.push_back(new Stream(g+1,"AlexNet"));
 					gr_layer[i]=g;
 				}
 				if(order[i]=='-'){
@@ -317,7 +363,7 @@ public:
 						classes.push_back(2);
 					}
 
-					graphs.push_back(new Stream(g+1,"AlexNet"));
+					graphs.push_back(new Stream(g,"AlexNet"));
 					gr_layer[i]=graphs.size()-1;
 					g=graphs.size()-1;
         		}
@@ -339,6 +385,23 @@ public:
         	}
         }
         per_frame=(graphs.size()>1);
+        /*for(int i=0;i<8;i++){
+        	std::cout<<"Layer:"<<i<<'\t'<<"graph:"<<gr_layer[i]<<'\t'<<"class:"<<classes[gr_layer[i]]<<'\t'<<"target:"<<int(targets[gr_layer[i]])<<std::endl;
+        }*/
+        //std::vector<Stream> _graphs(g);
+        //graphs.swap(_graphs);
+        //static std::vector<std::mutex> _mx(graphs.size()-1);
+        //mx.swap(_mx);
+        //static std::vector<std::condition_variable> _cvs(graphs.size()-1);
+        //cvs.swap(_cvs);
+        //std::vector<arm_compute::Tensor> _buffer_tensors(graphs.size()-1);
+       // std::cout<<"heyyyy:"<<_buffer_tensors.size()<<std::endl;
+        //std::string mm;
+        //std::cin>>mm;
+        //buffer_tensors.swap(_buffer_tensors);
+        //std::cout<<"heyyyy2:"<<buffer_tensors.size()<<std::endl;
+               // std::string mm;
+          //      std::cin>>mm;
 
         cpu_set_t set;
 		CPU_ZERO(&set);
@@ -360,112 +423,138 @@ public:
         	common_params.target=targets[gr_layer[Layer]];
         }
 
-
-        //***************************************************************
-
-
         (*sub_graph) << common_params.target
-              << common_params.fast_math_hint
-              << InputLayer(input_descriptor, get_input_accessor(common_params, std::move(preprocessor)))
-              << ConvolutionLayer(
-                  7U, 7U, 64U,
-                  get_weights_accessor(data_path, "/cnn_data/googlenet_model/conv1/conv1_7x7_s2_w.npy", weights_layout),
-                  get_weights_accessor(data_path, "/cnn_data/googlenet_model/conv1/conv1_7x7_s2_b.npy"),
-                  PadStrideInfo(2, 2, 3, 3))
-              .set_name("conv1/7x7_s2")
-              << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name("conv1/relu_7x7")
-              << PoolingLayer(PoolingLayerInfo(PoolingType::MAX, 3, operation_layout, PadStrideInfo(2, 2, 0, 0, DimensionRoundingType::CEIL))).set_name("pool1/3x3_s2")
-              << NormalizationLayer(NormalizationLayerInfo(NormType::CROSS_MAP, 5, 0.0001f, 0.75f)).set_name("pool1/norm1");
+              << common_params.fast_math_hint;
+        		auto ii=InputLayer(input_descriptor, get_input_accessor(common_params, std::move(preprocessor)));
+        		(*sub_graph)  << ii;
+        		std::cout<<"stride:"<<common_params.stride<<std::endl;
+              // Layer 1
+		      (*sub_graph) << ConvolutionLayer(
+		    		  common_params.kernel_s, common_params.kernel_s, common_params.kernel_c,
+                  get_weights_accessor(data_path, "/cnn_data/alexnet_model/conv1_w.npy", weights_layout),
+                  get_weights_accessor(data_path, "/cnn_data/alexnet_model/conv1_b.npy"),
+                  PadStrideInfo(common_params.stride, common_params.stride, 0, 0))
+              .set_name("conv1")
+              << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name("relu1")
+              << NormalizationLayer(NormalizationLayerInfo(NormType::CROSS_MAP, 5, 0.0001f, 0.75f)).set_name("norm1")
+              << PoolingLayer(PoolingLayerInfo(PoolingType::MAX, 3, operation_layout, PadStrideInfo(2, 2, 0, 0))).set_name("pool1");
 
         Attach_Layer();
+        //auto tt=output_shape(sub_graph);
+        //return true;
+		common_params.labels=lbl;
 
-        // Layer 2
-        (*sub_graph)<< ConvolutionLayer(
-                  1U, 1U, 64U,
-                  get_weights_accessor(data_path, "/cnn_data/googlenet_model/conv2/conv2_3x3_reduce_w.npy", weights_layout),
-                  get_weights_accessor(data_path, "/cnn_data/googlenet_model/conv2/conv2_3x3_reduce_b.npy"),
-                  PadStrideInfo(1, 1, 0, 0))
-              .set_name("conv2/3x3_reduce")
-              << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name("conv2/relu_3x3_reduce");
+		// Layer 8
+		(*sub_graph)<< FullyConnectedLayer(
+			10U,
+			get_weights_accessor(data_path, " ", weights_layout),
+			get_weights_accessor(data_path, " "))
+		.set_name("fc2")
+		// Softmax
+		<< SoftmaxLayer().set_name("prob")
+		<< OutputLayer(get_output_accessor(common_params, 5));
 
-        Attach_Layer();
+		Attach_Layer();
 
-        // Layer 3
-        (*sub_graph)<< ConvolutionLayer(
-                  3U, 3U, 192U,
-                  get_weights_accessor(data_path, "/cnn_data/googlenet_model/conv2/conv2_3x3_w.npy", weights_layout),
-                  get_weights_accessor(data_path, "/cnn_data/googlenet_model/conv2/conv2_3x3_b.npy"),
-                  PadStrideInfo(1, 1, 1, 1))
-              .set_name("conv2/3x3")
-              << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name("conv2/relu_3x3")
-              << NormalizationLayer(NormalizationLayerInfo(NormType::CROSS_MAP, 5, 0.0001f, 0.75f)).set_name("conv2/norm2")
-              << PoolingLayer(PoolingLayerInfo(PoolingType::MAX, 3, operation_layout, PadStrideInfo(2, 2, 0, 0, DimensionRoundingType::CEIL))).set_name("pool2/3x3_s2");
+		im_acc=dynamic_cast<ImageAccessor*>(graphs[0]->graph().node(0)->output(0)->accessor());
 
-        Attach_Layer();
+		std::cout<<"Total layers:"<<Layer<<std::endl<<std::endl<<std::flush;
 
-        // Layer 4
-        (*sub_graph) << get_inception_node(data_path, "inception_3a", weights_layout, 64, std::make_tuple(96U, 128U), std::make_tuple(16U, 32U), 32U).set_name("inception_3a/concat");
+        /*
 
-        Attach_Layer();
+		// Layer 2
+		(*sub_graph) << ConvolutionLayer(
+				  5U, 5U, 256U,
+				  get_weights_accessor(data_path, "/cnn_data/alexnet_model/conv2_w.npy", weights_layout),
+				  get_weights_accessor(data_path, "/cnn_data/alexnet_model/conv2_b.npy"),
+				  PadStrideInfo(1, 1, 2, 2), 2)
+			  .set_name("conv2")
+			  << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name("relu2")
+			  << NormalizationLayer(NormalizationLayerInfo(NormType::CROSS_MAP, 5, 0.0001f, 0.75f)).set_name("norm2")
+			  << PoolingLayer(PoolingLayerInfo(PoolingType::MAX, 3, operation_layout, PadStrideInfo(2, 2, 0, 0))).set_name("pool2");
 
-        // Layer 5
-        (*sub_graph) << get_inception_node(data_path, "inception_3b", weights_layout, 128, std::make_tuple(128U, 192U), std::make_tuple(32U, 96U), 64U).set_name("inception_3b/concat");
-        (*sub_graph) << PoolingLayer(PoolingLayerInfo(PoolingType::MAX, 3, operation_layout, PadStrideInfo(2, 2, 0, 0, DimensionRoundingType::CEIL))).set_name("pool3/3x3_s2");
+		Attach_Layer();
 
-        Attach_Layer();
+		// Layer 3
+		(*sub_graph)<< ConvolutionLayer(
+						  3U, 3U, 384U,
+						  get_weights_accessor(data_path, "/cnn_data/alexnet_model/conv3_w.npy", weights_layout),
+						  get_weights_accessor(data_path, "/cnn_data/alexnet_model/conv3_b.npy"),
+						  PadStrideInfo(1, 1, 1, 1))
+					  .set_name("conv3")
+		<< ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name("relu3");
 
-        // Layer 6
-        (*sub_graph) << get_inception_node(data_path, "inception_4a", weights_layout, 192, std::make_tuple(96U, 208U), std::make_tuple(16U, 48U), 64U).set_name("inception_4a/concat");
+		Attach_Layer();
 
-        Attach_Layer();
+		// Layer 4
+		(*sub_graph)<< ConvolutionLayer(
+			3U, 3U, 384U,
+			get_weights_accessor(data_path, "/cnn_data/alexnet_model/conv4_w.npy", weights_layout),
+			get_weights_accessor(data_path, "/cnn_data/alexnet_model/conv4_b.npy"),
+			PadStrideInfo(1, 1, 1, 1), 2)
+		.set_name("conv4")
+		<< ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name("relu4");
 
-        // Layer 7
-        (*sub_graph) << get_inception_node(data_path, "inception_4b", weights_layout, 160, std::make_tuple(112U, 224U), std::make_tuple(24U, 64U), 64U).set_name("inception_4b/concat");
+		Attach_Layer();
 
-        Attach_Layer();
+		// Layer 5
+		(*sub_graph)<< ConvolutionLayer(
+			3U, 3U, 256U,
+			get_weights_accessor(data_path, "/cnn_data/alexnet_model/conv5_w.npy", weights_layout),
+			get_weights_accessor(data_path, "/cnn_data/alexnet_model/conv5_b.npy"),
+			PadStrideInfo(1, 1, 1, 1), 2)
+		.set_name("conv5")
+		<< ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name("relu5")
+		<< PoolingLayer(PoolingLayerInfo(PoolingType::MAX, 3, operation_layout, PadStrideInfo(2, 2, 0, 0))).set_name("pool5");
 
-        // Layer 8
-        (*sub_graph) << get_inception_node(data_path, "inception_4c", weights_layout, 128, std::make_tuple(128U, 256U), std::make_tuple(24U, 64U), 64U).set_name("inception_4c/concat");
+		Attach_Layer();
 
-        Attach_Layer();
+		// Layer 6
+		(*sub_graph)<< FullyConnectedLayer(
+			4096U,
+			get_weights_accessor(data_path, "/cnn_data/alexnet_model/fc6_w.npy", weights_layout),
+			get_weights_accessor(data_path, "/cnn_data/alexnet_model/fc6_b.npy"))
+		.set_name("fc6")
+		<< ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name("relu6");
 
-        // Layer 9
-        (*sub_graph) << get_inception_node(data_path, "inception_4d", weights_layout, 112, std::make_tuple(144U, 288U), std::make_tuple(32U, 64U), 64U).set_name("inception_4d/concat");
+		Attach_Layer();
 
-        Attach_Layer();
-
-        // Layer 10
-        (*sub_graph) << get_inception_node(data_path, "inception_4e", weights_layout, 256, std::make_tuple(160U, 320U), std::make_tuple(32U, 128U), 128U).set_name("inception_4e/concat");
-        (*sub_graph) << PoolingLayer(PoolingLayerInfo(PoolingType::MAX, 3, operation_layout, PadStrideInfo(2, 2, 0, 0, DimensionRoundingType::CEIL))).set_name("pool4/3x3_s2");
-
-        Attach_Layer();
-
-        // Layer 11
-        (*sub_graph) << get_inception_node(data_path, "inception_5a", weights_layout, 256, std::make_tuple(160U, 320U), std::make_tuple(32U, 128U), 128U).set_name("inception_5a/concat");
-
-        Attach_Layer();
-
-        // Layer 12
-        (*sub_graph) << get_inception_node(data_path, "inception_5b", weights_layout, 384, std::make_tuple(192U, 384U), std::make_tuple(48U, 128U), 128U).set_name("inception_5b/concat");
-        (*sub_graph) << PoolingLayer(PoolingLayerInfo(PoolingType::AVG, 7, operation_layout, PadStrideInfo(1, 1, 0, 0, DimensionRoundingType::CEIL))).set_name("pool5/7x7_s1");
-
+		// Layer 7
+		(*sub_graph)<< FullyConnectedLayer(
+			4096U,
+			get_weights_accessor(data_path, "/cnn_data/alexnet_model/fc7_w.npy", weights_layout),
+			get_weights_accessor(data_path, "/cnn_data/alexnet_model/fc7_b.npy"))
+		.set_name("fc7")
+		<< ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name("relu7");
 
 		Attach_Layer();
 		common_params.labels=lbl;
 
-        // Layer 13
-        (*sub_graph)<< FullyConnectedLayer(
-                  1000U,
-                  get_weights_accessor(data_path, "/cnn_data/googlenet_model/loss3/loss3_classifier_w.npy", weights_layout),
-                  get_weights_accessor(data_path, "/cnn_data/googlenet_model/loss3/loss3_classifier_b.npy"))
-              .set_name("loss3/classifier")
-              << SoftmaxLayer().set_name("prob")
-              << OutputLayer(get_output_accessor(common_params, 5));
+		// Layer 8
+		(*sub_graph)<< FullyConnectedLayer(
+			1000U,
+			get_weights_accessor(data_path, "/cnn_data/alexnet_model/fc8_w.npy", weights_layout),
+			get_weights_accessor(data_path, "/cnn_data/alexnet_model/fc8_b.npy"))
+		.set_name("fc8")
+		// Softmax
+		<< SoftmaxLayer().set_name("prob")
+		<< OutputLayer(get_output_accessor(common_params, 5));
+
+
 		Attach_Layer();
 
 		im_acc=dynamic_cast<ImageAccessor*>(graphs[0]->graph().node(0)->output(0)->accessor());
 
 		std::cout<<"Total layers:"<<Layer<<std::endl<<std::endl;
+		*/
+
+		// Save the opencl kernels to a file
+		/*if(common_opts.enable_cl_cache)
+		{
+		#ifdef ARM_COMPUTE_CL
+			save_program_cache_to_file();
+		#endif // ARM_COMPUTE_CL
+		}*/
 
 		return true;
     }
@@ -474,11 +563,16 @@ public:
     {
         // Run graph
         //Ehsan
-    	std::string t;
+    	//return;
+    	cpu_set_t set;
+    	CPU_ZERO(&set);
+    	CPU_SET(1,&set);
+    	ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
+    	//std::string t;
     	std::vector<std::thread*> stages;
     	int n=common_params.n;
     	for(int i=0;i<graphs.size();i++){
-    		stages.push_back(new std::thread(&GraphGooglenetExample::run,this,i));
+    		stages.push_back(new std::thread(&GraphAlexnetExample::run,this,i));
     		//std::cout<<"thread "<< i<<" created\n";
     		//stages[i]->join();
     	}
@@ -559,9 +653,9 @@ public:
 				im_acc->set_filename(images_list[image_index++]);
 			}
 			if(layer_timing){
-				//std::cerr<<i<<" graph_id:"<<graph_id<<"   time:"<<std::chrono::high_resolution_clock::now().time_since_epoch().count()<<std::endl;
-
+				//std::cerr<<i<<" graph_id:"<<graph_id<<" start  time:"<<(std::chrono::high_resolution_clock::now().time_since_epoch().count()/1000000)%10000<<std::endl;
 				graphs[graph_id]->run(annotate,n);
+				//std::cerr<<i<<" graph_id:"<<graph_id<<"  finish time:"<<(std::chrono::high_resolution_clock::now().time_since_epoch().count()/1000000)%10000<<std::endl;
 				//graphs[graph_id]->set_finish_time(std::chrono::high_resolution_clock::now());
 				if(end){
 					//latency += std::chrono::duration_cast<std::chrono::duration<double>>(graphs[graph_id]->get_finish_time() - graphs[0]->get_start_time()).count();
@@ -591,6 +685,8 @@ public:
 
 	}
 
+	
+
 private:
     CommandLineParser  cmd_parser;
     CommonGraphOptions common_opts;
@@ -611,86 +707,26 @@ private:
     std::chrono::time_point<std::chrono::high_resolution_clock> start;
     //std::chrono::time_point<std::chrono::high_resolution_clock> finish;
     double latency=0;
-
-
-    ConcatLayer get_inception_node(const std::string &data_path, std::string &&param_path, DataLayout weights_layout,
-                                   unsigned int a_filt,
-                                   std::tuple<unsigned int, unsigned int> b_filters,
-                                   std::tuple<unsigned int, unsigned int> c_filters,
-                                   unsigned int d_filt)
-    {
-        std::string total_path = "/cnn_data/googlenet_model/" + param_path + "/" + param_path + "_";
-        SubStream   i_a(*sub_graph);
-        i_a << ConvolutionLayer(
-                1U, 1U, a_filt,
-                get_weights_accessor(data_path, total_path + "1x1_w.npy", weights_layout),
-                get_weights_accessor(data_path, total_path + "1x1_b.npy"),
-                PadStrideInfo(1, 1, 0, 0))
-            .set_name(param_path + "/1x1")
-            << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name(param_path + "/relu_1x1");
-
-        SubStream i_b(*sub_graph);
-        i_b << ConvolutionLayer(
-                1U, 1U, std::get<0>(b_filters),
-                get_weights_accessor(data_path, total_path + "3x3_reduce_w.npy", weights_layout),
-                get_weights_accessor(data_path, total_path + "3x3_reduce_b.npy"),
-                PadStrideInfo(1, 1, 0, 0))
-            .set_name(param_path + "/3x3_reduce")
-            << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name(param_path + "/relu_3x3_reduce")
-            << ConvolutionLayer(
-                3U, 3U, std::get<1>(b_filters),
-                get_weights_accessor(data_path, total_path + "3x3_w.npy", weights_layout),
-                get_weights_accessor(data_path, total_path + "3x3_b.npy"),
-                PadStrideInfo(1, 1, 1, 1))
-            .set_name(param_path + "/3x3")
-            << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name(param_path + "/relu_3x3");
-
-        SubStream i_c(*sub_graph);
-        i_c << ConvolutionLayer(
-                1U, 1U, std::get<0>(c_filters),
-                get_weights_accessor(data_path, total_path + "5x5_reduce_w.npy", weights_layout),
-                get_weights_accessor(data_path, total_path + "5x5_reduce_b.npy"),
-                PadStrideInfo(1, 1, 0, 0))
-            .set_name(param_path + "/5x5_reduce")
-            << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name(param_path + "/relu_5x5_reduce")
-            << ConvolutionLayer(
-                5U, 5U, std::get<1>(c_filters),
-                get_weights_accessor(data_path, total_path + "5x5_w.npy", weights_layout),
-                get_weights_accessor(data_path, total_path + "5x5_b.npy"),
-                PadStrideInfo(1, 1, 2, 2))
-            .set_name(param_path + "/5x5")
-            << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name(param_path + "/relu_5x5");
-
-        SubStream i_d(*sub_graph);
-        i_d << PoolingLayer(PoolingLayerInfo(PoolingType::MAX, 3, common_params.data_layout, PadStrideInfo(1, 1, 1, 1, DimensionRoundingType::CEIL))).set_name(param_path + "/pool")
-            << ConvolutionLayer(
-                1U, 1U, d_filt,
-                get_weights_accessor(data_path, total_path + "pool_proj_w.npy", weights_layout),
-                get_weights_accessor(data_path, total_path + "pool_proj_b.npy"),
-                PadStrideInfo(1, 1, 0, 0))
-            .set_name(param_path + "/pool_proj")
-            << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name(param_path + "/relu_pool_proj");
-
-        return ConcatLayer(std::move(i_a), std::move(i_b), std::move(i_c), std::move(i_d));
-    }
 };
 
-/** Main program for Googlenet
+/** Main program for AlexNet
  *
  * Model is based on:
- *      https://arxiv.org/abs/1409.4842
- *      "Going deeper with convolutions"
- *      Christian Szegedy, Wei Liu, Yangqing Jia, Pierre Sermanet, Scott Reed, Dragomir Anguelov, Dumitru Erhan, Vincent Vanhoucke, Andrew Rabinovich
+ *      https://papers.nips.cc/paper/4824-imagenet-classification-with-deep-convolutional-neural-networks
+ *      "ImageNet Classification with Deep Convolutional Neural Networks"
+ *      Alex Krizhevsky and Sutskever, Ilya and Hinton, Geoffrey E
  *
- * Provenance: https://github.com/BVLC/caffe/tree/master/models/bvlc_googlenet
+ * Provenance: https://github.com/BVLC/caffe/tree/master/models/bvlc_alexnet
  *
  * @note To list all the possible arguments execute the binary appended with the --help option
  *
  * @param[in] argc Number of arguments
  * @param[in] argv Arguments
+ *
+ * @return Return code
  */
 int main(int argc, char **argv)
 {
-    //ANNOTATE_SETUP;
-    return arm_compute::utils::run_example<GraphGooglenetExample>(argc, argv);
+    //Ehsan
+    return arm_compute::utils::run_example<GraphAlexnetExample>(argc, argv);
 }
