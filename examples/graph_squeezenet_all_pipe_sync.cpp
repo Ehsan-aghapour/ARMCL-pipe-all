@@ -984,7 +984,7 @@ public:
         ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
 
 
-        std::cout<<"start running first graph ...\n";
+        std::cerr<<"start running first graph ...\n";
         ImageAccessor *im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
         double in=0;
         double task=0.0001;
@@ -1044,7 +1044,7 @@ public:
         //CPU_SET(0,&set);
         ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
 
-        std::cout<<"start running second graph ...\n";
+        std::cerr<<"start running second graph ...\n";
         ImageAccessor *im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
         double in2=0;
         double task2=0;
@@ -1102,7 +1102,7 @@ public:
             //CPU_SET(0,&set);
             ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
 
-            std::cout<<"start running third graph ...\n";
+            std::cerr<<"start running third graph ...\n";
             ImageAccessor *im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
             double in3=0;
             double task3=0;
