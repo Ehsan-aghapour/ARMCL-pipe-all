@@ -115,8 +115,8 @@ public:
 
         //config.cluster=0;
 
-
-        graph.finalize(common_params.target, config);
+        if(cluster>-1)
+        	graph.finalize(common_params.target, config);
 
         //arm_compute::graph::Tensor *f_out;
         for(auto &node : graph.graph().nodes())
@@ -168,8 +168,8 @@ public:
 
         //config.cluster=0;
 
-
-        graph2.finalize(common_params2.target, config);
+        if(cluster2>-1)
+        	graph2.finalize(common_params2.target, config);
 
         //arm_compute::graph::Tensor *f_out;
         for(auto &node : graph2.graph().nodes())
@@ -284,6 +284,10 @@ public:
        			cluster=2;
        			gpu_index=0;
        		}
+       		if (order[0]=='*'){
+       			//common_params.target=static_cast<arm_compute::graph::Target>(1);
+       			cluster=-1;
+       		}
 
        		if(order[2]=='B'){
        			common_params2.target=static_cast<arm_compute::graph::Target>(1);
@@ -297,6 +301,9 @@ public:
        			common_params2.target=static_cast<arm_compute::graph::Target>(2);
        			cluster2=2;
        			gpu_index=1;
+       		}
+       		if(order[2]=='*'){
+       			cluster2=-1;
        		}
 
        		if(order[4]=='B'){
@@ -312,8 +319,11 @@ public:
        			cluster3=2;
        			gpu_index=2;
        		}
+       		if(order[4]=='*'){
+       			cluster3=-1;
+       		}
 
-       		std::map<int, int> core = {{0, 1}, {1, 5}, {2, 4}};
+       		std::map<int, int> core = {{0, 1}, {1, 5}, {2, 4},{-1,3}};
        		core0=core[cluster];
        		core1=core[cluster2];
        		core2=core[cluster3];
@@ -325,38 +335,51 @@ public:
        		ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
 
 
-               common_params.labels="transfer_wait";
-               if(order[0]=='G'){
-               	common_params.labels="transfer";
-               }
-               common_params2.labels="transfer2_wait";
+            common_params.labels="transfer_wait";
+            if(order[0]=='G'){
+            	common_params.labels="transfer";
+            }
+            if(order[0]=='*' || order[2]=='*'){
+            	common_params.labels="";
+            }
+            common_params2.labels="transfer2_wait";
        		if(order[2]=='G'){
        			common_params2.labels="transfer2";
        		}
+       		if (order[2]=='*' || order[4]=='*'){
+       			common_params2.labels="";
+       		}
 
 
-               common_params2.image="transfer";
-               if(order[0]=='G'){
-               	common_params2.image="transfer_wait";
-               }
-               common_params3.image="transfer2";
-               if(order[2]=='G'){
-               	common_params3.image="transfer2_wait";
-               }
-               //common_params.threads=4;
 
-               p=common_params.partition_point;
-               p2=common_params.partition_point2;
+		   common_params2.image="transfer";
+		   if(order[0]=='G'){
+			common_params2.image="transfer_wait";
+		   }
+		   if(order[0]=='*' || order[2]=='*'){
+			   common_params2.image="";
+		   }
+		   common_params3.image="transfer2";
+		   if(order[2]=='G'){
+			common_params3.image="transfer2_wait";
+		   }
+		   if (order[2]=='*' || order[4]=='*'){
+			   common_params3.image="";
+		   }
+		   //common_params.threads=4;
 
-               // Print parameter values
-               //std::cout << common_params << std::endl;
-               // Print parameter values
-               // Print parameter values
-               std::cout << common_params << std::endl;
+		   p=common_params.partition_point;
+		   p2=common_params.partition_point2;
 
-               /*std::cout <<"\nGraph2:\n"<< common_params2 << std::endl;
+		   // Print parameter values
+		   //std::cout << common_params << std::endl;
+		   // Print parameter values
+		   // Print parameter values
+		   std::cout << common_params << std::endl;
 
-               std::cout <<"\nGraph3:\n"<< common_params3 << std::endl;*/
+		   /*std::cout <<"\nGraph2:\n"<< common_params2 << std::endl;
+
+		   std::cout <<"\nGraph3:\n"<< common_params3 << std::endl;*/
 
 
         Stream *sub_graph=&graph;
@@ -644,8 +667,8 @@ public:
         config.mlgo_file   = _common_params->mlgo_file;
         //config.cluster=0;
 
-
-        sub_graph->finalize(_common_params->target, config);
+        if (config.cluster > -1)
+        	sub_graph->finalize(_common_params->target, config);
 
 
         //arm_compute::graph::Tensor *s_in;
@@ -653,9 +676,9 @@ public:
         {
             if(node != nullptr && node->type() == arm_compute::graph::NodeType::Input)
             {
-            	if(third)
+            	if(third && cluster3>-1)
             		t_in = node->output(0);
-            	else if(second)
+            	else if(second && cluster2>-1)
             		s_in = node->output(0);
             }
         }
@@ -719,7 +742,8 @@ public:
         ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
 */
 
-
+    	if(cluster==-1)
+    		return;
         cpu_set_t set;
         CPU_ZERO(&set);
         //CPU_SET(core_id, &set);
@@ -728,7 +752,7 @@ public:
         ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
 
 
-        std::cerr<<"start running first graph ...\n";
+        //std::cerr<<"start running first graph ...\n";
         ImageAccessor *im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
         double in=0;
         double task=0.0001;
@@ -780,7 +804,8 @@ public:
         //Ehsan
     	//int core_id=1;
 
-
+    	if(cluster2==-1)
+    		return;
         cpu_set_t set;
         CPU_ZERO(&set);
         CPU_SET(core1, &set);
@@ -788,7 +813,7 @@ public:
         //CPU_SET(0,&set);
         ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
 
-        std::cerr<<"start running second graph ...\n";
+        //std::cerr<<"start running second graph ...\n";
         ImageAccessor *im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
         double in2=0;
         double task2=0;
@@ -800,6 +825,10 @@ public:
         for(int i=0;i<(tt+1);i++){
         	if(i==1){
         		std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        		if(cluster==-1){
+        			std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+        			std::cerr<<"\nRunning Inference ... ";
+        		}
         		tstart=std::chrono::high_resolution_clock::now();
         		//std::cout<<tstart.time_since_epoch().count()<<std::endl;
         		in2=task2=out2=0;
@@ -838,7 +867,8 @@ public:
             // Run graph
             //Ehsan
         	//int core_id=1;
-
+    		if(cluster3==-1)
+    			return;
 
             cpu_set_t set;
             CPU_ZERO(&set);
@@ -847,7 +877,7 @@ public:
             //CPU_SET(0,&set);
             ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
 
-            std::cerr<<"start running third graph ...\n";
+            //std::cerr<<"start running third graph ...\n";
             ImageAccessor *im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
             double in3=0;
             double task3=0;
@@ -859,6 +889,9 @@ public:
             for(int i=0;i<(tt+1);i++){
             	if(i==1){
             		std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+            		if(cluster==-1 && cluster2==-1){
+            			std::cerr<<"\nRunning Inference ... ";
+            		}
             		tstart=std::chrono::high_resolution_clock::now();
             		//std::cout<<tstart.time_since_epoch().count()<<std::endl;
             		in3=task3=out3=0;
