@@ -1258,6 +1258,7 @@ bool NumPyBinLoader::access_tensor(ITensor &tensor)
     {
         utils::NPYLoader loader;
         loader.open(_filename, _file_layout);
+        //std::cerr<<"file namee:"<<_filename<<std::endl;
         loader.fill_tensor(tensor);
     }
 

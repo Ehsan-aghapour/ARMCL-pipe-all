@@ -63,6 +63,9 @@ std::set<int> res_blocking {1,6,10,15,20,24,28,33,38,42,46,50,54,59,64,68,73,76}
 int end_tasks[]={1,6,10,15,20,24,28,33,38,42,46,50,54,59,64,68,73,76};
 int end_tasks_CPU[]={1,7,12,18,24,29,34,40,46,51,56,61,66,72,78,83,89,92};
 
+int qend_tasks[]={1,6,10,15,20,24,28,33,38,42,46,50,54,59,64,68,73,76};
+int qend_tasks_CPU[]={1,7,12,18,24,29,34,40,46,51,56,61,66,72,78,83,89,92};
+
 /** Example demonstrating how to implement ResNetV1_50 network using the Compute Library's graph API */
 class GraphResNetV1_50Example : public Example
 {
@@ -118,6 +121,11 @@ public:
 				config.tuner_mode  = common_params.tuner_mode;
 				config.tuner_file  = common_params.tuner_file;
 				config.mlgo_file   = common_params.mlgo_file;
+				config.convert_to_uint8 = (common_params.data_type == DataType::QASYMM8);
+				if(common_params.data_type == DataType::QASYMM8){
+					memcpy(end_tasks,qend_tasks,sizeof(end_tasks));
+					memcpy(end_tasks_CPU,qend_tasks_CPU,sizeof(end_tasks_CPU));
+				}
 				//std::cout<<"Finalizing graph_"<<gr_layer[Layer-1]<<"\t after Layer:"<<Layer-1<<std::endl;
 				//std::cout<<"class:"<<config.cluster<<"\t target:"<<int(targets[gr_layer[Layer-1]])<<'='<<int(common_params.target)<<std::endl;
 				std::set<int> e_t;
@@ -243,7 +251,7 @@ public:
 
         // Consume common parameters
         common_params = consume_common_graph_parameters(common_opts);
-
+        //common_params.data_type=DataType::F32;
         //Ehsan
         imgs=!(common_params.image.empty());
         if(imgs){
@@ -282,8 +290,19 @@ public:
         //Ehsan
         //**********************************************************************************
 
+        int n_l=18;
+        std::cerr<<"Number of Layers: "<<n_l<<std::endl;
         std::string lbl=common_params.labels;
+        if(common_params.order.size()==1){
+        	common_params.order=std::string(n_l, common_params.order[0]);
+        }
+        if(common_params.order[1]=='-'){
+        	common_params.order=std::string(common_params.partition_point,common_params.order[0])+
+        			std::string(common_params.partition_point2-common_params.partition_point,common_params.order[2])+
+					std::string(n_l-common_params.partition_point2,common_params.order[4]);
+        }
         std::string order=common_params.order;
+
         Layers=order.size();
         int g=0;
         for(int i=0;i<Layers;i++){
