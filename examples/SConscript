@@ -159,7 +159,8 @@ if env['external_tests_dir']:
         
         
 #Ehsan
-SConscript('./NPU/SConscript',['examples_env','utils','graph_utils'])
+if env['estate'] == '64':
+    SConscript('./NPU/SConscript',['examples_env','utils','graph_utils'])
 # equivalent:
 #SConscript('./NPU/SConscript')
 #export('examples_env')
