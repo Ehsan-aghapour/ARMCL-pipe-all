@@ -1,0 +1,24 @@
+
+
+import SCons
+import os
+
+
+path='/home/ehsan/UvA/ARMCL/android-ndk-r21e-linux-x86_64/android-ndk-r21e/toolchains/llvm/prebuilt/linux-x86_64/bin'
+#prefix = "arm-linux-androideabi-"
+prefix="aarch64-linux-android-"
+##ENV = {'PATH' : os.environ['PATH']}
+##env = Environment(CPPPATH=['include/applib/ovxinc/include/','include/service/ovx_inc/'],CC=prefix+'clang',LIBS=['ovxlib','jpeg_t','vnn_inceptionv3'],ENV = {'PATH' : path}, LIBPATH=['lib/'],CCFLAGS=['-Wl'])
+npu_env=Environment(CXX=prefix+'clang++',CC=prefix+'clang',ENV = {'PATH' : os.environ['PATH']})
+npu_env.Append(LINKFLAGS=[
+    '-Wl,-rpath,/system/usr/lib/'
+])
+##,RPATH='/system/usr/lib/'
+#npu_env.SharedLibrary('lib/vnn_inceptionv3', ['vnn_pre_process.c', 'vnn_post_process.c', 'vnn_inceptionv3.c'], CPPPATH=['include/applib/ovxinc/include/','include/service/ovx_inc/'])
+#nn=npu_env.Program(target='inception', source='main.c',LIBPATH=['lib/'],LIBS=['ovxlib','jpeg_t','vnn_inceptionv3'],CPPPATH=['include/applib/ovxinc/include/','include/service/ovx_inc/'])
+nn=npu_env.Program(target='model', source='sample.cpp',LIBPATH=['libs/'],LIBS=['rknn_api','rockx','stdc++','log','z'],CPPPATH=['rockx-rk3399pro-Android/include'])
+AlwaysBuild(nn)
+alias = npu_env.Alias('hey', nn)
+Default(alias)
+
+print("helooooooooooo\n")

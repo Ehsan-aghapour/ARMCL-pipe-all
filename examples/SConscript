@@ -156,3 +156,10 @@ if env['external_tests_dir']:
             prog = install_bin(prog)
         alias = examples_env.Alias(example, prog)
         Default(alias)
+        
+        
+#Ehsan
+SConscript('./NPU/SConscript',['examples_env','utils','graph_utils'])
+# equivalent:
+#SConscript('./NPU/SConscript')
+#export('examples_env')
