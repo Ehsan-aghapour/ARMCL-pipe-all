@@ -45,6 +45,9 @@
 #include "utils/GraphUtils.h"
 #include "utils/Utils.h"
 
+//Power
+#include "power.h"
+
 //NPU
 #include "rknn_api.h"
 #include "rockx.h"
@@ -54,6 +57,9 @@ using namespace arm_compute;
 using namespace arm_compute::utils;
 using namespace arm_compute::graph::frontend;
 using namespace arm_compute::graph_utils;
+
+
+
 
 
 //Ehsan 
@@ -78,7 +84,7 @@ bool imgs=0;
 //bool ann=0;
 std::set<int> alex_blocking {2,7,8,11,15,16,17,19};
 int end_tasks[]={2,7,8,11,15,16,17,19};
-
+int qend_tasks[]={1,5,6,9,13,14,15,17};
 
 
 //static std::mutex inout;
@@ -139,6 +145,12 @@ public:
 				config.tuner_mode  = common_params.tuner_mode;
 				config.tuner_file  = common_params.tuner_file;
 				config.mlgo_file   = common_params.mlgo_file;
+
+				//quant
+				config.convert_to_uint8 = (common_params.data_type == DataType::QASYMM8);
+				if(common_params.data_type == DataType::QASYMM8){
+					memcpy(end_tasks,qend_tasks,sizeof(end_tasks));
+				}
 				//std::cout<<"Finalizing graph_"<<gr_layer[Layer-1]<<"\t after Layer:"<<Layer-1<<std::endl;
 				//std::cout<<"class:"<<config.cluster<<"\t target:"<<int(targets[gr_layer[Layer-1]])<<'='<<int(common_params.target)<<std::endl;
 				std::set<int> e_t;
@@ -256,7 +268,10 @@ public:
         cmd_parser.validate();
 
         // Consume common parameters
+        std::cout<<"hi\n"<<common_params<<std::endl;
         common_params = consume_common_graph_parameters(common_opts);
+        //common_params.data_type = DataType::QASYMM8;
+
         //common_params2 = consume_common_graph_parameters(common_opts);
         
 	    //Ehsan
@@ -275,7 +290,7 @@ public:
         }
 
         // Checks
-        ARM_COMPUTE_EXIT_ON_MSG(arm_compute::is_data_type_quantized_asymmetric(common_params.data_type), "QASYMM8 not supported for this graph");
+        //ARM_COMPUTE_EXIT_ON_MSG(arm_compute::is_data_type_quantized_asymmetric(common_params.data_type), "QASYMM8 not supported for this graph");
 
 
         // Get trainable parameters data path
@@ -297,8 +312,19 @@ public:
         //Ehsan
         //**********************************************************************************
 
+        int n_l=8;
+        std::cerr<<"Number of Layers: "<<n_l<<std::endl;
         std::string lbl=common_params.labels;
+        if(common_params.order.size()==1){
+        	common_params.order=std::string(n_l, common_params.order[0]);
+        }
+        if(common_params.order[1]=='+'){
+        	common_params.order=std::string(common_params.partition_point,common_params.order[0])+
+        			std::string(common_params.partition_point2-common_params.partition_point,common_params.order[2])+
+					std::string(n_l-common_params.partition_point2,common_params.order[4]);
+        }
         std::string order=common_params.order;
+
         Layers=order.size();
         int g=0;
         for(int i=0;i<Layers;i++){
@@ -415,9 +441,10 @@ public:
                   get_weights_accessor(data_path, "/cnn_data/alexnet_model/conv1_b.npy"),
                   PadStrideInfo(4, 4, 0, 0))
               .set_name("conv1")
-              << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name("relu1")
-              << NormalizationLayer(NormalizationLayerInfo(NormType::CROSS_MAP, 5, 0.0001f, 0.75f)).set_name("norm1")
-              << PoolingLayer(PoolingLayerInfo(PoolingType::MAX, 3, operation_layout, PadStrideInfo(2, 2, 0, 0))).set_name("pool1");
+              << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name("relu1");
+		      //if(common_params.data_type!=DataType::QASYMM8)
+		    	  (*sub_graph)<< NormalizationLayer(NormalizationLayerInfo(NormType::CROSS_MAP, 5, 0.0001f, 0.75f)).set_name("norm1");
+              (*sub_graph)<< PoolingLayer(PoolingLayerInfo(PoolingType::MAX, 3, operation_layout, PadStrideInfo(2, 2, 0, 0))).set_name("pool1");
 
         Attach_Layer();
 
@@ -428,9 +455,10 @@ public:
 				  get_weights_accessor(data_path, "/cnn_data/alexnet_model/conv2_b.npy"),
 				  PadStrideInfo(1, 1, 2, 2), 2)
 			  .set_name("conv2")
-			  << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name("relu2")
-			  << NormalizationLayer(NormalizationLayerInfo(NormType::CROSS_MAP, 5, 0.0001f, 0.75f)).set_name("norm2")
-			  << PoolingLayer(PoolingLayerInfo(PoolingType::MAX, 3, operation_layout, PadStrideInfo(2, 2, 0, 0))).set_name("pool2");
+			  << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name("relu2");
+			//if(common_params.data_type!=DataType::QASYMM8)
+				(*sub_graph)<< NormalizationLayer(NormalizationLayerInfo(NormType::CROSS_MAP, 5, 0.0001f, 0.75f)).set_name("norm2");
+			  (*sub_graph)<< PoolingLayer(PoolingLayerInfo(PoolingType::MAX, 3, operation_layout, PadStrideInfo(2, 2, 0, 0))).set_name("pool2");
 
 		Attach_Layer();
 
@@ -499,7 +527,20 @@ public:
 		<< SoftmaxLayer().set_name("prob")
 		<< OutputLayer(get_output_accessor(common_params, 5));
 
+
+
+
+		/*for(auto &node : sub_graph->graph().nodes())
+		{
+			if(node.get()->num_outputs())
+			{
+				std::cout<<"Node name: "<<node.get()->name()<<" \t output shape: "<<node.get()->output(0)->desc().shape<<std::endl<<std::flush;
+			}
+		}*/
+
+
 		Attach_Layer();
+
 
 		im_acc=dynamic_cast<ImageAccessor*>(graphs[0]->graph().node(0)->output(0)->accessor());
 
@@ -512,6 +553,13 @@ public:
 			save_program_cache_to_file();
 		#endif /* ARM_COMPUTE_CL */
 		}
+
+		//Power:
+		if (-1 == GPIOExport(POUT))
+				return(1);
+		if (-1 == GPIODirection(POUT, OUT))
+				return(2);
+
 
 		return true;
     }
@@ -549,6 +597,15 @@ public:
 
 
     	std::cout<<"Frame Latency: "<<1000*latency/(common_params.n)<<std::endl;
+
+
+
+    	//Power
+    	/*if (-1 == GPIOWrite(POUT, 1))
+    			std::cerr<<"could not write 1\n";*/
+
+    	if (-1 == GPIOUnexport(POUT))
+    			std::cerr<<"could not unexport\n";
     	del();
 
     }
@@ -601,6 +658,10 @@ public:
 		//std::cout<<tstart.time_since_epoch().count()<<std::endl;
 		if(graph_id==0)
 			start=std::chrono::high_resolution_clock::now();
+
+		//Power
+		if (-1 == GPIOWrite(POUT, 1))
+			std::cerr<<"Could not write to GPIO\n";
 		for(int i=0;i<n;i++){
 			if(imgs && graph_id==0){
 				if(image_index>=images_list.size())
@@ -624,6 +685,8 @@ public:
 				graphs[graph_id]->run(annotate);
 			}
 		}
+		if (-1 == GPIOWrite(POUT, 0))
+		    std::cerr<<"could not write 1\n";
 		auto tfinish=std::chrono::high_resolution_clock::now();
 		double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
 		//graphs[graph_id]->set_input_time(in);

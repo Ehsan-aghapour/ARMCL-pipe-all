@@ -59,6 +59,7 @@ stringvec images_list;
 bool imgs=0;
 std::set<int> mobile_blocking {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,27,30};
 int end_tasks[]={0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,27,30};
+int qend_tasks[]={0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,27,30};
 //std::map<std::string,double> task_times;
 
 /** Example demonstrating how to implement MobileNet's network using the Compute Library's graph API */
@@ -123,6 +124,10 @@ public:
 				config.tuner_mode  = common_params.tuner_mode;
 				config.tuner_file  = common_params.tuner_file;
 				config.mlgo_file   = common_params.mlgo_file;
+				config.convert_to_uint8 = (common_params.data_type == DataType::QASYMM8);
+				if(common_params.data_type == DataType::QASYMM8){
+					memcpy(end_tasks,qend_tasks,sizeof(end_tasks));
+				}
 				//std::cout<<"Finalizing graph_"<<gr_layer[Layer-1]<<"\t after Layer:"<<Layer-1<<std::endl;
 				//std::cout<<"class:"<<config.cluster<<"\t target:"<<int(targets[gr_layer[Layer-1]])<<'='<<int(common_params.target)<<std::endl;
 				std::set<int> e_t;
@@ -235,12 +240,14 @@ public:
 
     bool do_setup(int argc, char **argv) override
     {
+
         // Parse arguments
         cmd_parser.parse(argc, argv);
         cmd_parser.validate();
 
         // Consume common parameters
         common_params = consume_common_graph_parameters(common_opts);
+        //common_params.data_type=DataType::F32;
 
         //Ehsan
         imgs=!(common_params.image.empty());
@@ -276,8 +283,19 @@ public:
         //Ehsan
         //**********************************************************************************
 
+        int n_l=28;
+        std::cerr<<"Number of Layers: "<<n_l<<std::endl;
         std::string lbl=common_params.labels;
+        if(common_params.order.size()==1){
+        	common_params.order=std::string(n_l, common_params.order[0]);
+        }
+        if(common_params.order[1]=='-'){
+        	common_params.order=std::string(common_params.partition_point,common_params.order[0])+
+        			std::string(common_params.partition_point2-common_params.partition_point,common_params.order[2])+
+					std::string(n_l-common_params.partition_point2,common_params.order[4]);
+        }
         std::string order=common_params.order;
+
         Layers=order.size();
         int g=0;
         for(int i=0;i<Layers;i++){
@@ -653,7 +671,7 @@ private:
 
         // Layer 28
         (*sub_graph)<< ConvolutionLayer(
-                  1U, 1U, 1001U,
+                  1U, 1U, 1000U,
                   get_weights_accessor(data_path, "Logits_Conv2d_1c_1x1_weights.npy", DataLayout::NCHW),
                   get_weights_accessor(data_path, "Logits_Conv2d_1c_1x1_biases.npy"),
                   PadStrideInfo(1, 1, 0, 0))
@@ -732,6 +750,8 @@ private:
             QuantizationInfo(0.00817922968417406f, 130),  // dwsc12
             QuantizationInfo(0.018048152327537537f, 95)   // dwsc13
         };
+        //Ehsan
+        Layer=0;
 
         (*sub_graph) << InputLayer(input_descriptor.set_quantization_info(in_quant_info),
                             get_input_accessor(common_params, nullptr, false))
@@ -743,33 +763,88 @@ private:
                   1, conv_weights_quant_info.at(0), conv_out_quant_info.at(0))
               .set_name("Conv2d_0")
               << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::LU_BOUNDED_RELU, 6.f)).set_name("Conv2d_0/Relu6");
+
+        Attach_Layer();
+
+        // Layer 2
         (*sub_graph) << get_dwsc_node_qasymm(data_path, "Conv2d_1", 64U, PadStrideInfo(1U, 1U, 1U, 1U), PadStrideInfo(1U, 1U, 0U, 0U), depth_weights_quant_info.at(0), point_weights_quant_info.at(0));
+
+        Attach_Layer();
+
+        // Layer 4
         (*sub_graph) << get_dwsc_node_qasymm(data_path, "Conv2d_2", 128U, PadStrideInfo(2U, 2U, 0U, 1U, 0U, 1U, DimensionRoundingType::FLOOR), PadStrideInfo(1U, 1U, 0U, 0U), depth_weights_quant_info.at(1),
                                       point_weights_quant_info.at(1));
+
+        Attach_Layer();
+
+        // Layer 6
         (*sub_graph) << get_dwsc_node_qasymm(data_path, "Conv2d_3", 128U, PadStrideInfo(1U, 1U, 1U, 1U, 1U, 1U, DimensionRoundingType::FLOOR), PadStrideInfo(1U, 1U, 0U, 0U), depth_weights_quant_info.at(2),
                                       point_weights_quant_info.at(2));
+
+        Attach_Layer();
+
+        // Layer 8
         (*sub_graph) << get_dwsc_node_qasymm(data_path, "Conv2d_4", 256U, PadStrideInfo(2U, 2U, 0U, 1U, 0U, 1U, DimensionRoundingType::FLOOR), PadStrideInfo(1U, 1U, 0U, 0U), depth_weights_quant_info.at(3),
                                       point_weights_quant_info.at(3));
+
+        Attach_Layer();
+
+        // Layer 10
         (*sub_graph) << get_dwsc_node_qasymm(data_path, "Conv2d_5", 256U, PadStrideInfo(1U, 1U, 1U, 1U, 1U, 1U, DimensionRoundingType::FLOOR), PadStrideInfo(1U, 1U, 0U, 0U), depth_weights_quant_info.at(4),
                                       point_weights_quant_info.at(4));
+        Attach_Layer();
+
+        // Layer 12
         (*sub_graph) << get_dwsc_node_qasymm(data_path, "Conv2d_6", 512U, PadStrideInfo(2U, 2U, 0U, 1U, 0U, 1U, DimensionRoundingType::FLOOR), PadStrideInfo(1U, 1U, 0U, 0U), depth_weights_quant_info.at(5),
                                       point_weights_quant_info.at(5));
+
+        Attach_Layer();
+
+        // Layer 14
         (*sub_graph) << get_dwsc_node_qasymm(data_path, "Conv2d_7", 512U, PadStrideInfo(1U, 1U, 1U, 1U, 1U, 1U, DimensionRoundingType::FLOOR), PadStrideInfo(1U, 1U, 0U, 0U), depth_weights_quant_info.at(6),
                                       point_weights_quant_info.at(6));
+
+        Attach_Layer();
+
+        // Layer 16
         (*sub_graph) << get_dwsc_node_qasymm(data_path, "Conv2d_8", 512U, PadStrideInfo(1U, 1U, 1U, 1U, 1U, 1U, DimensionRoundingType::FLOOR), PadStrideInfo(1U, 1U, 0U, 0U), depth_weights_quant_info.at(7),
                                       point_weights_quant_info.at(7));
+
+        Attach_Layer();
+
+        // Layer 18
         (*sub_graph) << get_dwsc_node_qasymm(data_path, "Conv2d_9", 512U, PadStrideInfo(1U, 1U, 1U, 1U, 1U, 1U, DimensionRoundingType::FLOOR), PadStrideInfo(1U, 1U, 0U, 0U), depth_weights_quant_info.at(8),
                                       point_weights_quant_info.at(8));
+
+        Attach_Layer();
+
+        // Layer 20
         (*sub_graph) << get_dwsc_node_qasymm(data_path, "Conv2d_10", 512U, PadStrideInfo(1U, 1U, 1U, 1U, 1U, 1U, DimensionRoundingType::FLOOR), PadStrideInfo(1U, 1U, 0U, 0U), depth_weights_quant_info.at(9),
                                       point_weights_quant_info.at(9));
+
+        Attach_Layer();
+
+        // Layer 22
         (*sub_graph) << get_dwsc_node_qasymm(data_path, "Conv2d_11", 512U, PadStrideInfo(1U, 1U, 1U, 1U, 1U, 1U, DimensionRoundingType::FLOOR), PadStrideInfo(1U, 1U, 0U, 0U), depth_weights_quant_info.at(10),
                                       point_weights_quant_info.at(10));
+
+        Attach_Layer();
+
+        // Layer 24
         (*sub_graph) << get_dwsc_node_qasymm(data_path, "Conv2d_12", 1024U, PadStrideInfo(2U, 2U, 0U, 1U, 0U, 1U, DimensionRoundingType::FLOOR), PadStrideInfo(1U, 1U, 0U, 0U), depth_weights_quant_info.at(11),
                                       point_weights_quant_info.at(11));
+
+        Attach_Layer();
+
+        // Layer 26
         (*sub_graph) << get_dwsc_node_qasymm(data_path, "Conv2d_13", 1024U, PadStrideInfo(1U, 1U, 1U, 1U, 1U, 1U, DimensionRoundingType::FLOOR), PadStrideInfo(1U, 1U, 0U, 0U), depth_weights_quant_info.at(12),
                                       point_weights_quant_info.at(12))
-              << PoolingLayer(PoolingLayerInfo(PoolingType::AVG, common_params.data_layout)).set_name("Logits/AvgPool_1a")
-              << ConvolutionLayer(
+              << PoolingLayer(PoolingLayerInfo(PoolingType::AVG, common_params.data_layout)).set_name("Logits/AvgPool_1a");
+
+        Attach_Layer();
+
+        // Layer 28
+             (*sub_graph) << ConvolutionLayer(
                   1U, 1U, 1001U,
                   get_weights_accessor(data_path, "Logits_Conv2d_1c_1x1_weights.npy"),
                   get_weights_accessor(data_path, "Logits_Conv2d_1c_1x1_bias.npy"),
@@ -836,8 +911,11 @@ private:
                get_weights_accessor(data_path, total_path + "depthwise_bias.npy"),
                dwc_pad_stride_info, 1, std::move(depth_weights_quant_info))
            .set_name(total_path + "depthwise/depthwise")
-           << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::LU_BOUNDED_RELU, 6.f)).set_name(total_path + "depthwise/Relu6")
-           << ConvolutionLayer(
+           << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::LU_BOUNDED_RELU, 6.f)).set_name(total_path + "depthwise/Relu6");
+
+        Attach_Layer();
+
+        sg   << ConvolutionLayer(
                1U, 1U, conv_filt,
                get_weights_accessor(data_path, total_path + "pointwise_weights.npy"),
                get_weights_accessor(data_path, total_path + "pointwise_bias.npy"),

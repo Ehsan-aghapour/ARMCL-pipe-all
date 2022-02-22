@@ -57,7 +57,7 @@ stringvec images_list;
 bool imgs=0;
 std::set<int> google_blocking {2,3,6,14,23,31,39,47,55,64,72,81,83};
 int end_tasks[]={2,3,6,14,23,31,39,47,55,64,72,81,83};
-
+int qend_tasks[]={1,2,4,12,21,29,37,45,53,62,70,79,81};
 /** Example demonstrating how to implement Googlenet's network using the Compute Library's graph API */
 class GraphGooglenetExample : public Example
 {
@@ -112,6 +112,10 @@ public:
 				config.tuner_mode  = common_params.tuner_mode;
 				config.tuner_file  = common_params.tuner_file;
 				config.mlgo_file   = common_params.mlgo_file;
+				config.convert_to_uint8 = (common_params.data_type == DataType::QASYMM8);
+				if(common_params.data_type == DataType::QASYMM8){
+					memcpy(end_tasks,qend_tasks,sizeof(end_tasks));
+				}
 				//std::cout<<"Finalizing graph_"<<gr_layer[Layer-1]<<"\t after Layer:"<<Layer-1<<std::endl;
 				//std::cout<<"class:"<<config.cluster<<"\t target:"<<int(targets[gr_layer[Layer-1]])<<'='<<int(common_params.target)<<std::endl;
 				std::set<int> e_t;
@@ -246,7 +250,7 @@ public:
         }
 
         // Checks
-        ARM_COMPUTE_EXIT_ON_MSG(arm_compute::is_data_type_quantized_asymmetric(common_params.data_type), "QASYMM8 not supported for this graph");
+        //ARM_COMPUTE_EXIT_ON_MSG(arm_compute::is_data_type_quantized_asymmetric(common_params.data_type), "QASYMM8 not supported for this graph");
 
         // Print parameter values
         //std::cout << common_params << std::endl;
@@ -270,8 +274,19 @@ public:
         //Ehsan
         //**********************************************************************************
 
+        int n_l=13;
+        std::cerr<<"Number of Layers: "<<n_l<<std::endl;
         std::string lbl=common_params.labels;
+        if(common_params.order.size()==1){
+        	common_params.order=std::string(n_l, common_params.order[0]);
+        }
+        if(common_params.order[1]=='-'){
+        	common_params.order=std::string(common_params.partition_point,common_params.order[0])+
+        			std::string(common_params.partition_point2-common_params.partition_point,common_params.order[2])+
+					std::string(n_l-common_params.partition_point2,common_params.order[4]);
+        }
         std::string order=common_params.order;
+
         Layers=order.size();
         int g=0;
         for(int i=0;i<Layers;i++){
@@ -374,8 +389,9 @@ public:
                   PadStrideInfo(2, 2, 3, 3))
               .set_name("conv1/7x7_s2")
               << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name("conv1/relu_7x7")
-              << PoolingLayer(PoolingLayerInfo(PoolingType::MAX, 3, operation_layout, PadStrideInfo(2, 2, 0, 0, DimensionRoundingType::CEIL))).set_name("pool1/3x3_s2")
-              << NormalizationLayer(NormalizationLayerInfo(NormType::CROSS_MAP, 5, 0.0001f, 0.75f)).set_name("pool1/norm1");
+              << PoolingLayer(PoolingLayerInfo(PoolingType::MAX, 3, operation_layout, PadStrideInfo(2, 2, 0, 0, DimensionRoundingType::CEIL))).set_name("pool1/3x3_s2");
+        //if(common_params.data_type!=DataType::QASYMM8)
+              (*sub_graph)<< NormalizationLayer(NormalizationLayerInfo(NormType::CROSS_MAP, 5, 0.0001f, 0.75f)).set_name("pool1/norm1");
 
         Attach_Layer();
 
@@ -397,9 +413,10 @@ public:
                   get_weights_accessor(data_path, "/cnn_data/googlenet_model/conv2/conv2_3x3_b.npy"),
                   PadStrideInfo(1, 1, 1, 1))
               .set_name("conv2/3x3")
-              << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name("conv2/relu_3x3")
-              << NormalizationLayer(NormalizationLayerInfo(NormType::CROSS_MAP, 5, 0.0001f, 0.75f)).set_name("conv2/norm2")
-              << PoolingLayer(PoolingLayerInfo(PoolingType::MAX, 3, operation_layout, PadStrideInfo(2, 2, 0, 0, DimensionRoundingType::CEIL))).set_name("pool2/3x3_s2");
+              << ActivationLayer(ActivationLayerInfo(ActivationLayerInfo::ActivationFunction::RELU)).set_name("conv2/relu_3x3");
+        //if(common_params.data_type!=DataType::QASYMM8)
+              //(*sub_graph)<< NormalizationLayer(NormalizationLayerInfo(NormType::CROSS_MAP, 5, 0.0001f, 0.75f)).set_name("conv2/norm2");
+              (*sub_graph)<< PoolingLayer(PoolingLayerInfo(PoolingType::MAX, 3, operation_layout, PadStrideInfo(2, 2, 0, 0, DimensionRoundingType::CEIL))).set_name("pool2/3x3_s2");
 
         Attach_Layer();
 

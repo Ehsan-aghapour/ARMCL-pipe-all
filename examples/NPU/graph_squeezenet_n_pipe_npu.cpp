@@ -59,6 +59,7 @@ stringvec images_list;
 bool imgs=0;
 std::set<int> squeeze_blocking {1,2,5,6,9,10,14,15,18,19,22,23,26,27,31,32,35,37,39};
 int end_tasks[]={1,2,5,6,9,10,14,15,18,19,22,23,26,27,31,32,35,37,39};
+int qend_tasks[]={1,2,5,6,9,10,14,15,18,19,22,23,26,27,31,32,35,37,39};
 
 /** Example demonstrating how to implement Squeezenet's network using the Compute Library's graph API */
 class GraphSqueezenetExample : public Example
@@ -114,6 +115,10 @@ public:
 				config.tuner_mode  = common_params.tuner_mode;
 				config.tuner_file  = common_params.tuner_file;
 				config.mlgo_file   = common_params.mlgo_file;
+				config.convert_to_uint8 = (common_params.data_type == DataType::QASYMM8);
+				if(common_params.data_type == DataType::QASYMM8){
+					memcpy(end_tasks,qend_tasks,sizeof(end_tasks));
+				}
 				//std::cout<<"Finalizing graph_"<<gr_layer[Layer-1]<<"\t after Layer:"<<Layer-1<<std::endl;
 				//std::cout<<"class:"<<config.cluster<<"\t target:"<<int(targets[gr_layer[Layer-1]])<<'='<<int(common_params.target)<<std::endl;
 				std::set<int> e_t;
@@ -269,8 +274,20 @@ public:
         //Ehsan
         //**********************************************************************************
 
+        int n_l=19;
+        std::cerr<<"Number of Layers: "<<n_l<<std::endl;
         std::string lbl=common_params.labels;
+        if(common_params.order.size()==1){
+        	common_params.order=std::string(n_l, common_params.order[0]);
+        }
+        if(common_params.order[1]=='-'){
+        	common_params.order=std::string(common_params.partition_point,common_params.order[0])+
+        			std::string(common_params.partition_point2-common_params.partition_point,common_params.order[2])+
+					std::string(n_l-common_params.partition_point2,common_params.order[4]);
+        }
         std::string order=common_params.order;
+
+
         Layers=order.size();
         int g=0;
         for(int i=0;i<Layers;i++){
