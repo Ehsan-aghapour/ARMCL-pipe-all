@@ -771,6 +771,31 @@ void fill_tensor_vector(TensorType &tensor, std::vector<T> vec)
     unmap(tensor);
 }
 
+//Ehsan
+template <typename T, typename TensorType>
+void fill_tensor_array(TensorType &tensor, T* array, int sz)
+{
+	//int sz=0;
+	//if(sizeof(array))
+	//	sz= sizeof(array)/sizeof(array[0])
+    ARM_COMPUTE_ERROR_ON(tensor.info()->tensor_shape().total_size() != sz);
+
+    map(tensor, true);
+
+    Window window;
+    window.use_tensor_dimensions(tensor.info()->tensor_shape());
+
+    int      i = 0;
+    Iterator it_tensor(&tensor, window);
+    execute_window_loop(window, [&](const Coordinates &)
+    {
+        *reinterpret_cast<T *>(it_tensor.ptr()) = array[i++];
+    },
+    it_tensor);
+
+    unmap(tensor);
+}
+
 template <typename T, typename TensorType>
 void fill_random_tensor(TensorType &tensor, std::random_device::result_type seed, T lower_bound = std::numeric_limits<T>::lowest(), T upper_bound = std::numeric_limits<T>::max())
 {

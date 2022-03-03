@@ -59,6 +59,11 @@ if 'macos' in examples_env['os']:
     noload_whole_archive = '-Wl,-noall_load'
 
 # Build graph examples
+#NPU_LINKFLAGS=['-Wl','-rpath','/system/usr/lib/','-static-libstdc++']
+#NPU_LIBS=['rknn_api','rockx','stdc++','log','z']
+#NPU_CPPPATH=['NPU/rockx-rk3399pro-Android/include','NPU']
+#graph_utils = examples_env.Object("../utils/GraphUtils.cpp",LIBPATH=['NPU/libs/'], LIBS = NPU_LIBS, LINKFLAGS=examples_env["LINKFLAGS"] + NPU_LINKFLAGS, CPPPATH=examples_env["CPPPATH"]+NPU_CPPPATH)
+
 graph_utils = examples_env.Object("../utils/GraphUtils.cpp")
 graph_utils += examples_env.Object("../utils/CommonGraphOptions.cpp")
 #Ehsan
