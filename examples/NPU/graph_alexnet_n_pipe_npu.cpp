@@ -47,6 +47,7 @@
 
 //Power
 #include "power.h"
+#define Power_Measurement 0
 
 //NPU
 #include "rknn_api.h"
@@ -148,8 +149,12 @@ public:
     }
 
     void Attach_Layer(){
-
+#if NPU_Debug
     	std::cerr<<"\n\n\n\n*************************** attaching layer "<<Layer<<" on graph:"<<gr_layer[Layer]<<std::endl;
+    	for(int i=0;i<NPU_Receivers.size();i++){
+			std::cerr<<"att:\nNPU Rec: "<<i<<" Con id: "<<NPU_Receivers[i]->get_connection_id()<<'\n';
+		}
+#endif
     	//for all connection indexing(normal + npu):
     	static int Connection_id=0;
     	//for normal connection just(normal):
@@ -174,7 +179,9 @@ public:
 			//if(gr_layer[Layer-1]!=-1){
 			if(gr_layer[Layer-1]>=0){
 				//(1-0)if it is not last sungraph --> setup common_params.labels *****
+#if NPU_Debug
 				std::cerr<<"Attach layer: finalizing normal subgraph\n";
+#endif
 				if(Layer!=Layers){
 					if(targets[gr_layer[Layer-1]]==arm_compute::graph::Target ::CL){
 						common_params.labels="transfer";
@@ -227,12 +234,12 @@ public:
 				for(int i=start_Layer;i<=end_Layer;i++){
 					e_t.insert(end_tasks[i]-offset);
 				}
-				std::cout<<"Start_Layer:"<<start_Layer<<" \t End layer:"<<end_Layer<<"\n set:";
+				std::cerr<<"Start_Layer:"<<start_Layer<<" \t End layer:"<<end_Layer<<"\n set:";
 				for (auto itr = e_t.begin(); itr != e_t.end(); itr++)
 				{
-					std::cout << *itr<<" ";
+					std::cerr << *itr<<" ";
 				}
-				std::cout<<std::endl;
+				std::cerr<<std::endl;
 				sub_graph->finalize(common_params.target, config, &e_t,common_params.layer_time);
 				//sub_graph->finalize(common_params.target, config, &alex_blocking,common_params.layer_time);
 				if(gr_layer[Layer-1]>0){
@@ -248,17 +255,23 @@ public:
 						}
 					}
 				}
+#if NPU_Debug
 				std::cerr<<"Attach layer: normalized subgraph finalized\n";
+#endif
 			}
 			//(1)End if it is not (dummy or npu)*********************
 			//(2)else if it is dummy or npu *******************************************
 			else if(Layer!=Layers){
+#if NPU_Debug
 				std::cerr<<"Attach layer: finalizing Dummy or NPU subgraph\n";
+#endif
 				common_params.labels="";
 				(*sub_graph)<<OutputLayer(get_Sender_accessor(common_params, 0, 0));
 				//NPU:
 				if(gr_layer[Layer-1]==-2){
+#if NPU_Debug
 					std::cerr<<"Attach layer: subgraph is npu\n";
+#endif
 					common_params.labels="npu";
 					if(gr_layer[Layer]==-1)
 						common_params.labels="npu_to_dummy";
@@ -270,11 +283,25 @@ public:
 							output_size=node->input(0)->desc().shape.total_size();
 						}
 					}
+#if NPU_Debug
 					std::cerr<<"Attach layer: found output size of subgraph\n";
+					std::cerr<<"Con_id: "<<Connection_id<<" and T_id: "<<T_id<<'\n';
+#endif
+
 					//NPU_Senders.push_back(dynamic_cast<std::unique_ptr<arm_compute::graph_utils::SenderAccessor>>(get_Sender_accessor(common_params,Connection_id)));
-					arm_compute::graph_utils::SenderAccessor* r=dynamic_cast<arm_compute::graph_utils::SenderAccessor*>(get_Sender_accessor(common_params, Connection_id, T_id, output_size,&NPU_Contexts[NPU_index]).get());
+					arm_compute::graph_utils::SenderAccessor* r=dynamic_cast<arm_compute::graph_utils::SenderAccessor*>(get_Sender_accessor(common_params, Connection_id, T_id, output_size,&NPU_Contexts[NPU_index]).release());
+
 					arm_compute::graph_utils::NPU_Senders.push_back(r);
+#if NPU_Debug
+					for(int i=0;i<NPU_Senders.size();i++){
+						std::cerr<<"att_1:\nNPU Send: "<<i<<" Con id: "<<NPU_Senders[i]->get_connection_id()<<'\n';
+					}
+					for(int i=0;i<NPU_Receivers.size();i++){
+						std::cerr<<"att_2:\nNPU Rec: "<<i<<" Con id: "<<NPU_Receivers[i]->get_connection_id()<<'\n';
+					}
 					std::cerr<<"Attach layer: Add sender to senders\n";
+#endif
+
 					/*npu_init_context(NPU_index);
 					std::cerr<<"Attach layer: init npu model\n";
 					if(NPU_index==0){
@@ -290,7 +317,9 @@ public:
 
 			//(3)if This is not last subgraph --> prepare next subgraph********************************
 			if(Layer!=Layers){
+#if NPU_Debug
 				std::cerr<<"Attach layer: preparing next subgraph\n";
+#endif
 				arm_compute::graph::Tensor* temp_sender;
 				TensorShape tshape;
 				//if(gr_layer[Layer]!=-1){
@@ -313,10 +342,15 @@ public:
 						continue;
 					}
 				}
+#if NPU_Debug
 				std::cerr<<"Attach layer: findout size of sender for previous subgraph\n";
+#endif
+
 				//(3-1) if next subgraph is not dummy or NPU
 				if(gr_layer[Layer]>-1){
+#if NPU_Debug
 					std::cerr<<"Attach layer: next subgraph is normal, preparing its input\n";
+#endif
 					sub_graph=(graphs[gr_layer[Layer]]);
 
 					if(gr_layer[Layer-1]==-1){
@@ -347,13 +381,20 @@ public:
 
 
 					//(*sub_graph)<<InputLayer(input_descriptor, get_Receiver_accessor(common_params,Transmitters.size()-1));
+#if NPU_Debug
 					std::cerr<<"Attach layer: Getting Receiver\n";
+#endif
 					if(gr_layer[Layer-1]==-2){
+#if NPU_Debug
 						std::cerr<<"Attach layer: Previous subgraph was npu\n";
+#endif
 						//arm_compute::graph_utils::SenderAccessor* T=dynamic_cast<arm_compute::graph_utils::SenderAccessor*>(Transmitters[Transmitters.size()-1]->accessor());
 						//(*sub_graph)<<InputLayer(input_descriptor, get_Receiver_accessor(common_params,Connection_id,0,NULL,T));
+
 						(*sub_graph)<<InputLayer(input_descriptor, get_Receiver_accessor(common_params, Connection_id, T_id, 0, NULL,NPU_Senders[NPU_Senders.size()-1]));
+#if NPU_Debug
 						std::cerr<<"Attach layer: added form npu\n";
+#endif
 					}
 					else{
 						(*sub_graph)<<InputLayer(input_descriptor, get_Receiver_accessor(common_params,Connection_id, T_id));
@@ -368,12 +409,16 @@ public:
 					CPU_ZERO(&set);
 					CPU_SET(core[classes[gr_layer[Layer]]],&set);
 					ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
+#if NPU_Debug
 					std::cerr<<"Attach layer: next normal subgraph is prepared\n";
+#endif
 				}
 				//(3-1)End if next subgraph is not dummy or npu***************
 				//(3-2) if next subgraph is dummy or npu***********
 				else{
+#if NPU_Debug
 					std::cerr<<"Attach layer: next subgraph is dummy or npu, preparing it\n";
+#endif
 					delete dump_graph;
 					dump_graph=new Stream(1000,"AlexNet");
 					sub_graph=dump_graph;
@@ -386,10 +431,14 @@ public:
 					(*sub_graph)<<InputLayer(input_descriptor, get_Receiver_accessor(common_params,0,0));
 					//NPU:
 					if(gr_layer[Layer]==-2){
+#if NPU_Debug
 						std::cerr<<"Attach layer: next subgraph is npu, preparing it\n";
+#endif
 						NPU_index++;
 						npu_init_context(NPU_index);
+#if NPU_Debug
 						std::cerr<<"Attach layer: init npu model\n";
+#endif
 						/*if(NPU_index==0){
 							//Input_Accessor=get_input_accessor(common_params, std::move(preprocessor), true, NPU_Contexts[NPU_index]).get();
 							Input_Accessor=get_input_accessor(common_params, NULL, true, &NPU_Contexts[NPU_index]).get();
@@ -401,16 +450,28 @@ public:
 							common_params.image="npu_from_dummy";
 						}
 						unsigned int input_size=tshape.total_size();
+#if NPU_Debug
 						std::cerr<<"Attach layer: get total size of the input\n";
-						arm_compute::graph_utils::ReceiverAccessor* r=dynamic_cast<arm_compute::graph_utils::ReceiverAccessor*>(get_Receiver_accessor(common_params, Connection_id, T_id, input_size, &NPU_Contexts[NPU_index]).get());
+#endif
+						arm_compute::graph_utils::ReceiverAccessor* r=dynamic_cast<arm_compute::graph_utils::ReceiverAccessor*>(get_Receiver_accessor(common_params, Connection_id, T_id, input_size, &NPU_Contexts[NPU_index]).release());
+#if NPU_Debug
 						std::cerr<<"Attach layer: get receiver of the npu subgarph\n";
+#endif
 						arm_compute::graph_utils::NPU_Receivers.push_back(r);
+#if NPU_Debug
+						std::cerr<<"bebin\ncon: "<<Connection_id<<" tedad: "<<NPU_Receivers.size()<<" unja: "<<NPU_Receivers[NPU_Receivers.size()-1]->get_connection_id()<<std::endl;
 						std::cerr<<"Attach layer: Add its Receiver into NPU Receivers\n";
+#endif
 						if(gr_layer[Layer-1]>-1){
+#if NPU_Debug
 							std::cerr<<"Attach layer: Setting NPU Receiver into previous normal subgraph\n";
-							arm_compute::graph_utils::SenderAccessor* T=dynamic_cast<arm_compute::graph_utils::SenderAccessor*>(Transmitters[Transmitters.size()-1]->accessor());
-							T->set_receiver_accessor(r);
+#endif
+							//arm_compute::graph_utils::SenderAccessor* T=dynamic_cast<arm_compute::graph_utils::SenderAccessor*>(Transmitters[Transmitters.size()-1]->accessor());
+							//T->set_receiver_accessor(r);
+							dynamic_cast<arm_compute::graph_utils::SenderAccessor*>(Transmitters[Transmitters.size()-1]->accessor())->set_receiver_accessor(r);
+#if NPU_Debug
 							std::cerr<<"Attach layer: Set NPU Receiver into previous normal subgraph done\n";
+#endif
 						}
 
 						//std::unique_ptr<arm_compute::graph_utils::ReceiverAccessor> r(static_cast<arm_compute::graph_utils::ReceiverAccessor*>(get_Receiver_accessor(common_params,Connection_id).release()));
@@ -418,7 +479,9 @@ public:
 
 						Connection_id++;
 					}
+#if NPU_Debug
 					std::cerr<<"Attach layer: next dummy or npu subgrpah is prepared\n";
+#endif
 				}
 				//(3-2) End if next subgraph is dummy
 			}
@@ -428,7 +491,12 @@ public:
 			start_Layer=Layer;
 		}
 		//(0)End of if subgraph finished ********************************************
+#if NPU_Debug
+		for(int i=0;i<NPU_Receivers.size();i++){
+			std::cerr<<"att:\nNPU Rec: "<<i<<" Con id: "<<NPU_Receivers[i]->get_connection_id()<<'\n';
+		}
 		std::cerr<<"*********************************Attached\n\n\n";
+#endif
 
     }
 
@@ -441,7 +509,7 @@ public:
         cmd_parser.validate();
 
         // Consume common parameters
-        std::cout<<"hi\n"<<common_params<<std::endl;
+        //std::cout<<"hi\n"<<common_params<<std::endl;
         common_params = consume_common_graph_parameters(common_opts);
         //common_params.data_type = DataType::QASYMM8;
 
@@ -622,9 +690,11 @@ public:
         	common_params.target=arm_compute::graph::Target ::NEON;
         	NPU_index++;
         	npu_init_context(NPU_index);
+#if NPU_Debug
 			std::cerr<<"Setup: init npu model\n";
+#endif
 			//Input_Accessor=get_input_accessor(common_params, std::move(preprocessor), true, NPU_Contexts[NPU_index]).get();
-			Input_Accessor=get_input_accessor(common_params, NULL, true, &NPU_Contexts[NPU_index]).get();
+			Input_Accessor=get_input_accessor(common_params, NULL, true, &NPU_Contexts[NPU_index]).release();
 			im_acc=dynamic_cast<ImageAccessor*>(Input_Accessor);
 
         }
@@ -746,10 +816,14 @@ public:
 		Attach_Layer();
 
 		if(gr_layer[Layer-1]==-2){
-			Output_Accessor=get_output_accessor(common_params, 5, false, std::cout, &NPU_Contexts[NPU_index]).get();
+			Output_Accessor=get_output_accessor(common_params, 5, false, std::cout, &NPU_Contexts[NPU_index]).release();
 		}
 		if(gr_layer[0]!=-2)
 			im_acc=dynamic_cast<ImageAccessor*>(graphs[0]->graph().node(0)->output(0)->accessor());
+
+		for(int i=0;i<NPU_Contexts.size();i++){
+			NPU_time.push_back(0.0);
+		}
 
 		std::cout<<"Total layers:"<<Layer<<std::endl<<std::endl;
 
@@ -760,12 +834,20 @@ public:
 			save_program_cache_to_file();
 		#endif /* ARM_COMPUTE_CL */
 		}
+#if NPU_Debug
+		for(int i=0;i<NPU_Receivers.size();i++){
+			std::cerr<<"setup:\nNPU Rec: "<<i<<" Con id: "<<NPU_Receivers[i]->get_connection_id()<<'\n';
+		}
+#endif
 
 		//Power:
+#if Power_Measurement
 		if (-1 == GPIOExport(POUT))
 				return(1);
 		if (-1 == GPIODirection(POUT, OUT))
 				return(2);
+
+#endif
 
 
 		return true;
@@ -780,22 +862,40 @@ public:
     	CPU_SET(1,&set);
     	ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
     	//std::string t;
+    	std::cerr<<"\n\n\n_________________________\n\n\nSize of NPU contexts: "<<NPU_Contexts.size()
+    			<<"\nSize of NPU senders: "<<NPU_Senders.size()
+				<<"\nSize of NPU receivers: "<<NPU_Receivers.size()
+				<<"\nNumber of ARMCL subgraphs: "<<graphs.size()
+				<<"\nNumber of NPU subgraphs: "<<NPU_Contexts.size()
+				<<std::endl;
+#if NPU_Debug
+    	for(int i=0;i<NPU_Senders.size();i++){
+			std::cerr<<"att_1:\nNPU Send: "<<i<<" Con id: "<<NPU_Senders[i]->get_connection_id()<<'\n';
+		}
+#endif
+    	std::this_thread::sleep_for(std::chrono::milliseconds(2000));
     	std::vector<std::thread*> stages;
+    	std::vector<std::thread*> npu_stages;
     	int n=common_params.n;
     	//NPU:
 		for(int i=0;i<NPU_Contexts.size();i++){
-			run_npu(i);
+			npu_stages.push_back(new std::thread(&GraphAlexnetExample::run_npu,this,i));
 		}
 		//std::this_thread::sleep_for(std::chrono::milliseconds(4000));
     	for(int i=0;i<graphs.size();i++){
+    		//std::cerr<<"creating thread "<< i<<"\n";
     		stages.push_back(new std::thread(&GraphAlexnetExample::run,this,i));
-    		//std::cout<<"thread "<< i<<" created\n";
+    		//std::cerr<<"thread "<< i<<" created\n";
     		//stages[i]->join();
     	}
+
 
     	for(int i=0;i<stages.size();i++){
 			stages[i]->join();
     	}
+    	for(int i=0;i<npu_stages.size();i++){
+			npu_stages[i]->join();
+		}
     	for(int i=0;i<graphs.size();i++){
 			//std::cout<<"graph_id: "<<i<<" \t start: "<<graphs[i]->get_start_time().time_since_epoch().count()<<" \t end: "<<graphs[i]->get_finish_time().time_since_epoch().count()<<std::endl;
     		if(common_params.layer_time)
@@ -804,21 +904,27 @@ public:
 			double tot=graphs[i]->get_input_time()+graphs[i]->get_task_time()+graphs[i]->get_output_time();
 			PrintThread{}<<"\n\nCost"<<i<<":"<<1000*graphs[i]->get_cost_time()/n<<std::endl;
 			PrintThread{}<<"input"<<i<<"_time:"<<1000*graphs[i]->get_input_time()/n<<"\ntask"<<i<<"_time:"<<1000*graphs[i]->get_task_time()/n<<"\noutput"<<i<<"_time:"<<1000*graphs[i]->get_output_time()/n<<"\ntotal"<<i<<"_time:"<<1000*tot/n<<std::endl;
-			std::cout<<"***************************************\n\n";
+			PrintThread{}<<"***************************************\n\n";
 
 		}
+    	for(int i=0;i<NPU_time.size();i++){
+    		PrintThread{}<<"\nNPU subgraph: "<<i<<" --> Cost: "<<NPU_time[i]*1000/n<<"\n\n";
+    		PrintThread{}<<"******************************************************\n\n";
+
+    	}
 
 
-    	std::cout<<"Frame Latency: "<<1000*latency/(common_params.n)<<std::endl;
+    	PrintThread{}<<"Frame Latency: "<<1000*latency<<std::endl;
 
 
 
     	//Power
     	/*if (-1 == GPIOWrite(POUT, 1))
     			std::cerr<<"could not write 1\n";*/
-
+#if Power_Measurement
     	if (-1 == GPIOUnexport(POUT))
     			std::cerr<<"could not unexport\n";
+#endif
     	del();
 
     }
@@ -830,22 +936,23 @@ public:
 		CPU_SET(core_id,&set);
 		ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
 		//PrintThread{}<<"start running graph "<<graph_id<<std::flush<<std::endl;
-		std::cerr<<"start running graph "<<graph_id<<std::flush<<std::endl;
+		PrintThread{}<<"\nrun: Start running graph "<<graph_id<<std::flush<<std::endl;
 		double in=0;
 		double task=0;
 		double out=0;
 		int n=(common_params.n);
 		bool layer_timing=common_params.layer_time;
-		bool end=(graph_id==graphs.size()-1);
+		bool ending=(graph_id==graphs.size()-1)&&(Output_Accessor==NULL);
+		bool starting=(graph_id==0)&&(Input_Accessor==NULL);
 		latency=0;
 		//auto tstart=std::chrono::high_resolution_clock::now();
-		//std::cerr<<"graph__id:"<<graph_id<<"   time:"<<tstart.time_since_epoch().count()<<std::endl;
-		if(imgs && graph_id==0){
+		//std::cerr<<"graph__id:"<<graph_id<<'\n';//"   time:"<<tstart.time_since_epoch().count()<<std::endl;
+		if(imgs && starting){
 			if(image_index>=images_list.size())
 					image_index=image_index%images_list.size();
 			PrintThread{}<<"\n\nFirst graph inferencing image: "<<image_index<<":"<<images_list[image_index]<<std::endl;
 			//std::unique_ptr<ImageAccessor> im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
-			im_acc->set_filename(images_list[image_index++]);
+			im_acc->set_filename(images_list[image_index]);
 		}
 		if(layer_timing){
 			//std::cerr<<i<<" graph_id:"<<graph_id<<"   time:"<<std::chrono::high_resolution_clock::now().time_since_epoch().count()<<std::endl;
@@ -855,28 +962,36 @@ public:
 		else{
 			graphs[graph_id]->run(annotate);
 		}
+		//std::cerr<<"run: finish running graph id: "<<graph_id<<'\n';
 
 		graphs[graph_id]->set_input_time(0);
 		graphs[graph_id]->set_task_time(0);
 		graphs[graph_id]->set_output_time(0);
 		graphs[graph_id]->set_cost_time(0);
+
+		std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+		/*if(starting){
+			std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+		}*/
 		if(layer_timing)
 			graphs[graph_id]->reset();
-		std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-		if(graph_id==0){
-			std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-		}
 		auto tstart=std::chrono::high_resolution_clock::now();
 
 		//std::cout<<tstart.time_since_epoch().count()<<std::endl;
-		if(graph_id==0)
-			start=std::chrono::high_resolution_clock::now();
 
+#if Power_Measurement
 		//Power
 		if (-1 == GPIOWrite(POUT, 1))
 			std::cerr<<"Could not write to GPIO\n";
+#endif
+
+		int iii=n/2;
 		for(int i=0;i<n;i++){
-			if(imgs && graph_id==0){
+			if(starting && i==iii){
+				std::cerr<<"start of graph: "<<graph_id<<" for frame: "<<i<<std::endl;
+				start=std::chrono::high_resolution_clock::now();
+			}
+			if(imgs && starting){
 				if(image_index>=images_list.size())
 						image_index=image_index%images_list.size();
 				PrintThread{}<<"\n\nFirst graph inferencing image: "<<image_index<<":"<<images_list[image_index]<<std::endl;
@@ -888,18 +1003,22 @@ public:
 				graphs[graph_id]->run(annotate,n);
 				//std::cerr<<i<<" graph_id:"<<graph_id<<"  finish time:"<<(std::chrono::high_resolution_clock::now().time_since_epoch().count()/1000000)%10000<<std::endl;
 				//graphs[graph_id]->set_finish_time(std::chrono::high_resolution_clock::now());
-				if(end){
-					//latency += std::chrono::duration_cast<std::chrono::duration<double>>(graphs[graph_id]->get_finish_time() - graphs[0]->get_start_time()).count();
-					latency += std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - start).count();
-					start=std::chrono::high_resolution_clock::now();
-				}
+
 			}
 			else{
 				graphs[graph_id]->run(annotate);
 			}
+			if(ending && i==iii){
+				std::cerr<<"end of graph: "<<graph_id<<" for frame: "<<i<<std::endl;
+				//latency += std::chrono::duration_cast<std::chrono::duration<double>>(graphs[graph_id]->get_finish_time() - graphs[0]->get_start_time()).count();
+				latency += std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - start).count();
+				//start=std::chrono::high_resolution_clock::now();
+			}
 		}
+#if Power_Measurement
 		if (-1 == GPIOWrite(POUT, 0))
 		    std::cerr<<"could not write 1\n";
+#endif
 		auto tfinish=std::chrono::high_resolution_clock::now();
 		double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
 		//graphs[graph_id]->set_input_time(in);
@@ -927,23 +1046,25 @@ public:
 		CPU_SET(core_id,&set);
 		ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
 		//PrintThread{}<<"start running graph "<<graph_id<<std::flush<<std::endl;
-		std::cerr<<"start running NPU "<<id<<std::flush<<std::endl;
+		std::cerr<<"\nnpu_run: Start running NPU "<<id<<std::flush<<std::endl;
 		double in=0;
 		double task=0;
 		double out=0;
 		int n=(common_params.n);
 		//bool layer_timing=common_params.layer_time;
-		bool end=(id==NPU_Contexts.size()-1);
+		//bool end=(id==NPU_Contexts.size()-1);
+		bool starting=(Input_Accessor!=NULL);
+		bool ending=(Output_Accessor!=NULL);
 		latency=0;
 		//auto tstart=std::chrono::high_resolution_clock::now();
 		//std::cerr<<"graph__id:"<<graph_id<<"   time:"<<tstart.time_since_epoch().count()<<std::endl;
 		//if(imgs && id==0){
-		if(Input_Accessor && imgs){
+		if(starting && imgs){
 			if(image_index>=images_list.size())
 					image_index=image_index%images_list.size();
 			PrintThread{}<<"\n\nFirst graph inferencing image: "<<image_index<<":"<<images_list[image_index]<<std::endl;
 			//std::unique_ptr<ImageAccessor> im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
-			im_acc->set_filename(images_list[image_index++]);
+			im_acc->set_filename(images_list[image_index]);
 		}
 		/*if(layer_timing){
 			//std::cerr<<i<<" graph_id:"<<graph_id<<"   time:"<<std::chrono::high_resolution_clock::now().time_since_epoch().count()<<std::endl;
@@ -953,18 +1074,54 @@ public:
 		else{
 			graphs[graph_id]->run(annotate);
 		}*/
-		if(Input_Accessor){
-			std::cerr<<"Input accessor is not null!\n";
+		if(starting){
+#if NPU_Debug
+			std::cerr<<"npu_run: Calling NPU Input accessor id: "<<id<<'\n';
+#endif
 			Input_Accessor->access_tensor(*temp_tensor);
+#if NPU_Debug
+			std::cerr<<"npu_run: Finish Calling NPU Input accessor id: "<<id<<'\n';
+#endif
 		}
 		else{
-			std::cerr<<"npu_run: running npu_receiver accessor\n";
+#if NPU_Debug
+			std::cerr<<"npu_run: Calling NPU Receiver id: "<<id<<'\n';
+#endif
 			NPU_Receivers[id]->access_tensor(*temp_tensor);
-			std::cerr<<"npu_run: running npu_receiver accessor done\n";
+#if NPU_Debug
+			std::cerr<<"npu_run: Finish Calling NPU Receiver id: "<<id<<'\n';
+#endif
 		}
+#if NPU_Debug
+		std::cerr<<"npu_run: Calling NPU Run id: "<<id<<'\n';
+#endif
 		int ret = rknn_run(NPU_Contexts[id], NULL);
 		if(ret<0){
-			std::cerr<<"Error "<<ret<<" running NPU part with id: "<<id<<std::endl;
+			std::cerr<<"npu_run: Error "<<ret<<" running NPU part with id: "<<id<<std::endl;
+		}
+#if NPU_Debug
+		std::cerr<<"npu_run: Finish Calling NPU Run id: "<<id<<'\n';
+
+
+		for(int i=0;i<NPU_Senders.size();i++){
+			std::cerr<<"att_1:\nNPU Send: "<<i<<" Con id: "<<NPU_Senders[i]->get_connection_id()<<'\n';
+		}
+#endif
+		if(ending){
+#if NPU_Debug
+			std::cerr<<"npu_run: Calling NPU Output id: "<<id<<'\n';
+#endif
+			Output_Accessor->access_tensor(*temp_tensor);
+		}
+		else{
+#if NPU_Debug
+			std::cerr<<"npu_run: Calling NPU Sender id: "<<id<<'\n';
+#endif
+			//ITensor *temp_tensor2;
+			NPU_Senders[id]->access_tensor(*temp_tensor);
+#if NPU_Debug
+			std::cerr<<"npu_run: Finish Calling NPU Sender id: "<<id<<'\n';
+#endif
 		}
 
 		/*graphs[graph_id]->set_input_time(0);
@@ -974,51 +1131,95 @@ public:
 		if(layer_timing)
 			graphs[graph_id]->reset();*/
 		std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-		if(id==0){
-			std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-		}
+		//if(id==0){
+		/*if(starting){
+			std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+		}*/
 		auto tstart=std::chrono::high_resolution_clock::now();
 
 		//std::cout<<tstart.time_since_epoch().count()<<std::endl;
-		if(id==0)
-			start=std::chrono::high_resolution_clock::now();
 
+#if Power_Measurement
 		//Power
 		if (-1 == GPIOWrite(POUT, 1))
 			std::cerr<<"Could not write to GPIO\n";
+#endif
+		int iii=n/2;
 		for(int i=0;i<n;i++){
 			//if(id==0){
-			if(Input_Accessor){
+			if(starting){
+#if NPU_Debug
 				std::cerr<<"Input accessor is not null!\n";
+#endif
+				if(i==iii)
+					start=std::chrono::high_resolution_clock::now();
 				if(imgs){
 					if(image_index>=images_list.size())
 							image_index=image_index%images_list.size();
 					PrintThread{}<<"\n\nFirst graph inferencing image: "<<image_index<<":"<<images_list[image_index]<<std::endl;
 					//std::unique_ptr<ImageAccessor> im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
 					im_acc->set_filename(images_list[image_index++]);
+#if NPU_Debug
+					std::cerr<<"npu_run: Calling NPU Image accessor id: "<<id<<'\n';
+#endif
 					im_acc->access_tensor(*temp_tensor);
+#if NPU_Debug
+					std::cerr<<"npu_run: Finish Calling NPU Image accessor id: "<<id<<'\n';
+#endif
 				}
 				else{
+#if NPU_Debug
+					std::cerr<<"npu_run: Calling NPU Input accessor id: "<<id<<'\n';
+#endif
 					Input_Accessor->access_tensor(*temp_tensor);
+#if NPU_Debug
+					std::cerr<<"npu_run: Finish Calling NPU Input accessor id: "<<id<<'\n';
+#endif
 				}
 			}
 			else{
-				std::cerr<<"npu_run: running npu_receiver accessor\n";
+#if NPU_Debug
+				std::cerr<<"npu_run: Calling NPU Rec accessor id: "<<id<<'\n';
+#endif
 				NPU_Receivers[id]->access_tensor(*temp_tensor);
-				std::cerr<<"npu_run: running npu_receiver accessor done\n";
+#if NPU_Debug
+				std::cerr<<"npu_run: Finsih Calling NPU Rec accessor id: "<<id<<'\n';
+#endif
 			}
+#if NPU_Debug
+			std::cerr<<"npu_run: Calling NPU Run id: "<<id<<'\n';
+#endif
 			ret = rknn_run(NPU_Contexts[id], NULL);
+#if NPU_Debug
+			std::cerr<<"npu_run: Finish Calling NPU Run id: "<<id<<'\n';
+#endif
 			if(ret<0){
 				//std::string c;
 				std::cerr<<"Error "<<ret<<" running NPU part with id: "<<id<<std::endl;
 				//std::cin>>c;
 			}
 
-			if(end){
+			if(ending){
+#if NPU_Debug
+				std::cerr<<"npu_run: Calling NPU Output accessor id: "<<id<<'\n';
+#endif
 				Output_Accessor->access_tensor(*temp_tensor);
+				if(i==iii)
+					latency += std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - start).count();
+#if NPU_Debug
+				std::cerr<<"npu_run: Finish Calling NPU Output accessor id: "<<id<<'\n';
+
+				start=std::chrono::high_resolution_clock::now();
+#endif
 			}
 			else{
+#if NPU_Debug
+				std::cerr<<"npu_run: Calling NPU Sender accessor id: "<<id<<'\n';
+#endif
 				NPU_Senders[id]->access_tensor(*temp_tensor);
+#if NPU_Debug
+				std::cerr<<"npu_run: Finish Calling NPU Sender accessor id: "<<id<<'\n';
+#endif
 			}
 			/*if(layer_timing){
 				//std::cerr<<i<<" graph_id:"<<graph_id<<" start  time:"<<(std::chrono::high_resolution_clock::now().time_since_epoch().count()/1000000)%10000<<std::endl;
@@ -1035,10 +1236,13 @@ public:
 				graphs[graph_id]->run(annotate);
 			}*/
 		}
+#if Power_Measurement
 		if (-1 == GPIOWrite(POUT, 0))
 		    std::cerr<<"could not write 1\n";
+#endif
 		auto tfinish=std::chrono::high_resolution_clock::now();
 		double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+		NPU_time[id]=cost0;
 		//graphs[graph_id]->set_input_time(in);
 		//graphs[graph_id]->set_task_time(task);
 		//graphs[graph_id]->set_output_time(out);
@@ -1079,6 +1283,7 @@ private:
     double latency=0;
     //NPU:
     std::vector<rknn_context> NPU_Contexts;
+    std::vector<double> NPU_time;
     std::map<int, std::string> NPU_Model_Name = {{0, "Alex_3_4.rknn"}, {1, "Alex_5_7.rknn"}};
     int NPU_index=-1;
     graph::ITensorAccessor *Output_Accessor=NULL;

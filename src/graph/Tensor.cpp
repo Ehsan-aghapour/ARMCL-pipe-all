@@ -121,7 +121,7 @@ bool Tensor::my_call_accessor()
     _handle->map(true);
     //auto finish=std::chrono::high_resolution_clock::now();
     //std::cerr<<"mapping: "<<1000*(std::chrono::duration_cast<std::chrono::duration<double>>(finish - start).count())<<std::endl;
-    //std::cerr<<"*******************************\n\n";
+    //std::cerr<<"*******my_call_accessor************************\n\n";
     ////ANNOTATE_CHANNEL_END(c++);
     // Return in case of null backend buffer
     if(_handle->tensor().buffer() == nullptr)
@@ -134,6 +134,7 @@ bool Tensor::my_call_accessor()
     //std::string cc;
     //std::cout<<"salammm\n";
     ////start=std::chrono::high_resolution_clock::now();
+    //std::cerr<<"accessor\n";
     bool retval = _accessor->access_tensor(_handle->tensor());
     ////finish=std::chrono::high_resolution_clock::now();
     ////std::cerr<<"access: "<<(std::chrono::duration_cast<std::chrono::duration<double>>(finish - start).count())<<std::endl;

@@ -55,6 +55,7 @@ static arm_compute::graph::Target g1t;
 //NPU:
 #include "rknn_api.h"
 #include "rockx.h"
+#define NPU_Debug 0
 
 void print_attr(rknn_tensor_attr attr);
 void print_input(rknn_input input,int n);
@@ -199,15 +200,22 @@ class PrintThread: public std::ostringstream
 {
 public:
     PrintThread() = default;
+   /* PrintThread(int l=1){
+    	level=l;
+    }*/
+
 
     ~PrintThread()
     {
         std::lock_guard<std::mutex> guard(_mutexPrint);
-        std::cout << this->str();
+        //if(level>print_level)
+        	std::cerr << this->str();
     }
 
 private:
     static std::mutex _mutexPrint;
+    //int	level=1;
+    //int print_level=0;
 };
 
 
@@ -233,12 +241,20 @@ public:
     }
     template<typename T>
     int set_input(T *data=NULL){
-    	if(data)
+    	if(data){
+#if NPU_Debug
+    		std::cerr<<"set_input: Setting input pointer to inputs.buf\n";
+#endif
     		Inputs[0].buf=data;
+    	}
+
     	int ret=rknn_inputs_set(*_NPU_Context, 1, Inputs);
     	if(ret < 0)
     		printf("rknn_input_set fail! ret=%d\n", ret);
     	return ret;
+    }
+    int get_connection_id(){
+    	return Connection_id;
     }
 
 private:
@@ -249,7 +265,7 @@ private:
      * Transmitters and Receivers and buffer_tensors are indexed by T_id
      */
     bool		transition=false;
-    int			Connection_id;
+    int			Connection_id=-1;
     int			T_id;
     int 		frame;
     bool		ReceiveFromNPU=false;
@@ -614,12 +630,15 @@ public:
 			printf("NPU get output fail! ret=%d\n",ret);
 			return NULL;
 		}
-    	printf("\n\n*************\n");
-    	print_output(Outputs[0],Output_attr.n_elems);
+    	//printf("\n\n*************\n");
+    	//print_output(Outputs[0],Output_attr.n_elems);
     	return Outputs;
     }
     void release_outputs(){
     	rknn_outputs_release(*_NPU_Context, 1, Outputs);
+    }
+    int get_connection_id(){
+    	return Connection_id;
     }
 
 private:
@@ -628,7 +647,7 @@ private:
     template <typename T>
     void my_access_predictions_tensor(ITensor &tensor);
     bool		transition=false;
-    int			Connection_id;
+    int			Connection_id=-1;
     int			T_id;
     int 		frame;
     bool		SendToNPU=false;

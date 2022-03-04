@@ -361,10 +361,14 @@ bool DummyAccessor::access_tensor(ITensor &tensor)
 }
 
 ReceiverAccessor::ReceiverAccessor(bool tran, int Con_id, int t_id, bool _NPU, rknn_context* NPU_Context, int input_size,bool from_dummy)
-	: transition(tran), Connection_id(Con_id), T_id(t_id), _NPU_Context(NPU_Context)//_iterator(0), _maximum(maximum),
+	: transition(tran), T_id(t_id), _NPU_Context(NPU_Context)//_iterator(0), _maximum(maximum),, Connection_id(Con_id)
 {
 	frame=1;
 	NPU=_NPU;
+#if NPU_Debug
+	std::cerr<<"GU: Rec acc Initialized with Con id: "<<Con_id<<" Before: "<<Connection_id<<" T_id:"<< t_id<<" Is NPU: "<<NPU<<'\n';
+#endif
+	Connection_id=Con_id;
 	////PrintThread{}<<"\ntransferaccessor1\n";
 	//std::mutex m;
 	//std::string c;
@@ -402,7 +406,9 @@ ReceiverAccessor::ReceiverAccessor(bool tran, int Con_id, int t_id, bool _NPU, r
 		if(ret < 0) {
 			printf("rknn_query fail! ret=%d\n",ret);
 		}
+#if NPU_Debug
 		std::cerr<<"query input attr done.\n";
+#endif
 		if(Input_size){
 			if(Input_size!=input_attr.n_elems){
 				std::cerr<<"Error: Size not match\n";
@@ -410,7 +416,9 @@ ReceiverAccessor::ReceiverAccessor(bool tran, int Con_id, int t_id, bool _NPU, r
 				Input_size=input_attr.n_elems;
 			}
 			else{
+#if NPU_Debug
 				std::cerr<<"Input size match with model: "<<input_attr.n_elems<<std::endl;
+#endif
 			}
 		}
 		//input_attr.n_elems * sizeof(using type)= input_attr.size
@@ -425,7 +433,7 @@ ReceiverAccessor::ReceiverAccessor(bool tran, int Con_id, int t_id, bool _NPU, r
 		Inputs[0].pass_through = Pass;
 		Inputs[0].fmt = fmt;
 		Inputs[0].buf = Input_data;//test_data;
-		Inputs[0].size = input_size;//sizeof(test_data)/4;
+		Inputs[0].size = input_size*4;//sizeof(test_data)/4;
 		Inputs[0].type = type;
 		if(from_dummy){
 			//Input_data=(float*)Input_data;
@@ -442,9 +450,13 @@ ReceiverAccessor::ReceiverAccessor(bool tran, int Con_id, int t_id, bool _NPU, r
 
 //NPU: Receiver from NPU
 ReceiverAccessor::ReceiverAccessor(bool tran, int Con_id, int t_id, arm_compute::graph_utils::SenderAccessor* S)
-	: transition(tran), Connection_id(Con_id), T_id(t_id)
+	: transition(tran),  T_id(t_id)//Connection_id(Con_id),
 {
-	std::cerr<<"GU: initializing receiver accessor trasform from npu\n";
+	//std::cerr<<"GU: initializing receiver accessor trasform from npu\n";
+#if NPU_Debug
+	std::cerr<<"GU: Rec acc (Rec from NPU) Initialized with Con id: "<<Con_id<<" Before: "<<Connection_id<<" T_id: "<<t_id<<'\n';
+#endif
+	Connection_id=Con_id;
 	////PrintThread{}<<"\ntransferaccessor1\n";
 	//std::mutex m;
 	//std::string c;
@@ -455,7 +467,9 @@ ReceiverAccessor::ReceiverAccessor(bool tran, int Con_id, int t_id, arm_compute:
 	__waiting.push_back(new bool(true));
 	__ready.push_back(new bool(false));
 	//arm_compute::Tensor t;
+#if NPU_Debug
 	std::cerr<<"GU: connection id is: "<<Connection_id<<" T_id: "<<T_id<<" size of buffer_tensors is: "<<buffer_tensors.size()<<std::endl;
+#endif
 	/*
 	buffer_tensors.push_back(new arm_compute::Tensor);
 	buffer_tensors[Connection_id]->allocator()->init(*(Transmitters[Connection_id]->handle()->tensor().info()));
@@ -472,27 +486,37 @@ ReceiverAccessor::ReceiverAccessor(bool tran, int Con_id, int t_id, arm_compute:
 	frame=1;
 	ReceiveFromNPU=true;
 	NPU_Sender=S;
+#if NPU_Debug
 	std::cerr<<"GU: setting input size\n";
+#endif
 	Input_size=NPU_Sender->get_output_size();
+#if NPU_Debug
 	std::cerr<<"GU: Done\n";
+#endif
 }
 
 
 //input of second graph
 bool ReceiverAccessor::access_tensor(ITensor &tensor)
 {
-	//PrintThread{}<<std::flush<<"receiver of graph "<< Source_id+1<<" is waiting for mutex\n"<<std::flush;
-	////PrintThread{}<<" size mux:"<<mx.size()<<std::endl;
-	//std::string c;
-	//std::cin>>c;
+#if NPU_Debug
+	std::cerr<<"receiver accessor "<<Connection_id<<'\n';
+#endif
 	int id=Connection_id;
 	if(NPU && From_dummy){
-		//Set input
-		//rknn_tensor_attr a;
+#if NPU_Debug
+		std::cerr<<"From dummy\n";
+#endif
 		set_input<void>();
 		return true;
 	}
+#if NPU_Debug
+	std::cerr<<"Receiver before lock id "<<id<<'\n';
+#endif
 	std::unique_lock<std::mutex> lk(*(mx[id]));
+#if NPU_Debug
+	std::cerr<<"Receiver after get lock id: "<<id<<'\n';
+#endif
 	//lk.lock();
 	//PrintThread{}<<std::flush<<"receiver of graph:"<< Source_id+1<<" unlocke!\n"<<std::flush;
 	//std::cin>>c;
@@ -508,14 +532,20 @@ bool ReceiverAccessor::access_tensor(ITensor &tensor)
 			std::string y;
 			std::cin>>y;
 			*__waiting[id]=true;
-			std::cout<<"id: "<<id<<", waiting[id]:"<<__waiting[id]<<"len:"<<__waiting.size()<<std::endl<<"***********************************************\n"<<std::flush;
+			std::cerr<<"id: "<<id<<", waiting[id]:"<<__waiting[id]<<"len:"<<__waiting.size()<<std::endl<<"***********************************************\n"<<std::flush;
 			*__waiting[id]=true;
 		}
 		//PrintThread{}<<"receiver after while before wait;waiting["<<id<<"]:"<<__waiting[id]<<", ready["<<id<<"]:"<<*__ready[id]<<std::endl<<std::flush;
 		//(1-1)If other side is NPU:
 		if(ReceiveFromNPU){
 			//1- wait if npu run is called
+#if NPU_Debug
+			std::cerr<<"Receiver from NPU and Q is empty before waiting with id: "<<id<<'\n';
+#endif
 			cvs[id]->wait(lk,[id]{*__waiting[id]=true;return *__ready[id];});
+#if NPU_Debug
+			std::cerr<<"Receiver from NPU and Q is empty after waiting with id: "<<id<<'\n';
+#endif
 			*__ready[id]=false;
 			*__waiting[id]=false;
 			//notify NPU sender that its data is got
@@ -531,21 +561,31 @@ bool ReceiverAccessor::access_tensor(ITensor &tensor)
 		//(1-2) If other side is not NPU ************
 		else{
 			//If this receiver is NPU
+#if NPU_Debug
+			std::cerr<<"Receiver other side is not NPU, id: "<<id<<'\n';
+#endif
+
 			if(NPU){
+#if NPU_Debug
+				std::cerr<<"Receiver but itseld is npu, id: "<<id<<'\n';
+#endif
 				cvs[id]->notify_one();
 			}
 			cvs[id]->wait(lk,[id]{*__waiting[id]=true;return *__ready[id];});
+#if NPU_Debug
+			std::cerr<<"Receiver other side is not NPU, afrer wait id: "<<id<<'\n';
+#endif
 			//->PrintThread{}<<std::flush<<"graph:"<<Source_id+1<<" receiver wake up press\n"<<std::flush;
 			//std::cin>>c;
 			*__ready[id]=false;
 			while(*__ready[id]){
 				*__ready[id]=false;
-				std::cout<<"%%%%%%%%%%%%%%%\n";
+				std::cerr<<"%%%%%%%%%%%%%%%\n";
 			}
 			*__waiting[id]=false;
 			while(*__waiting[id]){
 				*__waiting[id]=false;
-				std::cout<<"*****************\n";
+				std::cerr<<"*****************\n";
 			}
 			lk.unlock();
 
@@ -639,6 +679,9 @@ bool ReceiverAccessor::access_tensor(ITensor &tensor)
 
 SenderAccessor::SenderAccessor(bool tran, int _Connection_id, int _T_id, bool _NPU, rknn_context *NPU_Context, unsigned int output_size, bool to_dummy){
 	////PrintThread{}<<"\nconnectionaccessor1\n";
+#if NPU_Debug
+	std::cerr<<"GU: Sned acc Initialized with Con id: "<<_Connection_id<<" Before: "<<Connection_id<<" T_id: "<<_T_id<<" Is NPU: "<<_NPU<<'\n';
+#endif
 	transition=tran;
 	Connection_id=_Connection_id;
 	T_id=_T_id;
@@ -661,7 +704,9 @@ SenderAccessor::SenderAccessor(bool tran, int _Connection_id, int _T_id, bool _N
 				Output_size=Output_attr.n_elems;
 			}
 			else{
+#if NPU_Debug
 				std::cerr<<"Output size match with model: "<<Output_attr.n_elems<<std::endl;
+#endif
 			}
 		}
 		To_dummy=to_dummy;
@@ -674,6 +719,9 @@ SenderAccessor::SenderAccessor(bool tran, int _Connection_id, int _T_id, bool _N
 
 //NPU:
 SenderAccessor::SenderAccessor(bool tran,int _Connection_id, int _T_id, arm_compute::graph_utils::ReceiverAccessor* R){
+#if NPU_Debug
+	std::cerr<<"GU: Sned acc Initialized with Con id: "<<_Connection_id<<" Before: "<<Connection_id<<" T_id: "<<_T_id<<" Is send to NPU"<<'\n';
+#endif
 	transition=tran;
 	Connection_id=_Connection_id;
 	T_id=_T_id;
@@ -688,6 +736,9 @@ SenderAccessor::SenderAccessor(bool tran,int _Connection_id, int _T_id, arm_comp
 template <typename T>
 void SenderAccessor::my_access_predictions_tensor(ITensor &tensor)
 {
+#if NPU_Debug
+	std::cerr<<"Sender accessor "<<Connection_id<<'\n';
+#endif
 	// Get the predicted class
     //std::vector<T>      classes_prob;
     //std::vector<size_t> index;
@@ -722,6 +773,9 @@ void SenderAccessor::my_access_predictions_tensor(ITensor &tensor)
 
     if(To_dummy){
     	//get_outputs
+#if NPU_Debug
+    	std::cerr<<"To dummy\n";
+#endif
     	get_output();
     	return;
     }
@@ -733,18 +787,32 @@ void SenderAccessor::my_access_predictions_tensor(ITensor &tensor)
     	int id=Connection_id;
     	// NPU:
 		////std::lock_guard<std::mutex> lk(*(mx[id]));
+#if NPU_Debug
+    	std::cerr<<"sender accessor "<<Connection_id<<" before get lock\n";
+#endif
     	std::unique_lock<std::mutex> lk(*(mx[id]));
-
+#if NPU_Debug
+    	std::cerr<<"sender accessor "<<Connection_id<<" after get lock\n";
+#endif
 		//PrintThread{}<<std::flush<<" graph:"<<Destination_id-1<<" sender unlocked\n"<<std::flush;
 
 		//PrintThread{}<<"sender before decision;waiting["<<id<<"]:"<<__waiting[id]<<", ready["<<id<<"]:"<<__ready[id]<<std::endl<<std::flush;
 		//If receiver is not waiting or previous sender data is ready(then this data should be push in q)
 		//(0-1) If you are NPU
 		if(NPU){
+#if NPU_Debug
+			std::cerr<<"sender accessor "<<Connection_id<<" is npu\n";
+#endif
 			*__ready[id]=true;
 			cvs[id]->notify_one();
 			//wait to other receiver start process (start getting NPU output)
+#if NPU_Debug
+			std::cerr<<"NPU sender before waiting["<<id<<"]:"<<*__waiting[id]<<", ready["<<id<<"]:"<<*__ready[id]<<std::endl<<std::flush;
+#endif
 			cvs[id]->wait(lk,[id]{return !(*__ready[id]);});// && !*__ready[id]
+#if NPU_Debug
+			std::cerr<<"NPU sender after waiting "<<id<<'\n';
+#endif
 			//Receiver of next subgraph Copy data by calling NPU_get_outputs
 
 		}
@@ -763,7 +831,13 @@ void SenderAccessor::my_access_predictions_tensor(ITensor &tensor)
 				}
 				else{
 					//wait till NPU receiver is waiting
+#if NPU_Debug
+					std::cerr<<"Sender to NPU (if rec is not waiting) before waiting id: "<<id<<'\n';
+#endif
 					cvs[id]->wait(lk,[id]{return (*__waiting[id]);});// && !*__ready[id]
+#if NPU_Debug
+					std::cerr<<"Sender to NPU (if rec is not waiting) after waiting id: "<<id<<'\n';
+#endif
 					//Copy data to NPU_Receiver
 					const auto   output_net  = reinterpret_cast<T *>(tensor.buffer() + tensor.info()->offset_first_element_in_bytes());
 					NPU_Receiver->set_input<T>(output_net);
@@ -791,6 +865,9 @@ void SenderAccessor::my_access_predictions_tensor(ITensor &tensor)
 				//if(f_out->desc().target==arm_compute::graph::Target ::CL)
 				if(SendToNPU){
 					//Copy data to NPU_Receiver
+#if NPU_Debug
+					std::cerr<<"Sender to NPU (if rec is waiting) id: "<<id<<'\n';
+#endif
 					const auto   output_net  = reinterpret_cast<T *>(tensor.buffer() + tensor.info()->offset_first_element_in_bytes());
 					NPU_Receiver->set_input<T>(output_net);
 					//Set ready to true and notify receiver
@@ -811,7 +888,7 @@ void SenderAccessor::my_access_predictions_tensor(ITensor &tensor)
 					*__ready[id] = true;
 					while(*__ready[id]==false){
 						*__ready[id]=true;
-						std::cout<<"id: "<<id<<", ready[id]:"<<*__ready[id]<<std::endl<<"***********************************************\n";
+						std::cerr<<"id: "<<id<<", ready[id]:"<<*__ready[id]<<std::endl<<"***********************************************\n";
 					}
 					cvs[id]->notify_one();
 				}
@@ -1501,7 +1578,8 @@ bool SenderAccessor::access_tensor(ITensor &tensor)
     ARM_COMPUTE_ERROR_ON_DATA_TYPE_CHANNEL_NOT_IN(&tensor, 1, DataType::F32, DataType::QASYMM8);
     //Ehsan
     //ARM_COMPUTE_ERROR_ON(_labels.size() != tensor.info()->dimension(0));
-
+    my_access_predictions_tensor<float>(tensor);
+    return false;
     switch(tensor.info()->data_type())
     {
         case DataType::QASYMM8:
