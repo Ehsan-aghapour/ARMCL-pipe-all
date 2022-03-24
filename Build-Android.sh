@@ -1,7 +1,7 @@
 
 compiler=arm-linux-androideabi-clang++
 target=armv7a-linux-androideabi$1-clang++
-Compiler_dir=../android-ndk-r21e-linux-x86_64/android-ndk-r21e/toolchains/llvm/prebuilt/linux-x86_64/bin/
+Compiler_dir=../../android-ndk-r21e-linux-x86_64/android-ndk-r21e/toolchains/llvm/prebuilt/linux-x86_64/bin/
 
 cp $Compiler_dir/$target $Compiler_dir/$compiler
 

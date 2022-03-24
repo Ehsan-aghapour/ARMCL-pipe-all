@@ -1019,7 +1019,7 @@ public:
         }
         for(int i=0;i<(tt+1);i++){
         	if(i==1){
-        		std::this_thread::sleep_for(std::chrono::milliseconds(3000));
+        		//std::this_thread::sleep_for(std::chrono::milliseconds(3000));
         		std::cerr<<"\nRunning Inference ... ";
         		tstart=std::chrono::high_resolution_clock::now();
         		//std::cout<<tstart.time_since_epoch().count()<<std::endl;
@@ -1076,9 +1076,9 @@ public:
         //std::cout<<tt<<std::endl;
         for(int i=0;i<(tt+1);i++){
         	if(i==1){
-        		std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        		//std::this_thread::sleep_for(std::chrono::milliseconds(1000));
         		if(cluster==-1){
-        			std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+        			//std::this_thread::sleep_for(std::chrono::milliseconds(2000));
         			std::cerr<<"\nRunning Inference ... ";
         		}
         		tstart=std::chrono::high_resolution_clock::now();
@@ -1140,7 +1140,7 @@ public:
             //std::cout<<tt<<std::endl;
             for(int i=0;i<(tt+1);i++){
             	if(i==1){
-            		std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+            		//std::this_thread::sleep_for(std::chrono::milliseconds(1000));
             		if(cluster==-1 && cluster2==-1){
             			std::cerr<<"\nRunning Inference ... ";
             		}
