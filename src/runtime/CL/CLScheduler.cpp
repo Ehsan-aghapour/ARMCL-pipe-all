@@ -21,6 +21,11 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+//Ehsan
+#ifndef My_print
+#include "arm_compute/gl_vs.h"
+#endif
+
 #include "arm_compute/runtime/CL/CLScheduler.h"
 
 #include "arm_compute/core/CL/CLKernelLibrary.h"
@@ -171,6 +176,13 @@ void CLScheduler::enqueue_common(ICLKernel &kernel, ITensorPack &tensors, bool f
         inject_memory ? _cl_tuner->tune_kernel_dynamic(kernel, tensors) : _cl_tuner->tune_kernel_dynamic(kernel);
     }
 
+#if My_print > 0
+    //Ehsan
+    std::cout<<"\nCLScheduler::enqueue_common\n"
+    		<<"inject_memory:"<<inject_memory
+			<<" kernel config_id:" <<kernel.config_id()
+			<<std::endl;
+#endif
     // Run kernel
     inject_memory ? kernel.run_op(tensors, kernel.window(), _queue) : kernel.run(kernel.window(), _queue);
 

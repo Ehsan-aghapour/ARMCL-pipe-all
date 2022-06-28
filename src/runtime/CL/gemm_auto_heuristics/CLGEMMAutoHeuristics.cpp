@@ -66,6 +66,7 @@ GEMMTypeResult select_mlgo_gemm_kernel(const CommonQuery &query, bool reshape_b_
 
 GEMMTypeResult select_default_gemm_kernel(const CommonQuery &query, bool reshape_b_only_on_first_run)
 {
+	//Ehsan: Static method to select the GEMM kernel accordingly with the GPU target and GEMM's dimensionality:
     std::unique_ptr<ICLGEMMKernelSelection> default_heuristics = CLGEMMKernelSelectionFactory::create(query.gpu_target);
     ARM_COMPUTE_ERROR_ON_NULLPTR(default_heuristics.get());
 
@@ -78,6 +79,8 @@ GEMMTypeResult select_default_gemm_kernel(const CommonQuery &query, bool reshape
     params.data_type       = query.data_type;
 
     const auto kernel_type = default_heuristics->select_kernel(params);
+    //Ehsan:
+    //std::cout<<"Selected kernel type based on gpu and dimensions is: "<<int(kernel_type)<<std::endl;
     return GEMMTypeResult(true, kernel_type);
 }
 

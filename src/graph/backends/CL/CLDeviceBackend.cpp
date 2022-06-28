@@ -67,6 +67,8 @@ static detail::BackendRegistrar<CLDeviceBackend> CLDeviceBackend_registrar(Targe
 CLDeviceBackend::CLDeviceBackend()
     : _context_count(0), _tuner(), _gemm_heuristics(), _allocator(nullptr), _tuner_file()
 {
+	//std::cout<<"instructor of CLDeviceBackend, _contex_cont:"<<_context_count<<std::endl;
+	//std::cout<<"test\n";
 }
 
 CLDeviceBackend::~CLDeviceBackend()
@@ -95,6 +97,7 @@ void CLDeviceBackend::initialize_backend()
 void CLDeviceBackend::release_backend_context(GraphContext &ctx)
 {
     ARM_COMPUTE_UNUSED(ctx);
+    //std::cout<<"realse backend of cl\n";
     _context_count--;
     if(_context_count == 0) // No more context using the backend: free resources
     {
@@ -106,11 +109,13 @@ void CLDeviceBackend::setup_backend_context(GraphContext &ctx)
 {
     // Force backend initialization
     _context_count++;
+    //std::cout<<"context is:"<<_context_count<<std::endl;;
     if(_context_count == 1)
     {
+        //Ehsan
+    	//std::cout<<"*********context is one\n";
         initialize_backend();
     }
-
     // Setup tuner
     _tuner_file = ctx.config().tuner_file;
 
@@ -125,7 +130,16 @@ void CLDeviceBackend::setup_backend_context(GraphContext &ctx)
 
     // Attempt to load mlgo heuristics
     ARM_COMPUTE_ERROR_ON(CLScheduler::get().gemm_heuristics() == nullptr);
+    //Ehsan
+    //std::cout<<"MLGO file :"<<ctx.config().mlgo_file<<std::endl;
+
+
     CLScheduler::get().gemm_heuristics()->reload_from_file(ctx.config().mlgo_file);
+
+    //Ehsan
+    //std::cout<<"**********************Here!*******************\n";
+    //std::string te;
+    //std::cin>>te;
 
     // Setup a management backend
     if(ctx.memory_management_ctx(Target::CL) == nullptr)

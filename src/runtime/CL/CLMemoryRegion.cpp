@@ -21,6 +21,12 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+//Ehsan
+#ifndef My_print
+#include "arm_compute/gl_vs.h"
+#endif
+
+
 #include "arm_compute/runtime/CL/CLMemoryRegion.h"
 
 #include "arm_compute/core/CL/CLCoreRuntimeContext.h"
@@ -81,6 +87,10 @@ void *CLBufferMemoryRegion::ptr()
 
 void *CLBufferMemoryRegion::map(cl::CommandQueue &q, bool blocking)
 {
+#if My_print > 0
+	//Ehsan
+	std::cout<<"CLMemoryRegion, CLBufferMemoryRegion::map\n";
+#endif
     ARM_COMPUTE_ERROR_ON(_mem.get() == nullptr);
     _mapping = q.enqueueMapBuffer(_mem, blocking ? CL_TRUE : CL_FALSE, CL_MAP_READ | CL_MAP_WRITE, 0, _size);
     return _mapping;
@@ -134,6 +144,10 @@ CLCoarseSVMMemoryRegion::CLCoarseSVMMemoryRegion(CLCoreRuntimeContext *ctx, cl_m
 
 void *CLCoarseSVMMemoryRegion::map(cl::CommandQueue &q, bool blocking)
 {
+#if My_print > 0
+	//Ehsan
+		std::cout<<"CLMemoryRegion, CLCoarseSVMMemoryRegion::map\n";
+#endif
     ARM_COMPUTE_ERROR_ON(_ptr == nullptr);
     clEnqueueSVMMap(q.get(), blocking ? CL_TRUE : CL_FALSE, CL_MAP_READ | CL_MAP_WRITE, _ptr, _size, 0, nullptr, nullptr);
     _mapping = _ptr;
@@ -154,6 +168,10 @@ CLFineSVMMemoryRegion::CLFineSVMMemoryRegion(CLCoreRuntimeContext *ctx, cl_mem_f
 
 void *CLFineSVMMemoryRegion::map(cl::CommandQueue &q, bool blocking)
 {
+#if My_print > 0
+	//Ehsan
+		std::cout<<"CLMemoryRegion, CLFineSVMMemoryRegion::map\n";
+#endif
     if(blocking)
     {
         clFinish(q.get());

@@ -95,8 +95,10 @@ struct CommonGraphParams
 {
     bool                             help{ false };
     int                              threads{ 0 };
+    int                              threads2{ 0 };
     arm_compute::graph::Target       target{ arm_compute::graph::Target::NEON };
     arm_compute::DataType            data_type{ DataType::F32 };
+    //arm_compute::DataType            data_type{ DataType::QASYMM8};
     arm_compute::DataLayout          data_layout{ DataLayout::NHWC };
     bool                             enable_tuner{ false };
     bool                             enable_cl_cache{ false };
@@ -111,6 +113,21 @@ struct CommonGraphParams
     std::string                      mlgo_file{};
     unsigned int                     validation_range_start{ 0 };
     unsigned int                     validation_range_end{ std::numeric_limits<unsigned int>::max() };
+    //Ehsan
+    int								 partition_point{ 0 };
+    int								 partition_point2{ 0 };
+    int							 	 annotate{0};
+    int							 	 save{0};
+    int								 n{1};
+    int								 total_cores{6};
+    int								 layer_time{0};
+    std::string						 order{"B-L-G"};
+
+    int								 input_c{3};
+    int								 input_s{227};
+    int								 kernel_c{96};
+    int								 kernel_s{11};
+    int								 stride{2};
 };
 
 /** Formatted output of the CommonGraphParams type
@@ -151,7 +168,8 @@ public:
     ~CommonGraphOptions() = default;
 
     ToggleOption                           *help;             /**< Show help option */
-    SimpleOption<int>                      *threads;          /**< Number of threads option */
+    SimpleOption<int>                      *threads;          /**< Number of big core threads option */
+    SimpleOption<int>                      *threads2;          /**< Number of little cores threads option */
     EnumOption<arm_compute::graph::Target> *target;           /**< Graph execution target */
     EnumOption<arm_compute::DataType>      *data_type;        /**< Graph data type */
     EnumOption<arm_compute::DataLayout>    *data_layout;      /**< Graph data layout */
@@ -167,6 +185,22 @@ public:
     SimpleOption<std::string>              *validation_range; /**< Validation range */
     SimpleOption<std::string>              *tuner_file;       /**< File to load/store the tuner's values from */
     SimpleOption<std::string>              *mlgo_file;        /**< File to load the MLGO heuristics from */
+    //Ehsan
+    SimpleOption<std::string>              *order;					  /**< Order of processors eg. B-L-G */
+    SimpleOption<int>                      *partition_point;          /**< Partition point */
+    SimpleOption<int>                      *partition_point2;          /**< Partition point2 */
+    SimpleOption<int>					   *annotate;
+    SimpleOption<int>					   *save;
+    SimpleOption<int>					   *n;
+    SimpleOption<int>					   *total_cores;
+    SimpleOption<int>					   *layer_time;
+
+    SimpleOption<int>					   *input_c;
+    SimpleOption<int>					   *input_s;
+    SimpleOption<int>					   *kernel_c;
+    SimpleOption<int>					   *kernel_s;
+    SimpleOption<int>					   *stride;
+
 };
 
 /** Consumes the common graph options and creates a structure containing any information

@@ -21,6 +21,11 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+//Ehsan
+#ifndef My_print
+#include "arm_compute/gl_vs.h"
+#endif
+
 #include "arm_compute/graph/backends/CL/CLFunctionFactory.h"
 
 #include "arm_compute/graph/Graph.h"
@@ -235,11 +240,16 @@ std::unique_ptr<IFunction> CLFunctionFactory::create(INode *node, GraphContext &
     }
 
     NodeType type = node->type();
+#if My_print > 0
+    //Ehsan
+    std::cout<<"\nnode name: "<< node->name()<<'_'<<node->id()<<" node type in function factory: "<<int(type)<<std::endl;
+#endif
     switch(type)
     {
         case NodeType::ActivationLayer:
             return detail::create_activation_layer<CLActivationLayer, CLTargetInfo>(*polymorphic_downcast<ActivationLayerNode *>(node));
         case NodeType::ArgMinMaxLayer:
+        	//std::cout<<"*******************************________________We have argminmax function________________**************************_______________*************\n";
             return detail::create_arg_min_max_layer<CLArgMinMaxLayer, CLTargetInfo>(*polymorphic_downcast<ArgMinMaxLayerNode *>(node));
         case NodeType::BatchNormalizationLayer:
             return detail::create_batch_normalization_layer<CLBatchNormalizationLayer, CLTargetInfo>(*polymorphic_downcast<BatchNormalizationLayerNode *>(node));
@@ -316,6 +326,10 @@ std::unique_ptr<IFunction> CLFunctionFactory::create(INode *node, GraphContext &
         case NodeType::StridedSliceLayer:
             return detail::create_strided_slice_layer<CLStridedSlice, CLTargetInfo>(*polymorphic_downcast<StridedSliceLayerNode *>(node));
         default:
+#if My_print > 0
+        	//Ehsan
+        	std::cout<<"Node Type which is not in function factory cases: "<<int(type)<<std::endl;
+#endif
             return nullptr;
     }
 }

@@ -21,6 +21,12 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+//Ehsan
+#include"arm_compute/graph/TypePrinter.h"
+#ifndef My_print
+#include "arm_compute/gl_vs.h"
+#endif
+
 #include "src/core/CL/kernels/CLIm2ColKernel.h"
 
 #include "arm_compute/core/CL/CLHelpers.h"
@@ -96,13 +102,30 @@ std::pair<Status, Window> validate_and_configure_window(ITensorInfo *input, ITen
     // Output tensor auto initialization if not yet initialized
     TensorShape expected_output_shape = compute_im2col_conv_shape(input, kernel_dims, conv_info, has_bias, dilation, num_groups == 1, num_groups);
 
-    auto_init_if_empty(*output, input->clone()->set_tensor_shape(expected_output_shape));
 
+    //Ehsan: clone copy of input object then set shape to expected_output_shape and set atributes to output
+
+    auto_init_if_empty(*output, input->clone()->set_tensor_shape(expected_output_shape));
     const DataLayout   data_layout  = input->data_layout();
     const unsigned int width_idx    = get_data_layout_dimension_index(data_layout, DataLayoutDimension::WIDTH);
     const unsigned int height_idx   = get_data_layout_dimension_index(data_layout, DataLayoutDimension::HEIGHT);
     const unsigned int input_width  = input->dimension(width_idx);
     const unsigned int input_height = input->dimension(height_idx);
+
+
+    //Ehsan colshape is: (num_chanels/num_groups)*kernel.area , out_put.first * output.second
+    TensorShape in_shape{ input->tensor_shape() };
+    std::pair<unsigned int, unsigned int> out_dims = scaled_dimensions(in_shape[width_idx], in_shape[height_idx], kernel_dims.width, kernel_dims.height, conv_info, dilation);
+
+#if My_print > 0
+    std::cout<<"\nCLIM2colKernel validate_and_configure_window(IM2Col shape here was calculated)\ninput_shape: "<<input->tensor_shape()
+    		<<" weight_shape:"<<kernel_dims.height<<','<<kernel_dims.width
+			<<" input_shape:"<<input->tensor_shape()
+			<<" output_shape:"<<output->tensor_shape()
+			<<" output_dims:"<<out_dims.first<<','<<out_dims.second
+			<<" expected_output_shape:"<<expected_output_shape
+			<<std::endl;
+#endif
 
     // Configure the execute window based on the selected optimal OpenCL kernel
     bool   window_changed = false;
@@ -112,19 +135,40 @@ std::pair<Status, Window> validate_and_configure_window(ITensorInfo *input, ITen
     {
         win = calculate_max_window(*input, Steps(num_elems_processed_per_iteration));
 
+#if My_print > 0
+        //Ehsan
+        std::cout<<"X:"<<win.x()
+        	<<" Y:"<<win.y()
+			<<" Z:"<<win.z()
+			<<" 4:"<<win[3]
+        	<<std::endl;
+#endif
+
         const int xin_start = 0;
         const int xin_end   = input->dimension(0);
+        //std::cout<<"xin_end:"<<xin_end<<std::endl;
         const int yin_start = 0;
         const int yin_end   = input->dimension(1);
+        //std::cout<<"yin_end:"<<yin_end<<std::endl;
 
         const int xout_start = 0;
         const int xout_end   = output->dimension(0);
         const int yout_start = 0;
         const int yout_end   = output->dimension(1);
+        //std::cout<<"xout_end:"<<xout_end<<std::endl;
+        //std::cout<<"yout_end:"<<yout_end<<std::endl;
 
         AccessWindowStatic input_access(input, xin_start, yin_start, xin_end, yin_end);
         AccessWindowStatic output_access(output, xout_start, yout_start, xout_end, yout_end);
         window_changed = window_changed || update_window_and_padding(win, input_access, output_access);
+#if My_print > 0
+        //Ehsan
+        std::cout<<"Input strides:"<<input->strides_in_bytes()
+        		<<" Input offset first element in bytes:"<<input->offset_first_element_in_bytes()
+				<<"\nOutput strides:"<<output->strides_in_bytes()
+				<<"Output offset first element in bytes:"<<output->offset_first_element_in_bytes()
+        		<<std::endl;
+#endif
     }
     else
     {
@@ -150,6 +194,10 @@ std::pair<Status, Window> validate_and_configure_window(ITensorInfo *input, ITen
     output->set_valid_region(ValidRegion(Coordinates(), output->tensor_shape()));
     // set the Z dimension's step same size as the whole dimension so that one can't split across the Z dimension
     win.set_dimension_step(Window::DimZ, win[Window::DimZ].end() - win[Window::DimZ].start());
+#if My_print > 0
+    //Ehsan
+    std::cout<<"Windows final dim z: "<<win.z()<<std::endl;
+#endif
 
     Status err = (window_changed) ? ARM_COMPUTE_CREATE_ERROR(ErrorCode::RUNTIME_ERROR, "Insufficient Padding!") : Status{};
     return std::make_pair(err, win);
@@ -330,6 +378,10 @@ void CLIm2ColKernel::configure(const CLCompileContext &compile_context, const IC
     // and the padding requirement flag
     Im2ColConfiguration im2col_config = configure_opencl_kernel(input->info(), kernel_dims, conv_info, has_bias, dilation, num_groups);
 
+#if My_print > 0
+    //Ehsan
+    std::cout<<"\nIm2Col Kernel name: "<<im2col_config.kernel_name<<std::endl;
+#endif
     // Create kernel
     _kernel = create_kernel(compile_context, im2col_config.kernel_name, im2col_config.build_options);
 
@@ -345,6 +397,8 @@ void CLIm2ColKernel::configure(const CLCompileContext &compile_context, const IC
     auto win_config = validate_and_configure_window(input->info(), output->info(), kernel_dims, conv_info, has_bias, dilation, im2col_config.num_elems_processed_per_iteration,
                                                     im2col_config.is_padding_required_nchw, num_groups);
     ARM_COMPUTE_ERROR_THROW_ON(win_config.first);
+
+    //Ehsan IKernel::_window=win_config.second
     ICLKernel::configure_internal(win_config.second);
 
     // Set config_id for enabling LWS tuning

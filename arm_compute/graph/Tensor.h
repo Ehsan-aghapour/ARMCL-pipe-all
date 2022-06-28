@@ -94,6 +94,9 @@ public:
      * @return True if the accessor was called else false
      */
     bool call_accessor();
+
+    //Ehsan
+    bool my_call_accessor();
     /** Binds the tensor with an edge
      *
      * @param[in] eid Edge ID that is bound to the tensor

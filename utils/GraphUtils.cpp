@@ -23,6 +23,34 @@
  */
 
 #include "utils/GraphUtils.h"
+//Ehsan
+#include "arm_compute/gl_vs.h"
+#ifndef My_print
+#include "arm_compute/gl_vs.h"
+#endif
+
+
+#include "arm_compute/runtime/Tensor.h"
+
+
+std::vector<arm_compute::graph::Tensor*> Transmitters;
+std::vector<arm_compute::graph::Tensor*> Receivers;
+
+std::vector<bool*> __waiting;//=true
+std::vector<bool*> __ready;//=false
+
+bool *start_frame=new bool(true);
+
+
+//static std::queue<std::shared_ptr<arm_compute::ITensor>> Tensors_Q;
+//arm_compute::Tensor transit_tensor1;
+//arm_compute::Tensor transit_tensor2;
+
+//static std::queue<arm_compute::Tensor*> Tensors_Q1;
+//static std::queue<arm_compute::Tensor*> Tensors_Q2;
+
+
+
 
 #include "arm_compute/core/Helpers.h"
 #include "arm_compute/core/Types.h"
@@ -40,6 +68,9 @@
 #include <limits>
 
 using namespace arm_compute::graph_utils;
+std::mutex PrintThread::_mutexPrint{};
+
+bool per_frame;
 
 namespace
 {
@@ -129,11 +160,13 @@ void CaffePreproccessor::preprocess_typed(ITensor &tensor)
     Window window;
     window.use_tensor_dimensions(tensor.info()->tensor_shape());
     const int channel_idx = get_data_layout_dimension_index(tensor.info()->data_layout(), DataLayoutDimension::CHANNEL);
-
     execute_window_loop(window, [&](const Coordinates & id)
     {
         const T value                                     = *reinterpret_cast<T *>(tensor.ptr_to_element(id)) - T(_mean[id[channel_idx]]);
         *reinterpret_cast<T *>(tensor.ptr_to_element(id)) = value * T(_scale);
+
+        //Ehsan
+        ////PrintThread{}<<\nInput image\n<<"id:"<<id<<" v:"<<value<<std::endl;
     });
 }
 
@@ -157,13 +190,46 @@ bool PPMWriter::access_tensor(ITensor &tensor)
     return _iterator < _maximum;
 }
 
-DummyAccessor::DummyAccessor(unsigned int maximum)
-    : _iterator(0), _maximum(maximum)
+DummyAccessor::DummyAccessor(int type, unsigned int maximum)
+    : _iterator(0), _maximum(maximum), _type(type)
 {
 }
 
+
 bool DummyAccessor::access_tensor(ITensor &tensor)
 {
+	////PrintThread{}<<"hhhh:"<<s_in->desc().shape<<std::endl;
+	//Ehsan
+	//First_NEON
+	//tensor.copy_from(f_out->handle()->tensor());
+	//std::cerr<<"dummy accessor type:"<<_type<<std::endl;
+	//std::cerr<<"dummy type:"<<_type<<std::endl;
+	static int i=0;
+	if(per_frame){
+		//input
+		if(_type==2){
+			std::unique_lock<std::mutex> lk(inout);
+			//std::cerr<<"input decide if wait\n";
+			//std::cerr<<i<<" input  time:"<<(std::chrono::high_resolution_clock::now().time_since_epoch().count()/1000000)%10000<<std::endl;
+			inout_cv.wait(lk,[]{return *start_frame;});
+			//std::cerr<<i<<" input  time2:"<<(std::chrono::high_resolution_clock::now().time_since_epoch().count()/1000000)%10000<<std::endl;
+			//std::cerr<<"input after wait decision\n";
+			*start_frame=false;
+			lk.unlock();
+		}
+		//output
+		if(!_type){
+			std::lock_guard<std::mutex> lk(inout);
+			//std::cerr<<"output notify\n";
+			*start_frame=true;
+			inout_cv.notify_all();
+			//std::cerr<<i++<<" output  time:"<<(std::chrono::high_resolution_clock::now().time_since_epoch().count()/1000000)%10000<<std::endl;
+
+		}
+	}
+
+	return _type;
+
     ARM_COMPUTE_UNUSED(tensor);
     bool ret = _maximum == 0 || _iterator < _maximum;
     if(_iterator == _maximum)
@@ -176,6 +242,372 @@ bool DummyAccessor::access_tensor(ITensor &tensor)
     }
     return ret;
 }
+
+ReceiverAccessor::ReceiverAccessor(bool tran, int Src_id, unsigned int maximum)
+	: transition(tran), Source_id(Src_id)//_iterator(0), _maximum(maximum),
+{
+	////PrintThread{}<<"\ntransferaccessor1\n";
+	//std::mutex m;
+	std::string c;
+	mx.push_back(new std::mutex);
+	////PrintThread{}<<"mx pushed size:"<<mx.size()<<std::endl;
+	//std::condition_variable c;
+	cvs.push_back(new std::condition_variable);
+	__waiting.push_back(new bool(true));
+	__ready.push_back(new bool(false));
+	//arm_compute::Tensor t;
+	buffer_tensors.push_back(new arm_compute::Tensor);
+	////PrintThread{}<<"source id:"<<Src_id<<'\t'<<"trnsmtrs size:"<<Transmitters.size()<<std::endl;
+	////PrintThread{}<<"size buffer tensors:"<<buffer_tensors.size()<<std::endl;
+	////std::cin>>c;
+	buffer_tensors[Src_id]->allocator()->init(*(Transmitters[Src_id]->handle()->tensor().info()));
+	buffer_tensors[Src_id]->allocator()->allocate();
+	//buffer_tensors.push_back(t);
+	Qs.push_back(new std::queue<arm_compute::Tensor*>);
+	////PrintThread{}<<"src:"<<Src_id<<std::endl;
+	////PrintThread{}<<"receiver node for graph with src id:"<<Source_id<<"  trans:"<<transition<<std::endl;
+	////PrintThread{}<<"salam"<<std::endl;
+	frame=1;
+}
+
+
+//input of second graph
+bool ReceiverAccessor::access_tensor(ITensor &tensor)
+{
+	//PrintThread{}<<std::flush<<"receiver of graph "<< Source_id+1<<" is waiting for mutex\n"<<std::flush;
+	////PrintThread{}<<" size mux:"<<mx.size()<<std::endl;
+	//std::string c;
+	//std::cin>>c;
+	int id=Source_id;
+	std::unique_lock<std::mutex> lk(*(mx[id]));
+	//lk.lock();
+	//PrintThread{}<<std::flush<<"receiver of graph:"<< Source_id+1<<" unlocke!\n"<<std::flush;
+	//std::cin>>c;
+	if (Qs[id]->empty()){
+
+		//->PrintThread{}<<std::flush<<"q of graph:"<<Source_id+1<<" is empty receiver waits frame:"<<frame<<std::endl<<std::flush;
+
+		//PrintThread{}<<"receiver before wait;waiting["<<id<<"]:"<<__waiting[id]<<", ready["<<id<<"]:"<<__ready[id]<<std::endl<<std::flush;
+		*__waiting[id] = true;
+		while(*__waiting[id]==false){
+			//->PrintThread{}<<"press key\n"<<std::flush;
+			std::string y;
+			std::cin>>y;
+			*__waiting[id]=true;
+			std::cout<<"id: "<<id<<", waiting[id]:"<<__waiting[id]<<"len:"<<__waiting.size()<<std::endl<<"***********************************************\n"<<std::flush;
+			*__waiting[id]=true;
+		}
+		//PrintThread{}<<"receiver after while before wait;waiting["<<id<<"]:"<<__waiting[id]<<", ready["<<id<<"]:"<<*__ready[id]<<std::endl<<std::flush;
+		cvs[id]->wait(lk,[id]{*__waiting[id]=true;return *__ready[id];});
+		//->PrintThread{}<<std::flush<<"graph:"<<Source_id+1<<" receiver wake up press\n"<<std::flush;
+		//std::cin>>c;
+		*__ready[id]=false;
+		while(*__ready[id]){
+			*__ready[id]=false;
+			std::cout<<"%%%%%%%%%%%%%%%\n";
+		}
+		*__waiting[id]=false;
+		while(*__waiting[id]){
+			*__waiting[id]=false;
+			std::cout<<"*****************\n";
+		}
+		lk.unlock();
+
+#if My_print > 0
+		//PrintThread{}<<std::flush<<"\nrecieving data from first graph\n";
+#endif
+		//if(s_in->desc().target==arm_compute::graph::Target ::CL )
+		if(transition)
+		{
+			//PrintThread{}<<std::flush<<"graph:"<<Source_id+1<<" receiver is responsible for transfering\n"<<std::flush;
+			//PrintThread{}<<std::flush<<"\n transfering data from source directly press\n"<<std::flush;
+			//std::cin>>c;
+			auto tstart=std::chrono::high_resolution_clock::now();
+			tensor.copy_from(Transmitters[id]->handle()->tensor());
+			auto tfinish=std::chrono::high_resolution_clock::now();
+			double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+#if My_print > 0
+			//PrintThread{}<<"\nTransfer time from source:"<<cost0<<std::endl<<std::endl;
+#endif
+		}
+
+#if My_print > 0
+		//PrintThread{}<<"\nReceived\n";
+#endif
+	}
+	else{
+		//->PrintThread{}<<std::flush<<"\ngraph:"<<Source_id+1<<" Receive frame:"<<frame<<" from Queue\n"<<std::flush;
+
+		auto tstart=std::chrono::high_resolution_clock::now();
+		tensor.copy_from(*(Qs[id]->front()));
+		//tensor.copy_from(Tensors_Q.front().handle()->tensor());
+		Qs[id]->pop();
+		auto tfinish=std::chrono::high_resolution_clock::now();
+		double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+#if My_print > 0
+		PrintThread{}<<"\nTransfer time from queue:"<<cost0<<std::endl<<std::endl;
+#endif
+		lk.unlock();
+	}
+	//->PrintThread{}<<"Graph "<<Source_id+1<<" Receiver done for frame "<<frame<<std::endl<<std::endl<<std::flush;
+	frame++;
+	return true;
+
+
+
+/*
+
+	bool ret = _maximum == 0 || _iterator < _maximum;
+	if(_iterator == _maximum)
+	{
+		_iterator = 0;
+	}
+	else
+	{
+		_iterator++;
+	}
+
+	if(!ret)
+		return ret;
+
+
+
+
+#if My_print > 0
+	//PrintThread{}<<"\nrecieving data from first graph\n";
+#endif
+	//if(s_in->desc().target==arm_compute::graph::Target ::CL)
+	if(transition)
+	{
+		auto tstart=std::chrono::high_resolution_clock::now();
+		tensor.copy_from(f_out->handle()->tensor());
+		auto tfinish=std::chrono::high_resolution_clock::now();
+		double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+		//PrintThread{}<<"\nTransfer time:"<<cost0<<std::endl<<std::endl;
+	}
+#if My_print > 0
+	//PrintThread{}<<"\nReceived\n";
+#endif
+
+	//return ret;
+	return true;
+
+	*/
+
+}
+
+SenderAccessor::SenderAccessor(bool tran, int Dst_id){
+	////PrintThread{}<<"\nconnectionaccessor1\n";
+	transition=tran;
+	Destination_id=Dst_id;
+	frame=1;
+	////PrintThread{}<<"dst id:"<<Destination_id<<std::endl;
+	////PrintThread{}<<"sender node for graph with dest id:"<<Destination_id<<"  trans:"<<transition<<std::endl;
+}
+
+
+//Ehsan
+//Output of first graph
+template <typename T>
+void SenderAccessor::my_access_predictions_tensor(ITensor &tensor)
+{
+	// Get the predicted class
+    //std::vector<T>      classes_prob;
+    //std::vector<size_t> index;
+    //const auto   output_net  = reinterpret_cast<T *>(tensor.buffer() + tensor.info()->offset_first_element_in_bytes());
+    //const size_t num_classes = tensor.info()->dimension(0);
+    //classes_prob.resize(num_classes);
+    //index.resize(num_classes);
+
+    //Ehsan
+    //std::ostream &t;
+    //const size_t num_bytes = tensor.info()->total_size();
+    //std::vector<T>  elements;
+#if My_print > 0
+    //PrintThread{}<<"\nGraphUtils,TopNPredictionsAccessor::access_predictions_tensor\n"
+    		<<"output tensor shape:"<<tensor.info()->tensor_shape()
+			<<" total sizes:"<<tensor.info()->total_size()
+			<<std::endl;
+			//<<"\n tensor print:\n"<<tensor.print(t);
+#endif
+
+#if My_print > 0
+    int cnt=0;
+    for(size_t offset = 0; offset < tensor.info()->total_size(); offset += tensor.info()->element_size())
+    {
+         const auto value = *reinterpret_cast<T *>(tensor.buffer() + offset);
+         //PrintThread{}<<"i:"<<cnt<<" v:"<<value<<"   ";
+         if (cnt%8==0)
+        	 //PrintThread{}<<std::endl;
+         cnt++;
+    }
+#endif
+
+
+    {
+    	//PrintThread{}<<std::flush<<" graph:"<<Destination_id-1<<" sender waiting for mutex"<<std::endl<<std::flush;
+    	int id=Destination_id-1;
+		std::lock_guard<std::mutex> lk(*(mx[id]));
+		//PrintThread{}<<std::flush<<" graph:"<<Destination_id-1<<" sender unlocked\n"<<std::flush;
+
+		//PrintThread{}<<"sender before decision;waiting["<<id<<"]:"<<__waiting[id]<<", ready["<<id<<"]:"<<__ready[id]<<std::endl<<std::flush;
+		if(*__waiting[id]==0 || *__ready[id]){
+			//->PrintThread{}<<std::flush<<"graph:" <<Destination_id-1<<" its destination is not waiting I want to push on q\n"<<std::flush;
+			//std::cin>>c;
+			//auto tstart=std::chrono::high_resolution_clock::now();
+			////Tensors_Q.push(dynamic_cast<arm_compute::Tensor*>(&(f_out->handle()->tensor())));
+			buffer_tensors[id]->copy_from(Transmitters[id]->handle()->tensor());
+			Qs[id]->push(buffer_tensors[id]);
+			//auto tfinish=std::chrono::high_resolution_clock::now();
+			//double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+			////PrintThread{}<<"\npushing to queue time:"<<cost0<<std::endl;
+			////PrintThread{}<<"\npushing to queue\n";
+			//Tensors_Q.push(*f_out);
+		}
+
+		else{
+			//cvs[id]->wait(lk,[id]{return (!ready[id]);});
+			//->PrintThread{}<<std::flush<<"Graph:"<<Destination_id-1<<"directly send to destination tensor\n"<<std::flush;
+			//std::cin>>c;
+			//std::cin>>c;
+			////PrintThread{}<<"\n first graph sends directly\n";
+			//if(f_out->desc().target==arm_compute::graph::Target ::CL)
+			if(transition)
+			{
+				////PrintThread{}<<"first graph is responsible for transition\n";
+				auto tstart=std::chrono::high_resolution_clock::now();
+				//PrintThread{}<<"len rec: "<<Receivers.size()<<" shape receiver: "<<Receivers[id]->desc().shape<<std::endl;
+				Receivers[id]->handle()->tensor().copy_from(tensor);
+				auto tfinish=std::chrono::high_resolution_clock::now();
+				double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+				////PrintThread{}<<"\nTransfer0 time:"<<cost0<<std::endl<<std::endl;
+			}
+			*__ready[id] = true;
+			while(*__ready[id]==false){
+				*__ready[id]=true;
+				std::cout<<"id: "<<id<<", ready[id]:"<<*__ready[id]<<std::endl<<"***********************************************\n";
+			}
+			cvs[id]->notify_one();
+		}
+    }
+    //->PrintThread{}<<"Graph "<<Destination_id-1<<" Sender done for frame "<<frame<<std::endl<<std::endl<<std::flush;
+    frame++;
+
+
+    /*
+    //First_CL (uncomment two lines above for; which map() and one line after for which unmap)
+    auto s_handle = s_in->handle();
+    s_handle->map(true);
+    for(size_t offset = 0; offset < tensor.info()->total_size(); offset += tensor.info()->element_size())
+    {
+        *reinterpret_cast<T *>(s_in->handle()->tensor().buffer() + offset) = *reinterpret_cast<T *>(tensor.buffer() + offset);
+    }
+    s_in->handle()->unmap();
+    */
+
+    //Or
+    //s_in->handle()->tensor().copyfrom(tensor);
+
+    /*
+     //asserts should be enabled
+    //PrintThread{}<<"\nHere\n";
+    std::ostream& s = std::cout;
+    tensor.print(s);
+	*/
+
+    //std::copy(output_net, output_net + num_bytes, elements.begin());
+}
+
+
+MySaveAccessor::MySaveAccessor(const std::string npy_name, const bool is_fortran , unsigned int maximum)
+    : _iterator(0), _maximum(maximum), _npy_name(std::move(npy_name)), _is_fortran(is_fortran)
+{
+}
+
+#include <filesystem>
+#include <iostream>
+
+bool MySaveAccessor::access_tensor(ITensor &tensor)
+{
+	////PrintThread{}<<"hhhh:"<<s_in->desc().shape<<std::endl;
+	//Ehsan
+	//First_NEON
+	//tensor.copy_from(f_out->handle()->tensor());
+
+
+
+	if(!saved){
+
+
+
+		//Generate and fill with random numbers
+		std::uniform_real_distribution<float> distribution_f32(0.0, 255.0);
+		std::random_device::result_type _seed=0;
+	    std::mt19937 gen(_seed);
+
+	    if(tensor.info()->padding().empty() && (dynamic_cast<SubTensor *>(&tensor) == nullptr))
+	    {
+	        for(size_t offset = 0; offset < tensor.info()->total_size(); offset += tensor.info()->element_size())
+	        {
+	            const auto value                                 = static_cast<float>(distribution_f32(gen));
+	            *reinterpret_cast<float *>(tensor.buffer() + offset) = value;
+	        }
+	    }
+	    else
+	    {
+	        // If tensor has padding accessing tensor elements through execution window.
+	        Window window;
+	        window.use_tensor_dimensions(tensor.info()->tensor_shape());
+
+	        execute_window_loop(window, [&](const Coordinates & id)
+	        {
+	            const auto value                                  = static_cast<float>(distribution_f32(gen));
+	            *reinterpret_cast<float *>(tensor.ptr_to_element(id)) = value;
+	        });
+	    }
+
+
+
+
+	    auto len=_npy_name.length();
+	    auto index=_npy_name.find_last_of('/');
+	    bool path=true;
+	    if (index == std::string::npos) {
+	        path=false;
+	    }
+
+	    if(path){
+	    	std::system(("mkdir -p "+_npy_name.substr(0,index)).c_str());
+	    	//PrintThread{}<<"create path:"<<_npy_name.substr(0,index)<<std::endl;
+
+	    }
+	    //PrintThread{}<<"file name:"<<_npy_name.substr(len-index,len-1)<<std::endl;
+	    //std::string tes;
+	    ////PrintThread{}<<"press to continue...";
+	    ////std::cin>>tes;
+	    ////PrintThread{}<<std::endl;
+		utils::save_to_npy(tensor, _npy_name, _is_fortran);
+		saved=true;
+	}
+
+
+    ARM_COMPUTE_UNUSED(tensor);
+    bool ret = _maximum == 0 || _iterator < _maximum;
+    if(_iterator == _maximum)
+    {
+        _iterator = 0;
+    }
+    else
+    {
+        _iterator++;
+    }
+    return ret;
+}
+
+
+
+
+
 
 NumPyAccessor::NumPyAccessor(std::string npy_path, TensorShape shape, DataType data_type, DataLayout data_layout, std::ostream &output_stream)
     : _npy_tensor(), _filename(std::move(npy_path)), _output_stream(output_stream)
@@ -255,10 +687,22 @@ ImageAccessor::ImageAccessor(std::string filename, bool bgr, std::unique_ptr<IPr
 {
 }
 
+
+//Ehsan
+bool ImageAccessor::set_filename(std::string filename){
+	_filename=filename;
+	_already_loaded=false;
+	return _already_loaded;
+}
+
 bool ImageAccessor::access_tensor(ITensor &tensor)
 {
+
     if(!_already_loaded)
     {
+	//Ehsan
+        //////PrintThread{}<<"\n\n\n\naccess_tensor is called!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!******************\n\n\n";
+
         auto image_loader = utils::ImageLoaderFactory::create(_filename);
         ARM_COMPUTE_EXIT_ON_MSG(image_loader == nullptr, "Unsupported image type");
 
@@ -294,8 +738,13 @@ bool ImageAccessor::access_tensor(ITensor &tensor)
         }
     }
 
+    //Ehsan
+    //_already_loaded=false;
     _already_loaded = !_already_loaded;
     return _already_loaded;
+
+
+    //return true;
 }
 
 ValidationInputAccessor::ValidationInputAccessor(const std::string             &image_list,
@@ -607,6 +1056,7 @@ TopNPredictionsAccessor::TopNPredictionsAccessor(const std::string &labels_path,
 template <typename T>
 void TopNPredictionsAccessor::access_predictions_tensor(ITensor &tensor)
 {
+
     // Get the predicted class
     std::vector<T>      classes_prob;
     std::vector<size_t> index;
@@ -638,10 +1088,13 @@ void TopNPredictionsAccessor::access_predictions_tensor(ITensor &tensor)
     }
 }
 
+
+
 bool TopNPredictionsAccessor::access_tensor(ITensor &tensor)
 {
     ARM_COMPUTE_ERROR_ON_DATA_TYPE_CHANNEL_NOT_IN(&tensor, 1, DataType::F32, DataType::QASYMM8);
-    ARM_COMPUTE_ERROR_ON(_labels.size() != tensor.info()->dimension(0));
+    //Ehsan
+    //ARM_COMPUTE_ERROR_ON(_labels.size() != tensor.info()->dimension(0));
 
     switch(tensor.info()->data_type())
     {
@@ -650,6 +1103,8 @@ bool TopNPredictionsAccessor::access_tensor(ITensor &tensor)
             break;
         case DataType::F32:
             access_predictions_tensor<float>(tensor);
+        	//Ehsan
+        	//my_access_predictions_tensor<float>(tensor);
             break;
         default:
             ARM_COMPUTE_ERROR("NOT SUPPORTED!");
@@ -657,6 +1112,31 @@ bool TopNPredictionsAccessor::access_tensor(ITensor &tensor)
 
     return false;
 }
+
+//Ehsan
+bool SenderAccessor::access_tensor(ITensor &tensor)
+{
+    ARM_COMPUTE_ERROR_ON_DATA_TYPE_CHANNEL_NOT_IN(&tensor, 1, DataType::F32, DataType::QASYMM8);
+    //Ehsan
+    //ARM_COMPUTE_ERROR_ON(_labels.size() != tensor.info()->dimension(0));
+
+    switch(tensor.info()->data_type())
+    {
+        case DataType::QASYMM8:
+            my_access_predictions_tensor<uint8_t>(tensor);
+            break;
+        case DataType::F32:
+            //access_predictions_tensor<float>(tensor);
+        	//Ehsan
+        	my_access_predictions_tensor<float>(tensor);
+            break;
+        default:
+            ARM_COMPUTE_ERROR("NOT SUPPORTED!");
+    }
+
+    return false;
+}
+
 
 RandomAccessor::RandomAccessor(PixelValue lower, PixelValue upper, std::random_device::result_type seed)
     : _lower(lower), _upper(upper), _seed(seed)
@@ -778,6 +1258,7 @@ bool NumPyBinLoader::access_tensor(ITensor &tensor)
     {
         utils::NPYLoader loader;
         loader.open(_filename, _file_layout);
+        //std::cerr<<"file namee:"<<_filename<<std::endl;
         loader.fill_tensor(tensor);
     }
 

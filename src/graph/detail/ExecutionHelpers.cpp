@@ -21,6 +21,17 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+//Ehsan
+#define streamline 0
+#include<chrono>
+#ifndef My_print
+#include "arm_compute/gl_vs.h"
+#endif
+#if streamline > 0
+#include"annotate/Sr_ann.c"
+#endif
+//#include "src/graph/GraphManager.cpp"
+
 #include "arm_compute/graph/detail/ExecutionHelpers.h"
 
 #include "arm_compute/graph/Graph.h"
@@ -78,6 +89,12 @@ void allocate_all_input_tensors(INode &node)
         if(tensor != nullptr && !tensor->bound_edges().empty())
         {
             ARM_COMPUTE_ERROR_ON_MSG(!tensor->handle(), "Tensor handle is not configured!");
+#if My_print > 0
+            //Ehsan
+            std::cout<<"\nExecutionHelpers, Allocating input tensor for outpu node, node shape:"<<tensor->handle()->tensor().info()->tensor_shape()
+            		<<" tensor shape:"<<tensor->desc().shape
+					<<std::endl;
+#endif
             tensor->handle()->allocate();
         }
     }
@@ -91,6 +108,12 @@ void allocate_all_output_tensors(INode &node)
         if(tensor != nullptr && !tensor->bound_edges().empty())
         {
             ARM_COMPUTE_ERROR_ON_MSG(!tensor->handle(), "Tensor handle is not configured!");
+#if My_print > 0
+            //Ehsan
+            std::cout<<"\nExecutionHelpers, Allocating output tensor for input and const node, CLTensor shape:"<<tensor->handle()->tensor().info()->tensor_shape()
+            		<<" tensor shape:"<<tensor->desc().shape
+					<<std::endl;
+#endif
             tensor->handle()->allocate();
         }
     }
@@ -143,6 +166,36 @@ ExecutionWorkload configure_all_nodes(Graph &g, GraphContext &ctx, const std::ve
     for(auto &node_id : node_order)
     {
         auto node = g.node(node_id);
+        //Ehsan
+        /*
+        std::cout<<"\n*******************************\nnode name: "<<node->name()<<" ID: "<<node->id()<<" num inputs: "<<node->num_inputs()<<std::endl<<std::flush;
+        for(int k=0; k < node->num_inputs(); k++){
+        	INode *cc=node->input_edge(k)->producer();
+        	std::cout<<"\ninput "<<k<<" node_name: "<<cc->name()<<" ID: "<<cc->id()<<std::endl<<std::flush;
+        	TensorShape shape=node->input(k)->desc().shape;
+        	std::cout<<shape<<std::endl;
+            //for(int i=0;i<shape.num_dimensions();i++) std::cout<<shape[i]<<'\t'<<std::flush;
+            //std::cout<<"Padding: "<<_padding.left<<_padding.right<<_padding.top<<_padding.bottom<<std::endl;
+        }*/
+
+        /*
+         ARM_COMPUTE_LOG_GRAPH_INFO("Instantiated "
+                               << node.name()
+                               << " Type: " << node.type()
+                               << " Target: " << CLTargetInfo::TargetType
+                               << " Data Type: " << input0->info()->data_type()
+                               << " Input0 shape: " << input0->info()->tensor_shape()
+                               << " Input1 shape: " << input1->info()->tensor_shape()
+                               << " Input2 shape: " << input2->info()->tensor_shape()
+                               << " Output0 shape: " << output0->info()->tensor_shape()
+                               << " Output1 shape: " << output1->info()->tensor_shape()
+                               << " Output2 shape: " << output2->info()->tensor_shape()
+                               << " Output3 shape: " << output3->info()->tensor_shape()
+                               << " DetectionPostProcessLayer info: " << detect_info
+                               << std::endl);
+         */
+
+
         if(node != nullptr)
         {
             Target                     assigned_target = node->assigned_target();
@@ -160,12 +213,18 @@ ExecutionWorkload configure_all_nodes(Graph &g, GraphContext &ctx, const std::ve
     {
         if(node != nullptr && node->type() == NodeType::Input)
         {
+        	//Ehsan
+        	//std::cout<<"\ninput node name and ID: "<<node->name()<<'_'<<node->id()<<std::endl;
+
             workload.inputs.push_back(node->output(0));
         }
 
         if(node != nullptr && node->type() == NodeType::Output)
         {
             workload.outputs.push_back(node->input(0));
+            //Ehsan
+            //std::cout<<"\noutput node name and ID: "<<node->name()<<'_'<<node->id()<<std::endl;
+
             continue;
         }
     }
@@ -200,7 +259,11 @@ void call_all_const_node_accessors(Graph &g)
         {
             if(!node->output(0)->bound_edges().empty())
             {
-                call_tensor_accessor(node->output(0));
+#if My_print > 0
+            	//Ehsan
+            	std::cout<<"ExecutionHelpers, call all const node tensor accessors, node name and ID: "<<node->name()<<'_'<<node->id()<<std::endl;
+#endif
+            	call_tensor_accessor(node->output(0));
             }
         }
     }
@@ -209,9 +272,18 @@ void call_all_const_node_accessors(Graph &g)
 bool call_all_input_node_accessors(ExecutionWorkload &workload)
 {
     bool is_valid = true;
+    //Ehsan: size of inputs is 1
+    //std::string c;
+    //std::cerr<<"inputs size: "<<workload.inputs.size()<<std::endl;
+    //std::string t;
+    //std::cin>>t;
     std::for_each(std::begin(workload.inputs), std::end(workload.inputs), [&](Tensor * input_tensor)
     {
-        bool valid_input = (input_tensor != nullptr) && input_tensor->call_accessor();
+#if My_print > 0
+    	std::cerr<<"input accessorrr"<<std::endl;
+    	std::cerr<<input_tensor->desc().shape <<std::endl;
+#endif
+        bool valid_input = (input_tensor != nullptr) && input_tensor->my_call_accessor();
         is_valid         = is_valid && valid_input;
     });
     return is_valid;
@@ -227,7 +299,7 @@ void prepare_all_tasks(ExecutionWorkload &workload)
     }
 }
 
-void call_all_tasks(ExecutionWorkload &workload)
+void call_all_tasks(ExecutionWorkload &workload,int nn)
 {
     ARM_COMPUTE_ERROR_ON(workload.ctx == nullptr);
 
@@ -241,9 +313,32 @@ void call_all_tasks(ExecutionWorkload &workload)
     }
 
     // Execute tasks
+#if streamline > 0
+    ANNOTATE_SETUP;
+    ANNOTATE_MARKER_STR("start_running tasks");
+    static int cc=0;
+    static int c=0;
+#endif
     for(auto &task : workload.tasks)
     {
-        task();
+    	if(nn==0)
+    		task();
+    	else{
+#if streamline > 0
+    		ANNOTATE_CHANNEL_COLOR(cc,((c%2)==0)?ANNOTATE_GREEN:ANNOTATE_YELLOW, (std::to_string(c)+" "+task.node->name()).c_str() );
+#endif
+    		task(nn);
+#if streamline > 0
+    		if(task.ending)
+    			c=c+1;
+    		ANNOTATE_CHANNEL_END(cc++);
+#endif
+    	}
+        auto t0=std::chrono::high_resolution_clock::now();
+        auto nanosec = t0.time_since_epoch();
+#if My_print > 0
+        std::cout<<"Executionhelpers, tasks() time: "<<nanosec.count()<<std::endl;
+#endif
     }
 
     // Release memory for the transition buffers
@@ -261,7 +356,7 @@ bool call_all_output_node_accessors(ExecutionWorkload &workload)
     bool is_valid = true;
     std::for_each(std::begin(workload.outputs), std::end(workload.outputs), [&](Tensor * output_tensor)
     {
-        bool valid_output = (output_tensor != nullptr) && output_tensor->call_accessor();
+        bool valid_output = (output_tensor != nullptr) && output_tensor->my_call_accessor();
         is_valid          = is_valid && valid_output;
     });
 

@@ -21,6 +21,10 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+#ifndef My_print
+#include "arm_compute/gl_vs.h"
+#endif
+
 #include "arm_compute/graph/backends/NEON/NEDeviceBackend.h"
 
 #include "arm_compute/graph/Graph.h"
@@ -45,6 +49,9 @@
 #include "arm_compute/runtime/Scheduler.h"
 
 #include "support/ToolchainSupport.h"
+
+//Ehsan
+//#include "arm_compute/gl_vs.h"
 
 namespace arm_compute
 {
@@ -76,7 +83,30 @@ void NEDeviceBackend::setup_backend_context(GraphContext &ctx)
     // Set number of threads
     if(ctx.config().num_threads >= 0)
     {
-        Scheduler::get().set_num_threads(ctx.config().num_threads);
+/*	//Ehsan
+        //Scheduler::get().set_num_threads(ctx.config().num_threads);
+	Scheduler::get().set_num_threads_with_affinity(ctx.config().num_threads,[](int t_id,int max_cores){
+#if My_print > 0
+		std::cout<<"max_cores: "<<max_cores<<std::endl;
+#endif
+		return (5-(t_id%6));
+	});*/
+    //Ehsan
+    //Scheduler::get().set_num_threads(ctx.config().num_threads);
+    //std::cout<<"cluster:"<<ctx.config().cluster<<std::endl;
+    Scheduler::get().set_num_threads_with_affinity(ctx.config().num_threads,ctx.config(),[](int t_id,int max_cores, arm_compute::graph::GraphConfig cfg){
+    #if My_print > 0
+    		std::cout<<"max_cores: "<<max_cores<<std::endl;
+    #endif
+		int total_cores=cfg.total_cores;
+		int big_cores=cfg.big_cores;
+		int little_cores=cfg.little_cores;
+		bool first_big=cfg.first_big;
+		if(cfg.cluster>0)
+			return ((total_cores-1)-(t_id%total_cores));
+		else
+			return t_id;
+    	});
     }
 
     // Create function level memory manager

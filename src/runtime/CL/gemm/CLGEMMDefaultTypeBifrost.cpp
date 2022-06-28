@@ -21,6 +21,11 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+//Ehsan
+#ifndef My_print
+#include "arm_compute/gl_vs.h"
+#endif
+
 #include "src/runtime/CL/gemm/CLGEMMDefaultTypeBifrost.h"
 
 #include "arm_compute/core/CL/CLHelpers.h"
@@ -109,7 +114,12 @@ CLGEMMKernelType CLGEMMDefaultTypeBifrost::select_kernel(const CLGEMMKernelSelec
         case GPUTarget::G52:
             if(gemm_g52_configs.find(data_type) != gemm_g52_configs.end())
             {
+#if My_print > 0
+            	//Ehsan
+            	std::cout<<"Data type: "<<(int)data_type<<", selecting gemm kernel based on gpu type which is g52_f32\n";
+#endif
                 return (this->*gemm_g52_configs[data_type])(params.m, params.n, params.k, params.b, params.is_rhs_constant);
+
             }
             ARM_COMPUTE_ERROR("Not supported data type");
         default:

@@ -21,6 +21,12 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+//Ehsan
+#include<chrono>
+#include <sys/types.h>
+#include <dirent.h>
+#include "annotate/streamline_annotate.h"
+
 #include "arm_compute/graph.h"
 #include "support/ToolchainSupport.h"
 #include "utils/CommonGraphOptions.h"
@@ -30,6 +36,25 @@
 using namespace arm_compute::utils;
 using namespace arm_compute::graph::frontend;
 using namespace arm_compute::graph_utils;
+
+
+//Ehsan 
+typedef std::vector<std::string> stringvec;
+void read_directory(const std::string& name, stringvec& v)
+{
+    DIR* dirp = opendir(name.c_str());
+    struct dirent * dp;
+    while ((dp = readdir(dirp)) != NULL) {
+        if(arm_compute::utility::endswith(dp->d_name, ".ppm"))
+           v.push_back(name+(dp->d_name));
+    }
+    closedir(dirp);
+}
+
+//Ehsan
+size_t image_index=0;
+stringvec images_list;
+bool imgs=0;
 
 /** Example demonstrating how to implement Googlenet's network using the Compute Library's graph API */
 class GraphGooglenetExample : public Example
@@ -47,6 +72,14 @@ public:
 
         // Consume common parameters
         common_params = consume_common_graph_parameters(common_opts);
+
+	//Ehsan
+	imgs=!(common_params.image.empty());
+	if(imgs){
+	   read_directory(common_params.image,images_list);
+	   std::cout<<images_list.size()<<" Input images are read from "<<common_params.image<<std::endl;
+	   common_params.image=images_list[image_index];
+        }
 
         // Return when help menu is requested
         if(common_params.help)
@@ -75,6 +108,10 @@ public:
 
         // Set weights trained layout
         const DataLayout weights_layout = DataLayout::NCHW;
+
+        annotate=common_params.annotate;
+        save_model=common_params.save;
+
 
         graph << common_params.target
               << common_params.fast_math_hint
@@ -136,17 +173,58 @@ public:
 
         return true;
     }
+
     void do_run() override
     {
         // Run graph
-        graph.run();
+        //Ehsan
+        std::cout<<"start running graph ...\n";
+        ImageAccessor *im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
+        double in=0;
+        double task=0;
+        double out=0;
+        int tt=common_params.n;
+	//ANNOTATE_CHANNEL_COLOR(1,ANNOTATE_RED,"20_runs");
+        auto tstart=std::chrono::high_resolution_clock::now();
+        for(int i=0;i<(tt+1);i++){
+        	if(i==1){
+        		tstart=std::chrono::high_resolution_clock::now();
+        		//std::cout<<tstart.time_since_epoch().count()<<std::endl;
+        		in=task=out=0;
+        	}
+			if(imgs){
+					if(image_index>=images_list.size())
+							image_index=image_index%images_list.size();
+					std::cout<<"\n\ninferencing image: "<<image_index<<":"<<images_list[image_index]<<std::endl;
+					//std::unique_ptr<ImageAccessor> im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
+					im_acc->set_filename(images_list[image_index++]);
+			}
+			if(annotate)
+				graph.run(annotate);
+			else
+				graph.run();
+		}
+        auto tfinish=std::chrono::high_resolution_clock::now();
+	//ANNOTATE_CHANNEL_END(1);
+        double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+        double Cost=cost0/tt;
+        in=graph.get_input_time()/tt;
+        task=graph.get_task_time()/tt;
+        out=graph.get_output_time()/tt;
+        double tot=in+task+out;
+        std::cout<<"Cost:"<<Cost<<std::endl;
+        std::cout<<"input_time:"<<in<<"\ntask_time:"<<task<<"\noutput_time:"<<out<<"\ntotal_time:"<<tot<<std::endl;
+	//ANNOTATE_MARKER_STR("20_runs_completed");
     }
+
+
 
 private:
     CommandLineParser  cmd_parser;
     CommonGraphOptions common_opts;
     CommonGraphParams  common_params;
     Stream             graph;
+    bool			   annotate{false};
 
     ConcatLayer get_inception_node(const std::string &data_path, std::string &&param_path, DataLayout weights_layout,
                                    unsigned int a_filt,
@@ -226,5 +304,6 @@ private:
  */
 int main(int argc, char **argv)
 {
+    //ANNOTATE_SETUP;
     return arm_compute::utils::run_example<GraphGooglenetExample>(argc, argv);
 }

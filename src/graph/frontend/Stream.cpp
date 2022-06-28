@@ -37,17 +37,42 @@ Stream::Stream(size_t id, std::string name)
 {
 }
 
-void Stream::finalize(Target target, const GraphConfig &config)
+void Stream::finalize(Target target, const GraphConfig &config, std::set<int> *b, int blocking)
 {
     PassManager pm = create_default_pass_manager(target, config);
     _ctx.set_config(config);
-    _manager.finalize_graph(_g, _ctx, pm, target);
+    _manager.finalize_graph(_g, _ctx, pm, target, b, blocking);
 }
 
-void Stream::run()
+void Stream::measure(int n)
 {
-    _manager.execute_graph(_g);
+	_manager.print_times(_g, n);
 }
+
+void Stream::reset()
+{
+	_manager.reset(_g);
+}
+
+
+void Stream::run(int n)
+{
+    _manager.execute_graph(_g,n);
+}
+
+/*void Stream::run(double &in,double &task, double &out)
+{
+    _manager.execute_graph(_g,in,task,out);
+}*/
+void Stream::run(bool anotate, int nn)
+{
+	//start=std::chrono::high_resolution_clock::now();
+    _manager.execute_graph(_g, anotate, nn);
+    //finish=std::chrono::high_resolution_clock::now();
+}
+
+
+
 
 void Stream::add_layer(ILayer &layer)
 {

@@ -364,6 +364,10 @@ ITensorInfo &TensorInfo::set_tensor_shape(const TensorShape &shape)
         const unsigned int idx_last_dimension = _tensor_shape.num_dimensions() - 1;
         _total_size                           = static_cast<size_t>(_tensor_shape[idx_last_dimension]) * _strides_in_bytes[idx_last_dimension];
     }
+    //Ehsan
+    //std::cout<<"tensor shapes: ";
+    //for(int i=0;i<shape.num_dimensions();i++) std::cout<<shape[i]<<'\t';
+    //std::cout<<"Padding: "<<_padding.left<<_padding.right<<_padding.top<<_padding.bottom<<std::endl;
 
     std::tie(_strides_in_bytes, _offset_first_element_in_bytes, _total_size) = calculate_padding_requirements(_padding);
 

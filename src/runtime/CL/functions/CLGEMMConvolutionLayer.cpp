@@ -21,6 +21,13 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+//Ehsan
+#include<chrono>
+#include"arm_compute/graph/TypePrinter.h"
+#ifndef My_print
+#include "arm_compute/gl_vs.h"
+#endif
+
 #include "arm_compute/runtime/CL/functions/CLGEMMConvolutionLayer.h"
 
 #include "arm_compute/core/PixelValue.h"
@@ -160,6 +167,10 @@ void CLGEMMConvolutionLayer::configure_mm(const CLCompileContext &compile_contex
     }
     else
     {
+#if My_print > 0
+    	//Ehsan
+    	std::cout<<"\nConfiguring CLGEM _mm_gemm";
+#endif
         // Configure matrix multiply function
         _mm_gemm.configure(compile_context, input, weights, biases, output, 1.0f, 1.0f, gemm_info);
     }
@@ -275,6 +286,31 @@ void CLGEMMConvolutionLayer::configure(const CLCompileContext &compile_context, 
     bool             append_bias   = false;
 
     ICLTensor *weights_to_use = &_weights_reshaped;
+
+#if My_print > 0
+    //Ehsan
+    std::cout<<"\nWeights reshaped shape:"<<_weights_reshaped.info()->tensor_shape()<<std::endl;
+    bool w=false;
+    if(_weights_manager)
+    	w=true;
+
+    std::cout<<" CLGEMMConvolutionLayer\n"
+    		<<"input shape: "<< input->info()->tensor_shape()
+			<<" output shape: "<< output->info()->tensor_shape()
+			<<" weights_shape: "<<weights->info()->tensor_shape()
+    		<<" num_groups: " << num_groups
+			<<" biases != null: "<< (biases!=nullptr)
+			<<" _weights_manager: "<< w
+			<<" conv_w and conv_h: "<<conv_w<<'*'<<conv_h
+			<<" number of kernels in each group: "<<mat_weights_cols
+			<<" skip_im2col: "<<_skip_im2col //0
+			<<" skip_col2im: "<<_skip_col2im //1
+			<<" Datalayout: "<< data_layout //NHWC
+			<<" _fuse_activation: "<<_fuse_activation
+			//<<" are weights managed: "<<(_weights_manager->are_weights_managed(weights));/*
+			<<std::endl;
+#endif
+
     if(num_groups != 1 && biases != nullptr)
     {
         // num_groups != 1 can only be for NCHW
@@ -302,8 +338,58 @@ void CLGEMMConvolutionLayer::configure(const CLCompileContext &compile_context, 
         else
         {
             _reshape_weights.configure(compile_context, weights, nullptr, &_weights_reshaped, num_groups);
+#if My_print > 0
+            //Ehsan
+            std::cout<<"\nWeights reshaped shape __:"<<_weights_reshaped.info()->tensor_shape()<<std::endl;
+#endif
         }
     }
+
+
+    //Ehsan
+    //line 255 of src/graph/backends/CL/CLFunctionFactory.cpp calls createconvlutionlayer in FunctionHelpers.
+    //in FunctionHelpers.cpp: std::shared_ptr<IMemoryManager> mm = get_memory_manager(ctx, TargetInfo::TargetType); arm_compute/graph/backends/FunctionHelpers.h
+    //which return intra_mm of memory manager is context:ctx.memory_management_ctx(target)->intra_mm
+    //which it was created in CLDeviceBackend line 144
+    /*if(ctx.memory_management_ctx(Target::CL) == nullptr)
+    {
+        MemoryManagerContext mm_ctx;
+        mm_ctx.target      = Target::CL;
+        mm_ctx.intra_mm    = create_memory_manager(MemoryManagerAffinity::Buffer);
+        mm_ctx.cross_mm    = create_memory_manager(MemoryManagerAffinity::Buffer);
+        mm_ctx.cross_group = std::make_shared<MemoryGroup>(mm_ctx.cross_mm);
+        mm_ctx.allocator   = _allocator.get();
+
+        ctx.insert_memory_management_ctx(std::move(mm_ctx));
+    }*/
+    //which calls this function in CLDevice line 214:
+    /*std::shared_ptr<arm_compute::IMemoryManager> CLDeviceBackend::create_memory_manager(MemoryManagerAffinity affinity)
+    {
+		if(affinity == MemoryManagerAffinity::Offset)
+		{
+			ARM_COMPUTE_LOG_GRAPH_WARNING("CL Backend does not support offset affinity memory management!");
+			return nullptr;
+		}
+
+		auto lifetime_mgr = std::make_shared<BlobLifetimeManager>();
+		auto pool_mgr     = std::make_shared<PoolManager>();
+		auto mm           = std::make_shared<MemoryManagerOnDemand>(lifetime_mgr, pool_mgr);
+
+		return mm;
+    }*/
+    /*std::tie(func, func_name) = create_named_memory_managed_function<typename ConvolutionLayerFunctions::GenericConvolutionLayer>(
+    std::string("GenericConvolutionLayer"), mm,
+    input, weights, biases, output, conv_info,
+    WeightsInfo(), Size2D(1U, 1U), fused_act, fast_math, num_groups); FunctionHelpers.h line 528*/
+    //It then call CLConvolutionLayer in line 56 of src/graph/backends/CL/CLFunctionFactory.cpp
+    //Which is in src/runtime/CL/functions/CLConvolutionLayer.cpp in line 116 call this calss and function
+    //in constructor of this class in this file : _memory_group(mm)
+
+
+    //So the MemoryManager is as follow(CLDeviceBackend.cpp):
+	//auto lifetime_mgr = std::make_shared<BlobLifetimeManager>();
+	//auto pool_mgr     = std::make_shared<PoolManager>();
+	//auto mm           = std::make_shared<MemoryManagerOnDemand>(lifetime_mgr, pool_mgr);
 
     // Create tensor to store im2col reshaped inputs
     if(!_skip_im2col)
@@ -324,6 +410,7 @@ void CLGEMMConvolutionLayer::configure(const CLCompileContext &compile_context, 
     // Create GEMM output tensor
     if(!_skip_col2im)
     {
+
         TensorShape shape_gemm;
 
         // If we cannot skip col2im it means we run im2col as well
@@ -344,6 +431,8 @@ void CLGEMMConvolutionLayer::configure(const CLCompileContext &compile_context, 
     gemmlowp_output_stage.type            = GEMMLowpOutputStageType::QUANTIZE_DOWN_FIXEDPOINT;
     gemmlowp_output_stage.gemmlowp_offset = 0;
 
+
+    //std::cout<<"\nCLGEMConvolutionLayer is quantized:"<<_is_quantized<<std::endl;
     // Configure output stage for quantized case
     if(_is_quantized)
     {
@@ -397,6 +486,21 @@ void CLGEMMConvolutionLayer::configure(const CLCompileContext &compile_context, 
     // Configure and tune GEMM
     // In case of NHWC, we need to run GEMM3D (gemm_3d_depth != 0) in order to avoid reshaping the output matrix
     const unsigned int gemm_3d_depth = (data_layout == DataLayout::NHWC) ? conv_h : 0;
+
+#if My_print > 0
+    std::cout<<"\nCLGEMMConvolutionLayer_2\n"
+    		<<"input_shape:"<< input->info()->tensor_shape()
+			<<" gemm_input_to_use_shape:"<< gemm_input_to_use->info()->tensor_shape()
+			<<" Im2col_shape:"<<_im2col_output.info()->tensor_shape()
+			<<" output_shape:"<< output->info()->tensor_shape()
+			<<" output_to_use_shape:"<< gemm_output_to_use->info()->tensor_shape()
+			<<" weights_shape:"<<weights->info()->tensor_shape()
+			<<" weights_to_use_shape:"<<weights_to_use->info()->tensor_shape()
+			<<" biases_shape:"<<biases_to_use->info()->tensor_shape()
+			<<" gemm_3d_depth:"<<gemm_3d_depth
+			<<std::endl;
+
+#endif
 
     configure_mm(compile_context, gemm_input_to_use, weights_to_use, biases_to_use, gemm_output_to_use, gemmlowp_output_stage, gemm_3d_depth, act_info);
 
@@ -655,6 +759,9 @@ void CLGEMMConvolutionLayer::run()
     {
         _activationlayer_function.run();
     }
+    //auto t0=std::chrono::high_resolution_clock::now();
+    //auto nanosec = t0.time_since_epoch();
+    //std::cout<<"**************************______**************"<<nanosec.count()<<std::endl;
 }
 
 void CLGEMMConvolutionLayer::prepare()

@@ -21,6 +21,11 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+//Ehsan
+#ifndef My_print
+#include "arm_compute/gl_vs.h"
+#endif
+
 #include "src/core/CL/kernels/CLGEMMMatrixMultiplyReshapedOnlyRHSKernel.h"
 
 #include "arm_compute/core/CL/ICLTensor.h"
@@ -225,6 +230,10 @@ void CLGEMMMatrixMultiplyReshapedOnlyRHSKernel::configure(const CLCompileContext
     {
         _reinterpret_input_as_3d  = false;
         _reinterpret_output_as_3d = false;
+        //Ehsan; It comes here for fully connected layers
+        //std::string tt;
+        //std::cin>>tt;
+
     }
 
     // Check if we need to slide the matrix B
@@ -254,6 +263,34 @@ void CLGEMMMatrixMultiplyReshapedOnlyRHSKernel::configure(const CLCompileContext
     // Calculate partial (store instead of load) M0 and partial N0 for the partial blocks at the end of a row/column if any. This is to avoid padding.
     const unsigned int partial_store_m0 = internal_m % internal_m0;
     const unsigned int partial_store_n0 = gemm_info.n % rhs_info.n0;
+
+#if My_print > 0
+    std::cout<<"\n\nCLGEMMMatrixMultiplyReshapedOnlyRHSKernel::configure\n"
+    		<<" input shape:"<<input0->info()->tensor_shape()
+			<<" weight(input1) shape:"<<input1->info()->tensor_shape()
+    		<<" _reinterpret_input_as_3d:"<<_reinterpret_input_as_3d
+			<<" _reinterpret_output_as_3d:"<<_reinterpret_output_as_3d
+			<<" _use_dummy_work_items:"<<_use_dummy_work_items
+			<<" _add_bias:"<<_add_bias
+			<<" _broadcast_bias:"<<_broadcast_bias
+			<<" _has_pad_y:"<<_has_pad_y
+			<<" num_dimensions_input0:"<<_input0->info()->num_dimensions()
+			<<" _slide_matrix_b:"<<_slide_matrix_b
+			<<" internal_m:"<<internal_m
+			<<" internal_m0:"<<internal_m0
+			<<" partial_store_m0:"<<partial_store_m0
+			<<" h_gemm_3d:"<<h_gemm_3d
+			<<" d_gemm_3d:"<<d_gemm_3d
+			<<std::endl;
+
+#endif
+
+
+
+
+
+
+
 
     // Create build options
     CLBuildOptions build_opts;

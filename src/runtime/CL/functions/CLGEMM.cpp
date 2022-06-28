@@ -21,6 +21,11 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+#ifndef My_print
+#include "arm_compute/gl_vs.h"
+#endif
+
+
 #include "arm_compute/runtime/CL/functions/CLGEMM.h"
 
 #include "arm_compute/core/CL/CLKernelLibrary.h"
@@ -120,6 +125,9 @@ inline bool validate_gemm_kernel(CLGEMMKernelType kernel_type)
 inline CLGEMMKernelType auto_select_gemm_kernel(auto_heuristics::CommonQuery query, bool reshape_b_only_on_first_run)
 {
     auto gemm_kernel = auto_heuristics::select_mlgo_gemm_kernel(query, reshape_b_only_on_first_run);
+    //Ehsan gemm_kernel is 0 There is not mlgo_heuristics in CLScheduler::get().gemm_heuristics()
+    //if(!bool(gemm_kernel))
+    //    std::cout<<"\nThere is not mlgo_heuristics in CLScheduler::get().gemm_heuristics()\n";
     if(bool(gemm_kernel))
     {
         if(validate_gemm_kernel(gemm_kernel.gemm_type))
@@ -128,7 +136,12 @@ inline CLGEMMKernelType auto_select_gemm_kernel(auto_heuristics::CommonQuery que
             return gemm_kernel.gemm_type;
         }
     }
+    //Ehsan: Select kernel based on gpu and dimensions
+
     gemm_kernel = auto_heuristics::select_default_gemm_kernel(query, reshape_b_only_on_first_run);
+#if My_print > 0
+    printf("Use gemm kernel from default heuristics: %s.\n", to_string(gemm_kernel.gemm_type).c_str());
+#endif
     ARM_COMPUTE_LOG_INFO_MSG_WITH_FORMAT_CORE("Use gemm kernel from default heuristics: %s.", to_string(gemm_kernel.gemm_type).c_str());
     return gemm_kernel.gemm_type;
 }
@@ -174,7 +187,12 @@ inline std::pair<GEMMLHSMatrixInfo, GEMMRHSMatrixInfo> auto_select_gemm_config_r
             return { config.lhs_info, config.rhs_info };
         }
     }
+
     config = auto_heuristics::select_default_gemm_config_reshaped_only_rhs(query);
+#if My_print > 0
+    printf("Auto_select_gemm_config_reshaped_only_rhs, there is not mlgo_heuristics in CLScheduler::get().gemm_heuristics()\n");
+    printf("Use reshaped_only_rhs config from default heuristics: LHS info: %s ; RHS info: %s ", to_string(config.lhs_info).c_str(), to_string(config.rhs_info).c_str());
+#endif
     ARM_COMPUTE_LOG_INFO_MSG_WITH_FORMAT_CORE("Use reshaped_only_rhs config from default heuristics: LHS info: %s ; RHS info: %s ", to_string(config.lhs_info).c_str(), to_string(config.rhs_info).c_str());
     return { config.lhs_info, config.rhs_info };
 }
@@ -460,6 +478,20 @@ void CLGEMM::configure_reshaped_only_rhs(const CLCompileContext &compile_context
     std::tie(lhs_info, rhs_info) = auto_select_gemm_config_reshaped_only_rhs(auto_heuristics::CommonQuery{ gpu_target, data_type, m, n, k, batch_size }, kernel_info, a->info(), b->info(),
                                                                              c == nullptr ? nullptr : c->info(), output->info());
 
+    //Ehsan
+
+    bool w=false;
+    bool w2=false;
+    if(_weights_manager){
+    	w=true;
+    	if( _weights_manager->are_weights_managed(b) )
+        	w2=true;
+    }
+#if My_print > 0
+    printf("\nCLGEMM::configure_reshaped_only_rhs, weight manager:{%d}, and wm are weights managed:{%d}\n_reshape_b_only_on_first_run:%d\n",w,w2,int(_reshape_b_only_on_first_run) );
+    std::cout<<"CLGEMM, _tmp_b or reshaped rhs shape: "<<_tmp_b.info()->tensor_shape()<<" output shape:"<<output->info()->tensor_shape()<<std::endl;
+    //Ehsan: Fully connected layers has weight manager and b is managed but for conv there is not _weight_manager
+#endif
     ICLTensor *reshaped_rhs = &_tmp_b;
     if(_weights_manager && _weights_manager->are_weights_managed(b))
     {
@@ -471,6 +503,10 @@ void CLGEMM::configure_reshaped_only_rhs(const CLCompileContext &compile_context
         _reshape_rhs_kernel->configure(compile_context, b, &_tmp_b, rhs_info);
     }
 
+    //Ehsan
+#if My_print > 0
+    std::cout<<"CLGEMM, After configuring _reshape_rhs_kernel, _tmp_b or reshaped rhs shape: "<<_tmp_b.info()->tensor_shape()<<" output shape:"<<output->info()->tensor_shape()<<std::endl;
+#endif
     // Configure two variants of CLGEMMMatrixMultiplyReshapedOnlyRHSKernel (has_pad_y = false/true)
     // During the prepare stage we check the padding requirement for the lhs and dst tensors. If they do not have
     // pad y, we dispatch CLGEMMMatrixMultiplyReshapedOnlyRHSKernel with has_pad_y = false
@@ -676,11 +712,19 @@ void CLGEMM::configure(const CLCompileContext &compile_context, const ICLTensor 
     ARM_COMPUTE_ERROR_THROW_ON(validate(a->info(), b->info(), c != nullptr ? c->info() : nullptr, output->info(), alpha, beta, gemm_info));
 
     // Check if we need to reshape the matrix B only on the first run
-    _reshape_b_only_on_first_run = gemm_info.reshape_b_only_on_first_run();
-    _is_prepared                 = gemm_info.retain_internal_weights();
+    _reshape_b_only_on_first_run = gemm_info.reshape_b_only_on_first_run();//Ehsan true
+    _is_prepared                 = gemm_info.retain_internal_weights();//Ehsan false
+    //Ehsan retaining weights=0
+    //std::cout<<"^^^^^^^^^^^^^^^Retaining weights: "<<_is_prepared<<std::endl;
     _original_b                  = b;
     _lhs                         = a;
     _dst                         = output;
+
+    //(_lhs or a) input with shape  k * m
+    //(_original_b or b) weight with sahpe n * k
+    //m=(out[0]*out[1])
+    //n=num_kernels
+    //k=(w[h]*w[w]*channels/num_groups)
 
     bool               reinterpret_input_as_3d = gemm_info.reinterpret_input_as_3d();
     const unsigned int m                       = reinterpret_input_as_3d ? (a->info()->dimension(1) * a->info()->dimension(2)) : a->info()->dimension(1);
@@ -688,12 +732,26 @@ void CLGEMM::configure(const CLCompileContext &compile_context, const ICLTensor 
     const unsigned int k                       = a->info()->dimension(0);
     const unsigned int batch_size              = reinterpret_input_as_3d ? a->info()->dimension(3) : a->info()->dimension(2);
 
+#if My_print > 0
+    //Ehsan
+    std::cout<<"\nInput shape: "<<a->info()->tensor_shape()
+    		<<" Weights shape: "<<b->info()->tensor_shape()
+    		<<" m: "<<m
+    		<<" n: "<<n
+			<<" k: "<<k
+			<<" Batch size: "<<batch_size
+			<<std::endl;
+#endif
     // Select GEMMType
     _gemm_kernel_type = auto_select_gemm_kernel(auto_heuristics::CommonQuery{ CLScheduler::get().target(), a->info()->data_type(), m, n, k, batch_size }, _reshape_b_only_on_first_run);
 
     const bool fuse_add_c = (!(helpers::float_ops::is_zero(beta)) && c != nullptr);
-
+    //Ehsan true
+    //if(fuse_add_c)
+    	//printf("fuse add c is true\n");
     const ICLTensor *c_to_use = fuse_add_c ? c : nullptr;
+    //std::string tt;
+    //std::cin>>tt;
 
     switch(_gemm_kernel_type)
     {
@@ -709,6 +767,8 @@ void CLGEMM::configure(const CLCompileContext &compile_context, const ICLTensor 
         }
         case CLGEMMKernelType::RESHAPED:
         {
+        	//Ehsan
+        	//printf("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&\n\n");
             configure_reshaped_v2(compile_context, a, b, c_to_use, output, alpha, beta, gemm_info);
             break;
         }

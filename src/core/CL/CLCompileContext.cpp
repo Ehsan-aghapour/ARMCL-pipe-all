@@ -234,6 +234,8 @@ std::string CLCompileContext::generate_build_options(const StringSet &build_opti
     GPUTarget gpu_arch = get_arch_from_target(_device.target());
     concat_str += " -DGPU_ARCH=" + support::cpp11::to_string(
                       static_cast<std::underlying_type<GPUTarget>::type>(gpu_arch));
+    //Ehsan
+    //std::cout<<"******************arch: "<<concat_str<<std::endl;
 
     if(_device.supported("cl_khr_fp16"))
     {
@@ -264,7 +266,8 @@ std::string CLCompileContext::generate_build_options(const StringSet &build_opti
     }
 
     std::string build_options = stringify_set(build_options_set, kernel_path) + concat_str;
-
+    //Ehsan
+    //std::cout<<"Build options:"<<concat_str<<std::endl;
     return build_options;
 }
 

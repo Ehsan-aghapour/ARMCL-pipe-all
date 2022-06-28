@@ -21,6 +21,9 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+//Ehsan
+#include <iostream>
+
 #include "arm_compute/runtime/ISimpleLifetimeManager.h"
 
 #include "arm_compute/core/Error.h"
@@ -116,6 +119,9 @@ void ISimpleLifetimeManager::end_lifetime(void *obj, IMemory &obj_memory, size_t
     // Check if all objects are finalized and reset active group
     if(are_all_finalized())
     {
+
+    	//Ehsan comes here
+
         ARM_COMPUTE_ERROR_ON(!_occupied_blobs.empty());
 
         // Update blobs and group mappings

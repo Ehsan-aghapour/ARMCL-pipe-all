@@ -21,6 +21,10 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+#ifndef My_print
+#include "arm_compute/gl_vs.h"
+#endif
+
 #ifndef ARM_COMPUTE_GRAPH_BACKENDS_DETAIL_FUNCTION_HELPERS_H
 #define ARM_COMPUTE_GRAPH_BACKENDS_DETAIL_FUNCTION_HELPERS_H
 
@@ -486,6 +490,32 @@ std::unique_ptr<IFunction> create_convolution_layer(ConvolutionLayerNode &node, 
     std::unique_ptr<IFunction>      func;
     std::string                     func_name;
 
+    //Ehsan
+
+
+    std::string cnmethods[]=
+    {
+        "Default", /**< Default approach using internal heuristics */
+        "GEMM",    /**< GEMM based convolution */
+        "Direct",  /**< Deep direct convolution */
+        "Winograd" /**< Winograd based convolution */
+    };
+
+    //std::string mtd=cnmethods[int(conv_algorithm)];
+    //std::cout<<"function helpers create convolution layer, node "<<node.name()<<" Convolution method: "<<mtd<<std::endl;
+
+    #if My_print > 0
+    //Ehsan
+    std::cout<<"\nFunctionHelpers.cpp::create_convolution_layer(node,ctx)\n "
+    		<<" Node name:"<<node.name()
+			<<" Convolution method:"<<conv_algorithm
+			<<" Number of groups:"<<num_groups
+			<<" Input shape"<<input->info()->tensor_shape()
+			<<" Weights shape:"<<weights->info()->tensor_shape()
+			<< "Output shape:"<<output->info()->tensor_shape()
+			<<std::endl;
+   #endif
+
     if(conv_algorithm == ConvolutionMethod::Winograd)
     {
         ARM_COMPUTE_ERROR_ON_MSG(num_groups != 1, "WinogradConvolutionLayer does not support grouping!");
@@ -535,6 +565,22 @@ std::unique_ptr<IFunction> create_convolution_layer(ConvolutionLayerNode &node, 
                                << qss.str()
                                << (fused_act.enabled() ? " " + to_string(fused_act.activation()) : "")
                                << std::endl);
+
+    //Ehsan
+    #if My_print > 0
+    std::cout<<"\nFunction helper conv layer func Instantiated\n "
+                               << node.name()
+                               << " Type: " << func_name
+                               << " Target: " << TargetInfo::TargetType
+                               << " Data Type: " << input->info()->data_type()
+                               << " Groups: " << num_groups
+                               << " Input shape: " << input->info()->tensor_shape()
+                               << " Weights shape: " << weights->info()->tensor_shape()
+                               << " Output shape: " << output->info()->tensor_shape()
+                               << qss.str()
+                               << (fused_act.enabled() ? " " + to_string(fused_act.activation()) : "")
+                               << std::endl;
+    #endif
     return std::move(func);
 }
 

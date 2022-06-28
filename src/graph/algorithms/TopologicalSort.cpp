@@ -160,6 +160,9 @@ std::vector<NodeID> dfs(Graph &g)
         // Pop a node from stack and process
         NodeID n = stack.top();
         dfs_order_vector.push_back(n);
+        //Ehsan
+        //std::cout<<"DFS; Node name: "<<g.node(n)->name()<<" num inputs: "<<g.node(n)->num_inputs()<<" num outputs: "<<g.node(n)->num_outputs()<<std::endl;
+
         stack.pop();
 
         // Mark node as visited

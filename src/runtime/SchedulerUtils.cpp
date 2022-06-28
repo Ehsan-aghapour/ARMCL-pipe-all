@@ -44,7 +44,9 @@ std::pair<unsigned, unsigned> split_2d(unsigned max_threads, std::size_t m, std:
      *          nt = sqrt( max_threads * (m/n) )
      */
     //ratio of m to n in problem dimensions
-    double ratio = m / static_cast<double>(n);
+    //Ehsan
+    //double ratio = m / static_cast<double>(n);
+    double ratio = n / static_cast<double>(m);
 
     // nt = sqrt(max_threads * (m / n) )
     const unsigned adjusted = std::round(

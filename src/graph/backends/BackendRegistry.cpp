@@ -45,6 +45,7 @@ BackendRegistry &BackendRegistry::get()
 IDeviceBackend *BackendRegistry::find_backend(Target target)
 {
     ARM_COMPUTE_ERROR_ON(!contains(target));
+    //std::cout<<"size of backends:"<<_registered_backends.size()<<std::endl;
     return _registered_backends[target].get();
 }
 

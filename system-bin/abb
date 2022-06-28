@@ -1,0 +1,4 @@
+adb devices;
+adb root;
+adb remount;
+adb shell;
