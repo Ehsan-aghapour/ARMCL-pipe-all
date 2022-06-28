@@ -765,7 +765,7 @@ void SenderAccessor::my_access_predictions_tensor(ITensor &tensor)
 {
 	{
 		std::lock_guard<std::mutex> lk(m1);
-		if(!waiting1){
+		if(!waiting1 || data_ready1){
 			transit_tensor1.copy_from(f_out->handle()->tensor());
 			Tensors_Q1.push(&transit_tensor1);
 		}
@@ -788,7 +788,7 @@ void SenderAccessor2::my_access_predictions_tensor(ITensor &tensor)
 {
 	{
 		std::lock_guard<std::mutex> lk(m2);
-		if(!waiting2){
+		if(!waiting2 || data_ready2){
 			transit_tensor2.copy_from(s_out->handle()->tensor());
 			Tensors_Q2.push(&transit_tensor2);
 		}
