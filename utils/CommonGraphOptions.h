@@ -120,6 +120,7 @@ struct CommonGraphParams
     int							 	 save{0};
     int								 n{1};
     int								 total_cores{6};
+    int								 little_cores{4};
     int								 layer_time{0};
     std::string						 order{"B-L-G"};
 
@@ -193,6 +194,7 @@ public:
     SimpleOption<int>					   *save;
     SimpleOption<int>					   *n;
     SimpleOption<int>					   *total_cores;
+    SimpleOption<int>					   *little_cores;
     SimpleOption<int>					   *layer_time;
 
     SimpleOption<int>					   *input_c;

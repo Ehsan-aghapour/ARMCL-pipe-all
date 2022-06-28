@@ -795,6 +795,55 @@ void fill_tensor_array(TensorType &tensor, T* array, int sz)
 
     unmap(tensor);
 }
+template <typename T, typename TensorType>
+void fill_tensor_array2(TensorType &tensor, T* array, int sz)
+{
+	//int sz=0;
+	//if(sizeof(array))
+	//	sz= sizeof(array)/sizeof(array[0])
+    ARM_COMPUTE_ERROR_ON(tensor.info()->tensor_shape().total_size() != sz);
+
+    map(tensor, true);
+
+    Window window;
+    window.use_tensor_dimensions(tensor.info()->tensor_shape());
+    int		 i = 0;
+    int      it2 = 0;
+    int		 it1 = 0;
+    int      it0 = 0;
+    int strides[]={(int)tensor.info()->tensor_shape()[1]*(int)tensor.info()->tensor_shape()[2],
+    		(int)tensor.info()->tensor_shape()[2],
+			1};
+    //for transposing CHW to HWC
+    //int perm=[1,2,0];
+    int strides_permuted[]={strides[1],strides[2],strides[0]};
+    int shape_permuted[]={(int)tensor.info()->tensor_shape()[1],
+    		(int)tensor.info()->tensor_shape()[2],
+			(int)tensor.info()->tensor_shape()[0]};
+    /*
+    std::cerr<<strides[0]<<","<<strides[1]<<","<<strides[2]<<std::endl;
+	std::cerr<<strides_permuted[0]<<","<<strides_permuted[1]<<","<<strides_permuted[2]<<std::endl;
+	std::cerr<<shape_permuted[0]<<","<<shape_permuted[1]<<","<<shape_permuted[2]<<std::endl;*/
+    Iterator it_tensor(&tensor, window);
+    execute_window_loop(window, [&](const Coordinates &)
+    {
+    	i=it2*strides_permuted[2]+it1*strides_permuted[1]+it0*strides_permuted[0];
+        *reinterpret_cast<T *>(it_tensor.ptr()) = array[i];
+        it2++;
+        if(it2==shape_permuted[2]){
+        	it2=0;
+        	it1++;
+        	if(it1==shape_permuted[1]){
+        		it1=0;
+        		it0++;
+        	}
+        }
+
+    },
+    it_tensor);
+
+    unmap(tensor);
+}
 
 template <typename T, typename TensorType>
 void fill_random_tensor(TensorType &tensor, std::random_device::result_type seed, T lower_bound = std::numeric_limits<T>::lowest(), T upper_bound = std::numeric_limits<T>::max())

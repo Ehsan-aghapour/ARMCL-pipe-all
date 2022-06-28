@@ -65,7 +65,7 @@ void read_directory(const std::string& name, stringvec& v)
     DIR* dirp = opendir(name.c_str());
     struct dirent * dp;
     while ((dp = readdir(dirp)) != NULL) {
-        if(arm_compute::utility::endswith(dp->d_name, ".ppm"))
+        if(arm_compute::utility::endswith(dp->d_name, ".ppm") || arm_compute::utility::endswith(dp->d_name, ".PNG"))
            v.push_back(name+(dp->d_name));
     }
 

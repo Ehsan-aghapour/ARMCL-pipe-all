@@ -123,9 +123,12 @@ namespace utils
     		<< common_params.order
     		<< std::endl;
 
-    os << "Total number of cores is : "
+    os << "Number of totla cores is : "
     		<< common_params.total_cores
     		<< std::endl;
+    os << "Number of little cores is : "
+			<< common_params.little_cores
+			<< std::endl;
 
 
     if(common_params.save){
@@ -166,6 +169,7 @@ CommonGraphOptions::CommonGraphOptions(CommandLineParser &parser)
 	  save(parser.add_option<SimpleOption<int>>("save", 0)),
 	  n(parser.add_option<SimpleOption<int>>("n", 1)),
 	  total_cores(parser.add_option<SimpleOption<int>>("total_cores", 6)),
+	  little_cores(parser.add_option<SimpleOption<int>>("little_cores", 4)),
 	  layer_time(parser.add_option<SimpleOption<int>>("layer_time", 0)),
 	  order(parser.add_option<SimpleOption<std::string>>("order")),
 	  input_s(parser.add_option<SimpleOption<int>>("input_s", 227)),
@@ -233,7 +237,8 @@ CommonGraphOptions::CommonGraphOptions(CommandLineParser &parser)
     annotate->set_help("Use streamline for annotation");
     save->set_help("Save graph parameters");
     n->set_help("number of run");
-    total_cores->set_help("total number of cores");
+    total_cores->set_help("Number of total cores");
+    little_cores->set_help("Number of little cores");
     layer_time->set_help("Layer timing");
     order->set_help("order of processors for sub graphs, eg., B-L-G");
 }
@@ -272,6 +277,7 @@ CommonGraphParams consume_common_graph_parameters(CommonGraphOptions &options)
     common_params.save		 			 = options.save->value();
     common_params.n						 = options.n->value();
     common_params.total_cores			 = options.total_cores->value();
+    common_params.little_cores			 = options.little_cores->value();
     common_params.layer_time			 = options.layer_time->value();
     common_params.order              = options.order->value();
 

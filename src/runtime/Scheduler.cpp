@@ -47,7 +47,7 @@ Scheduler::Type Scheduler::_scheduler_type = Scheduler::Type::CPP;
 Scheduler::Type Scheduler::_scheduler_type = Scheduler::Type::ST;
 #endif /* ARM_COMPUTE_*_SCHEDULER */
 
-const int Little_cores=2;
+const int Little_cores=4;
 
 std::shared_ptr<IScheduler> Scheduler::_custom_scheduler = nullptr;
 

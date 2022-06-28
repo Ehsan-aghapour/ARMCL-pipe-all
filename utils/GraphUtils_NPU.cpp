@@ -180,8 +180,16 @@ TFPreproccessor::TFPreproccessor(float min_range, float max_range)
     : _min_range(min_range), _max_range(max_range)
 {
 }
+/*TFPreproccessor::TFPreproccessor(bool NPU, float min_range, float max_range)
+    : _min_range(min_range), _max_range(max_range), _NPU(NPU)
+{
+}*/
 void TFPreproccessor::preprocess(ITensor &tensor)
 {
+	/*if (_NPU){
+		preprocess_typed<float>(tensor);
+		return;
+	}*/
     if(tensor.info()->data_type() == DataType::F32)
     {
         preprocess_typed<float>(tensor);
@@ -212,8 +220,9 @@ void TFPreproccessor::preprocess_typed(ITensor &tensor)
     });
 }
 
+//CaffePreproccessor::CaffePreproccessor(std::array<float, 3> mean, bool bgr, bool NPU, float scale)
 CaffePreproccessor::CaffePreproccessor(std::array<float, 3> mean, bool bgr, float scale)
-    : _mean(mean), _bgr(bgr), _scale(scale)
+    : _mean(mean), _bgr(bgr), _scale(scale)//, _NPU(NPU)
 {
     if(_bgr)
     {
@@ -221,8 +230,14 @@ CaffePreproccessor::CaffePreproccessor(std::array<float, 3> mean, bool bgr, floa
     }
 }
 
+
+
 void CaffePreproccessor::preprocess(ITensor &tensor)
 {
+	/*if(_NPU){
+		preprocess_typed<float>(tensor);
+		return;
+	}*/
     if(tensor.info()->data_type() == DataType::F32)
     {
         preprocess_typed<float>(tensor);
@@ -240,6 +255,9 @@ void CaffePreproccessor::preprocess(ITensor &tensor)
 template <typename T>
 void CaffePreproccessor::preprocess_typed(ITensor &tensor)
 {
+	/*if(_NPU){
+		return;
+	}*/
     Window window;
     window.use_tensor_dimensions(tensor.info()->tensor_shape());
     const int channel_idx = get_data_layout_dimension_index(tensor.info()->data_layout(), DataLayoutDimension::CHANNEL);
@@ -285,9 +303,14 @@ DummyAccessor::DummyAccessor(int type, unsigned int maximum)
 	_Input_data=new float*[Input_size];
 }*/
 DummyAccessor::DummyAccessor(int type, rknn_context* NPU_Context, unsigned int data_size, unsigned int maximum)
-    : _iterator(0), _maximum(maximum), _type(type), _NPU_Context(NPU_Context), _data_size(data_size)
+    : _iterator(0), _maximum(maximum), _type(type), _NPU_Context(NPU_Context), Input_size(data_size)
 {
-	_data=new float[data_size];
+	Input_data=new float[data_size];
+	outputs[0].want_float = true;
+	outputs[0].is_prealloc = false;
+	if(_NPU_Context){
+		_NPU=true;
+	}
 }
 
 
@@ -300,6 +323,9 @@ bool DummyAccessor::access_tensor(ITensor &tensor)
 	//std::cerr<<"dummy accessor type:"<<_type<<std::endl;
 	//std::cerr<<"dummy type:"<<_type<<std::endl;
 	////static int i=0;
+#if NPU_Debug
+				std::cerr<<"DummyAccessor, NPU:"<<_NPU<<"\nType:"<<_type<<"\nper_frame:"<<per_frame<<std::endl;
+#endif
 	if(per_frame){
 		//input
 		if(_type==2){
@@ -314,6 +340,57 @@ bool DummyAccessor::access_tensor(ITensor &tensor)
 			//if(_NPU){
 			//set input
 			//}
+			if(_NPU){
+
+				//rknn_tensor_attr input_attr;
+				input_attr.index = 0;
+				int ret = rknn_query(*_NPU_Context, RKNN_QUERY_INPUT_ATTR, &input_attr,
+				sizeof(input_attr));
+				if(ret < 0) {
+					printf("rknn_query fail! ret=%d\n",ret);
+				}
+#if NPU_Debug
+				std::cerr<<"query input attr done.\n";
+#endif
+				if(Input_size){
+					if(Input_size!=input_attr.n_elems){
+						std::cerr<<"Error: Size not match\n";
+						std::cerr<<"Specified Input size: "<<Input_size<<" Modoel expected input size: "<<input_attr.n_elems<<std::endl;
+						Input_size=input_attr.n_elems;
+					}
+					else{
+#if NPU_Debug
+						std::cerr<<"Input size match with model: "<<input_attr.n_elems<<std::endl;
+#endif
+					}
+				}
+				//input_attr.n_elems * sizeof(using type)= input_attr.size
+
+				printf("\n\n*************\nInput attr of NPU:\n");
+				print_attr(input_attr);
+				printf("\n\n*************\n");
+				//Input_data=new float[Input_size];
+				//From_dummy=from_dummy;
+
+				Inputs[0].index = 0;
+				Inputs[0].pass_through = Pass;
+				Inputs[0].fmt = fmt;
+				Inputs[0].buf = Input_data;//test_data;
+				Inputs[0].size = Input_size*4;//sizeof(test_data)/4;
+				Inputs[0].type = type;
+
+				//Input_data=(float*)Input_data;
+				for(unsigned int i=0;i<Input_size;i++){
+					Input_data[i]=1;
+				}
+				ret=rknn_inputs_set(*_NPU_Context, 1, Inputs);
+				if(ret < 0)
+					printf("rknn_input_set fail! ret=%d\n", ret);
+
+			}
+
+
+
 			*start_frame=false;
 			lk.unlock();
 		}
@@ -324,9 +401,13 @@ bool DummyAccessor::access_tensor(ITensor &tensor)
 			*start_frame=true;
 
 			//NPU:
-			//if(_NPU){
-				//get_outputs
-			//}
+			if(_NPU){
+				int ret = rknn_outputs_get(*_NPU_Context, 1, outputs, NULL);
+				if(ret < 0) {
+					printf("rknn get outputs fail! ret=%d\n", ret);
+					return -1;
+				}
+			}
 
 
 			inout_cv.notify_all();
@@ -335,16 +416,82 @@ bool DummyAccessor::access_tensor(ITensor &tensor)
 		}
 	}
 
-	/*else{
+	else{
 		if(_NPU){
 			if(_type==2){
-				//nput set input
+				//rknn_tensor_attr input_attr;
+				input_attr.index = 0;
+				int ret = rknn_query(*_NPU_Context, RKNN_QUERY_INPUT_ATTR, &input_attr,
+				sizeof(input_attr));
+				if(ret < 0) {
+					printf("rknn_query fail! ret=%d\n",ret);
+				}
+#if NPU_Debug
+				std::cerr<<"query input attr done.\n";
+#endif
+				if(Input_size){
+					if(Input_size!=input_attr.n_elems){
+						std::cerr<<"Error: Size not match\n";
+						std::cerr<<"Specified Input size: "<<Input_size<<" Modoel expected input size: "<<input_attr.n_elems<<std::endl;
+						Input_size=input_attr.n_elems;
+					}
+					else{
+#if NPU_Debug
+						std::cerr<<"Input size match with model: "<<input_attr.n_elems<<std::endl;
+#endif
+					}
+				}
+				//input_attr.n_elems * sizeof(using type)= input_attr.size
+
+				printf("\n\n*************\n");
+				print_attr(input_attr);
+				printf("\n\n*************\n");
+				//Input_data=new float[Input_size];
+				//From_dummy=from_dummy;
+
+				Inputs[0].index = 0;
+				Inputs[0].pass_through = Pass;
+				Inputs[0].fmt = fmt;
+				Inputs[0].buf = Input_data;//test_data;
+				Inputs[0].size = Input_size*4;//sizeof(test_data)/4;
+				Inputs[0].type = type;
+
+				//Input_data=(float*)Input_data;
+				for(unsigned int i=0;i<Input_size;i++){
+					Input_data[i]=1;
+				}
+				ret=rknn_inputs_set(*_NPU_Context, 1, Inputs);
+				if(ret < 0)
+					printf("rknn_input_set fail! ret=%d\n", ret);
 			}
 			else if (_type==0){
-				//npu get outputs
+				//npu get output
+				int ret = rknn_outputs_get(*_NPU_Context, 1, outputs, NULL);
+				if(ret < 0) {
+					printf("rknn get outputs fail! ret=%d\n", ret);
+					return -1;
+				}
 			}
 		}
-	}*/
+		else{
+			int n=tensor.info()->total_size()/tensor.info()->element_size();
+#if NPU_Debug
+			std::cerr<<tensor.info()->data_layout()<<","<<tensor.info()->tensor_shape()<<std::endl;
+			std::cerr<<"total size of tensor: "<<n<<std::endl;
+#endif
+
+			//const auto   output_net  = reinterpret_cast<float *>(tensor.buffer() + tensor.info()->offset_first_element_in_bytes());
+
+			/*for(int j=0;j<tensor.info()->total_size();j++){
+				std::cerr<<j<<":"<<output_net[j]<<std::endl;
+			}*/
+			/*std::ofstream ofs ("/data/data/com.termux/files/home/ARMCL-RockPi/test.txt", std::ofstream::out);
+			for(int j=0;j<n;j++){
+				ofs<<j<<":"<<output_net[j]<<std::endl;
+			}
+			ofs.close();*/
+		}
+	}
 	return _type;
 
     ARM_COMPUTE_UNUSED(tensor);
@@ -449,8 +596,8 @@ ReceiverAccessor::ReceiverAccessor(bool tran, int Con_id, int t_id, bool _NPU, r
 }
 
 //NPU: Receiver from NPU
-ReceiverAccessor::ReceiverAccessor(bool tran, int Con_id, int t_id, arm_compute::graph_utils::SenderAccessor* S)
-	: transition(tran),  T_id(t_id)//Connection_id(Con_id),
+ReceiverAccessor::ReceiverAccessor(bool tran, int Con_id, int t_id, arm_compute::graph_utils::SenderAccessor* S, bool Transpose)
+	: transition(tran),  T_id(t_id), _Transpose(Transpose)//Connection_id(Con_id),
 {
 	//std::cerr<<"GU: initializing receiver accessor trasform from npu\n";
 #if NPU_Debug
@@ -554,9 +701,80 @@ bool ReceiverAccessor::access_tensor(ITensor &tensor)
 			//2- get outputs
 			rknn_output* data=NPU_Sender->get_output();
 			Input_data=(float*)data[0].buf;
-			utils::fill_tensor_array<float,ITensor>(tensor,(float*)(Input_data),Input_size);
+			//std::cerr<<"hereee\n";
+			auto tstart=std::chrono::high_resolution_clock::now();
+			if(_Transpose){
+				utils::fill_tensor_array2<float,ITensor>(tensor,(float*)(Input_data),Input_size);
+			}
+			else{
+				utils::fill_tensor_array<float,ITensor>(tensor,(float*)(Input_data),Input_size);
+			}
 
+			auto tfinish=std::chrono::high_resolution_clock::now();
+#if NPU_Debug
+			double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+			std::cerr<<"Transfer time (transpose = "<<_Transpose<<"): "<<cost0<<std::endl;
+#endif
+			/*
+			//map(tensor, true);
+			    Window window;
+			    window.use_tensor_dimensions(tensor.info()->tensor_shape());
+			    int		 i = 0;
+			    int      it2 = 0;
+			    int		 it1 = 0;
+			    int      it0 = 0;
+			    int strides[]={(int)tensor.info()->tensor_shape()[1]*(int)tensor.info()->tensor_shape()[2],
+			    		(int)tensor.info()->tensor_shape()[2],
+						1};
+			    //for transposing CHW to HWC
+			    //int perm=[1,2,0];
+			    int strides_permuted[]={strides[1],strides[2],strides[0]};
+			    int shape_permuted[]={(int)tensor.info()->tensor_shape()[1],
+			    		(int)tensor.info()->tensor_shape()[2],
+						(int)tensor.info()->tensor_shape()[0]};
+			    std::cerr<<strides[0]<<","<<strides[1]<<","<<strides[2]<<std::endl;
+			    std::cerr<<strides_permuted[0]<<","<<strides_permuted[1]<<","<<strides_permuted[2]<<std::endl;
+			    std::cerr<<shape_permuted[0]<<","<<shape_permuted[1]<<","<<shape_permuted[2]<<std::endl;
+			    Iterator it_tensor(&tensor, window);
+			    execute_window_loop(window, [&](const Coordinates &)
+			    {
+			    	i=it2*strides_permuted[2]+it1*strides_permuted[1]+it0*strides_permuted[0];
+			    	std::cerr<<"it2: "<<it2<<","<<
+			    			"it1: "<<it1<<","<<
+							"it0: "<<it0<<","<<
+							"i: "<<i<<std::endl;
+			        *reinterpret_cast<float *>(it_tensor.ptr()) = Input_data[i];
+			        it2++;
+			        if(it2==shape_permuted[2]){
+			        	it2=0;
+			        	it1++;
+			        	if(it1==shape_permuted[1]){
+			        		it1=0;
+			        		it0++;
+			        	}
+			        }
+
+			    },
+			    it_tensor);
+
+			    //unmap(tensor);*/
+
+
+
+#if NPU_Debug
+			const auto   output_net  = reinterpret_cast<float *>(tensor.buffer() + tensor.info()->offset_first_element_in_bytes());
+			std::cerr<<"receiver from npu data: "<<output_net[0]<<","<<
+					output_net[1]<<","<<
+					output_net[2]<<","<<
+					output_net[3]<<","<<
+					output_net[4]<<","<<
+					output_net[5]<<","<<
+					output_net[6]<<","<<
+					output_net[7]<<","<<
+					output_net[8]<<","<<std::endl;
+#endif
 		}
+
 		//(1-1) End if other side is NPU **************
 		//(1-2) If other side is not NPU ************
 		else{
@@ -696,7 +914,7 @@ SenderAccessor::SenderAccessor(bool tran, int _Connection_id, int _T_id, bool _N
 			printf("rknn_query fail! ret=%d\n",ret);
 			//return -1;
 		}
-		std::cerr<<"query output attr done.\n";
+		//std::cerr<<"query output attr done.\n";
 		if(Output_size){
 			if(Output_size!=Output_attr.n_elems){
 				std::cerr<<"Output size missmatch\n";
@@ -776,7 +994,27 @@ void SenderAccessor::my_access_predictions_tensor(ITensor &tensor)
 #if NPU_Debug
     	std::cerr<<"To dummy\n";
 #endif
-    	get_output();
+    	Output_data=(float*)get_output()[0].buf;
+    	/*int ret = rknn_outputs_get(*_NPU_Context, 1, Outputs, NULL);
+		if(ret < 0) {
+			printf("NPU get output fail! ret=%d\n",ret);
+			return;
+		}*/
+		//printf("\n\n*************\n");
+		//print_output(Outputs[0],Output_attr.n_elems);
+		//print_output(Outputs[0],100);
+		std::cerr<<"total size of tensor: "<<Output_attr.n_elems<<std::endl;
+		/*for(int j=0;j<tensor.info()->total_size();j++){
+			std::cerr<<j<<":"<<output_net[j]<<std::endl;
+		}*/
+		/*
+		std::ofstream ofs ("/data/data/com.termux/files/home/ARMCL-RockPi/test_npu.txt", std::ofstream::out);
+		//float * output_net=(float*)Outputs[0];
+		for(int j=0;j<Output_attr.n_elems;j++){
+			ofs<<j<<":"<<Output_data[j]<<std::endl;
+		}
+		ofs.close();
+		*/
     	return;
     }
 
@@ -875,12 +1113,17 @@ void SenderAccessor::my_access_predictions_tensor(ITensor &tensor)
 					cvs[id]->notify_one();
 				}
 				else{
+#if NPU_Debug
+					std::cerr<<"sending to waiting normal receiver\n";
+#endif
 					if(transition)
 					{
 						////PrintThread{}<<"first graph is responsible for transition\n";
 						auto tstart=std::chrono::high_resolution_clock::now();
 						//PrintThread{}<<"len rec: "<<Receivers.size()<<" shape receiver: "<<Receivers[id]->desc().shape<<std::endl;
+						std::cerr<<"1:"<<Receivers.size()<<","<<Transmitters.size()<<std::endl;
 						Receivers[T_id]->handle()->tensor().copy_from(tensor);
+						std::cerr<<"2\n";
 						auto tfinish=std::chrono::high_resolution_clock::now();
 						double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
 						////PrintThread{}<<"\nTransfer0 time:"<<cost0<<std::endl<<std::endl;
@@ -1102,7 +1345,11 @@ bool SaveNumPyAccessor::access_tensor(ITensor &tensor)
 ImageAccessor::ImageAccessor(std::string filename, bool bgr, std::unique_ptr<IPreprocessor> preprocessor, rknn_context* NPU_Context)
     : _already_loaded(false), _filename(std::move(filename)), _bgr(bgr), _preprocessor(std::move(preprocessor)), _NPU_Context(NPU_Context)
 {
-
+	std::cerr<<"creating image accessor\n";
+	if(NPU_Context){
+		_NPU=1;
+		std::cerr<<"NPU is one when inititing Image accessor\n";
+	}
 }
 
 
@@ -1115,6 +1362,9 @@ bool ImageAccessor::set_filename(std::string filename){
 
 bool ImageAccessor::access_tensor(ITensor &tensor)
 {
+#if NPU_Debug
+	std::cerr<<"Image accessor\n";
+#endif
 	/*if(_NPU>0){
 		if(!_already_loaded){
 			//load image and set input
@@ -1127,40 +1377,317 @@ bool ImageAccessor::access_tensor(ITensor &tensor)
     {
 	//Ehsan
         //////PrintThread{}<<"\n\n\n\naccess_tensor is called!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!******************\n\n\n";
+    	//If first graph is NPU
+    	if(_NPU>0){
 
-        auto image_loader = utils::ImageLoaderFactory::create(_filename);
-        ARM_COMPUTE_EXIT_ON_MSG(image_loader == nullptr, "Unsupported image type");
 
-        // Open image file
-        image_loader->open(_filename);
+    		/*
+    		auto image_loader = utils::ImageLoaderFactory::create(_filename);
+			ARM_COMPUTE_EXIT_ON_MSG(image_loader == nullptr, "Unsupported image type");
 
-        // Get permutated shape and permutation parameters
-        TensorShape                    permuted_shape = tensor.info()->tensor_shape();
-        arm_compute::PermutationVector perm;
-        if(tensor.info()->data_layout() != DataLayout::NCHW)
-        {
-            std::tie(permuted_shape, perm) = compute_permutation_parameters(tensor.info()->tensor_shape(), tensor.info()->data_layout());
-        }
+			// Open image file
+			image_loader->open(_filename);
+
+			// Get permutated shape and permutation parameters
+			TensorShape                    permuted_shape = tensor.info()->tensor_shape();
+			arm_compute::PermutationVector perm;
+			if(tensor.info()->data_layout() != DataLayout::NCHW)
+			{
+				std::tie(permuted_shape, perm) = compute_permutation_parameters(tensor.info()->tensor_shape(), tensor.info()->data_layout());
+			}
 
 #ifdef __arm__
-        ARM_COMPUTE_EXIT_ON_MSG_VAR(image_loader->width() != permuted_shape.x() || image_loader->height() != permuted_shape.y(),
-                                    "Failed to load image file: dimensions [%d,%d] not correct, expected [%" PRIu32 ",%" PRIu32 "].",
-                                    image_loader->width(), image_loader->height(), permuted_shape.x(), permuted_shape.y());
+			ARM_COMPUTE_EXIT_ON_MSG_VAR(image_loader->width() != permuted_shape.x() || image_loader->height() != permuted_shape.y(),
+										"Failed to load image file: dimensions [%d,%d] not correct, expected [%" PRIu32 ",%" PRIu32 "].",
+										image_loader->width(), image_loader->height(), permuted_shape.x(), permuted_shape.y());
 #else  // __arm__
-        ARM_COMPUTE_EXIT_ON_MSG_VAR(image_loader->width() != permuted_shape.x() || image_loader->height() != permuted_shape.y(),
-                                    "Failed to load image file: dimensions [%d,%d] not correct, expected [%" PRIu64 ",%" PRIu64 "].",
-                                    image_loader->width(), image_loader->height(),
-                                    static_cast<uint64_t>(permuted_shape.x()), static_cast<uint64_t>(permuted_shape.y()));
+			ARM_COMPUTE_EXIT_ON_MSG_VAR(image_loader->width() != permuted_shape.x() || image_loader->height() != permuted_shape.y(),
+										"Failed to load image file: dimensions [%d,%d] not correct, expected [%" PRIu64 ",%" PRIu64 "].",
+										image_loader->width(), image_loader->height(),
+										static_cast<uint64_t>(permuted_shape.x()), static_cast<uint64_t>(permuted_shape.y()));
 #endif // __arm__
 
-        // Fill the tensor with the PPM content (BGR)
-        image_loader->fill_planar_tensor(tensor, _bgr);
+			// Fill the tensor with the PPM content (BGR)
+			image_loader->fill_planar_tensor(tensor, _bgr);
 
-        // Preprocess tensor
-        if(_preprocessor)
-        {
-            _preprocessor->preprocess(tensor);
-        }
+			// Preprocess tensor
+			if(_preprocessor)
+			{
+				_preprocessor->preprocess(tensor);
+			}
+
+			*/
+
+#if ARM_Image_Accessor==0
+    		std::cerr<<"\n\n\nManually load image for NPU\n\n\n";
+    		rockx_image_t input_image;
+			rockx_image_read(_filename.c_str(), &input_image, 1);
+//#if NPU_Debug
+			std::cerr<<"image details:"<<
+				"\nheight;"<<input_image.height<<
+				"\npixel format:"<<input_image.pixel_format<<
+				"\nsize:"<<input_image.size<<
+				"\n width:"<<input_image.width<<
+				"\n size:"<<input_image.size<<
+				"\ndata[0]:"<<int(input_image.data[0])<<
+				"\ndata[1]:"<<int(input_image.data[1])<<
+				"\ndata[2]:"<<int(input_image.data[2])<<std::endl;
+//#endif
+			//std::cout<<"size of image data:"<<sizeof(input_image.data)<<std::endl;
+			//input_image.pixel_format=rockx_pixel_format(1);
+			int input_size=input_image.width*input_image.height*3;
+			/*for (int j=0;j<input_size;j+=3){
+				if(input_image.pixel_format==2){
+					uint8_t t=input_image.data[j];
+					input_image.data[j]=input_image.data[j+2];
+					input_image.data[j+2]=t;
+				}
+			}*/
+			//bool Explicit_channels_reorder=_bgr;
+			bool Explicit_mean_reduction=true;
+			Input_data = new float[input_size];
+
+			if(_bgr){
+				if(input_image.pixel_format!=2){
+					for (int j=0;j<input_size;j+=3){
+						uint8_t t=input_image.data[j];
+						input_image.data[j]=input_image.data[j+2];
+						input_image.data[j+2]=t;
+						/*test_data[j]=input_image.data[j];
+						test_data[j+1]=input_image.data[j+1];
+						test_data[j+2]=input_image.data[j+2];*/
+					}
+					input_image.pixel_format=rockx_pixel_format(2);
+
+				}
+
+			}
+			for (int j=0;j<input_size;j+=3){
+				Input_data[j]=input_image.data[j];
+				Input_data[j+1]=input_image.data[j+1];
+				Input_data[j+2]=input_image.data[j+2];
+			}
+			if(Explicit_mean_reduction){
+				float mean[]={ 104.01, 116.67, 122.68 };
+				for (int j=0;j<input_size;j+=3){
+					//input_image.data[j]=input_image.data[j]-122;
+					//input_image.data[j+1]=input_image.data[j+1]-116;
+					//input_image.data[j+2]=input_image.data[j+2]-104;
+					if(input_image.pixel_format==2){
+						//std::cerr<<"\n\n\n\n\n\n\n\n\n\n\n";
+						Input_data[j]=(Input_data[j]-mean[0]);
+						Input_data[j+1]=(Input_data[j+1]-mean[1]);
+						Input_data[j+2]=(Input_data[j+2]-mean[2]);
+					}
+					if(input_image.pixel_format==1){
+						Input_data[j]=(Input_data[j]-mean[2]);
+						Input_data[j+1]=(Input_data[j+1]-mean[1]);
+						Input_data[j+2]=(Input_data[j+2]-mean[0]);
+					}
+
+				}
+			}
+
+
+			/*
+			Inputs[0].buf = input_image.data;//test_data;
+			Inputs[0].size = input_size;//sizeof(test_data)/4;
+			Inputs[0].type = RKNN_TENSOR_UINT8;*/
+			Inputs[0].index = 0;
+			Inputs[0].pass_through = 0;
+			Inputs[0].fmt = RKNN_TENSOR_NHWC;
+			Inputs[0].buf = Input_data;
+			Inputs[0].size = input_size*4;//sizeof(test_data)/4;
+			//inputs[0].type = RKNN_TENSOR_UINT8;
+			Inputs[0].type = RKNN_TENSOR_FLOAT32;
+			//inputs[0].buf = t_data3;
+			//inputs[0].size =sizeof(t_data3);
+			//std::cerr<<"sizeee:"<<sizeof(t_data3);
+			//inputs[0].type = RKNN_TENSOR_INT16;
+#if NPU_Debug
+			std::cerr<<"inputs:\n\n\n\n"<<
+			test_data[0]<<','<<
+			test_data[1]<<','<<
+			test_data[2]<<','<<
+			test_data[3]<<','<<
+			test_data[4]<<','<<
+			test_data[5]<<','<<
+			test_data[6]<<','<<
+			test_data[7]<<','<<
+			test_data[8]<<','<<
+			test_data[9]<<'\n';
+#endif
+
+
+			int ret = rknn_inputs_set(*_NPU_Context, 1, Inputs);
+
+			if(ret < 0) {
+				printf("rknn_input_set fail! ret=%d\n", ret);
+				return -1;
+			}
+#endif
+//End if ARM_Image_Accessor==0
+#if ARM_Image_Accessor==1
+			auto image_loader = utils::ImageLoaderFactory::create(_filename);
+			ARM_COMPUTE_EXIT_ON_MSG(image_loader == nullptr, "Unsupported image type");
+
+			// Open image file
+			image_loader->open(_filename);
+
+			// Get permutated shape and permutation parameters
+			TensorShape                    permuted_shape = tensor.info()->tensor_shape();
+			arm_compute::PermutationVector perm;
+#if NPU_Debug
+			std::cerr<<"Image loader, tensor_shape:"<<permuted_shape<<std::endl;
+#endif
+			if(tensor.info()->data_layout() != DataLayout::NCHW)
+			{
+				std::tie(permuted_shape, perm) = compute_permutation_parameters(tensor.info()->tensor_shape(), tensor.info()->data_layout());
+			}
+#if NPU_Debug
+			std::cerr<<"permuted shape:"<<permuted_shape<<std::endl;
+			std::cerr<<"x(width):"<<permuted_shape.x()<<"y(height):"<<permuted_shape.y()<<std::endl;
+#endif
+	#ifdef __arm__
+			ARM_COMPUTE_EXIT_ON_MSG_VAR(image_loader->width() != permuted_shape.x() || image_loader->height() != permuted_shape.y(),
+										"Failed to load image file: dimensions [%d,%d] not correct, expected [%" PRIu32 ",%" PRIu32 "].",
+										image_loader->width(), image_loader->height(), permuted_shape.x(), permuted_shape.y());
+	#else  // __arm__
+			ARM_COMPUTE_EXIT_ON_MSG_VAR(image_loader->width() != permuted_shape.x() || image_loader->height() != permuted_shape.y(),
+										"Failed to load image file: dimensions [%d,%d] not correct, expected [%" PRIu64 ",%" PRIu64 "].",
+										image_loader->width(), image_loader->height(),
+										static_cast<uint64_t>(permuted_shape.x()), static_cast<uint64_t>(permuted_shape.y()));
+	#endif // __arm__
+
+			// Fill the tensor with the PPM content (BGR)
+			image_loader->fill_planar_tensor(tensor, _bgr);
+			auto   Input_data  = reinterpret_cast<float *>(tensor.buffer() + tensor.info()->offset_first_element_in_bytes());
+
+#if NPU_Debug
+
+			int n=tensor.info()->total_size()/tensor.info()->element_size();
+			for(int k=0;k<13;k++){
+				std::cerr<<Input_data[k]<<',';
+			}
+			std::cerr<<std::endl;
+#endif
+			// Preprocess tensor
+			if(_preprocessor)
+			{
+				_preprocessor->preprocess(tensor);
+			}
+
+			/*
+			Inputs[0].buf = input_image.data;//test_data;
+			Inputs[0].size = input_size;//sizeof(test_data)/4;
+			Inputs[0].type = RKNN_TENSOR_UINT8;*/
+			Inputs[0].index = 0;
+			Inputs[0].pass_through = 0;
+			Inputs[0].fmt = RKNN_TENSOR_NHWC;
+			Inputs[0].buf = Input_data;
+			//Inputs[0].size = input_size*4;//sizeof(test_data)/4;
+			Inputs[0].size = tensor.info()->total_size();
+			//inputs[0].type = RKNN_TENSOR_UINT8;
+			Inputs[0].type = RKNN_TENSOR_FLOAT32;
+			//inputs[0].buf = t_data3;
+			//inputs[0].size =sizeof(t_data3);
+			//std::cerr<<"sizeee:"<<sizeof(t_data3);
+			//inputs[0].type = RKNN_TENSOR_INT16;
+#if NPU_Debug
+			std::cerr<<"inputs:\n\n\n\n"<<
+			Input_data[0]<<','<<
+			Input_data[1]<<','<<
+			Input_data[2]<<','<<
+			Input_data[3]<<','<<
+			Input_data[4]<<','<<
+			Input_data[5]<<','<<
+			Input_data[6]<<','<<
+			Input_data[7]<<','<<
+			Input_data[8]<<','<<
+			Input_data[9]<<'\n';
+#endif
+
+
+			int ret = rknn_inputs_set(*_NPU_Context, 1, Inputs);
+
+			if(ret < 0) {
+				printf("rknn_input_set fail! ret=%d\n", ret);
+				return -1;
+			}
+
+#if NPU_Debug
+			//const auto   output_net  = reinterpret_cast<float *>(tensor.buffer() + tensor.info()->offset_first_element_in_bytes());
+			//int n=tensor.info()->total_size()/tensor.info()->element_size();
+			for(int k=0;k<13;k++){
+				std::cerr<<Input_data[k]<<',';
+			}
+			std::cerr<<std::endl;
+#endif
+
+#endif
+
+    	}
+    	//If first graph is not NPU
+    	else{
+#if NPU_Debug
+    		std::cerr<<"Image accessor not NPU!\n";
+#endif
+			auto image_loader = utils::ImageLoaderFactory::create(_filename);
+			ARM_COMPUTE_EXIT_ON_MSG(image_loader == nullptr, "Unsupported image type");
+
+			// Open image file
+			image_loader->open(_filename);
+
+			// Get permutated shape and permutation parameters
+			TensorShape                    permuted_shape = tensor.info()->tensor_shape();
+			arm_compute::PermutationVector perm;
+#if NPU_Debug
+			std::cerr<<"Image loader, tensor_shape:"<<permuted_shape<<std::endl;
+#endif
+			if(tensor.info()->data_layout() != DataLayout::NCHW)
+			{
+				std::tie(permuted_shape, perm) = compute_permutation_parameters(tensor.info()->tensor_shape(), tensor.info()->data_layout());
+			}
+#if NPU_Debug
+			std::cerr<<"permuted shape:"<<permuted_shape<<std::endl;
+			std::cerr<<"x(width):"<<permuted_shape.x()<<"y(height):"<<permuted_shape.y()<<std::endl;
+#endif
+	#ifdef __arm__
+			ARM_COMPUTE_EXIT_ON_MSG_VAR(image_loader->width() != permuted_shape.x() || image_loader->height() != permuted_shape.y(),
+										"Failed to load image file: dimensions [%d,%d] not correct, expected [%" PRIu32 ",%" PRIu32 "].",
+										image_loader->width(), image_loader->height(), permuted_shape.x(), permuted_shape.y());
+	#else  // __arm__
+			ARM_COMPUTE_EXIT_ON_MSG_VAR(image_loader->width() != permuted_shape.x() || image_loader->height() != permuted_shape.y(),
+										"Failed to load image file: dimensions [%d,%d] not correct, expected [%" PRIu64 ",%" PRIu64 "].",
+										image_loader->width(), image_loader->height(),
+										static_cast<uint64_t>(permuted_shape.x()), static_cast<uint64_t>(permuted_shape.y()));
+	#endif // __arm__
+
+			// Fill the tensor with the PPM content (BGR)
+			image_loader->fill_planar_tensor(tensor, _bgr);
+
+#if NPU_Debug
+			const auto   output_net  = reinterpret_cast<float *>(tensor.buffer() + tensor.info()->offset_first_element_in_bytes());
+			int n=tensor.info()->total_size()/tensor.info()->element_size();
+			for(int k=0;k<13;k++){
+				std::cerr<<output_net[k]<<',';
+			}
+			std::cerr<<std::endl;
+#endif
+			// Preprocess tensor
+			if(_preprocessor)
+			{
+				_preprocessor->preprocess(tensor);
+			}
+#if NPU_Debug
+			//const auto   output_net  = reinterpret_cast<float *>(tensor.buffer() + tensor.info()->offset_first_element_in_bytes());
+			//int n=tensor.info()->total_size()/tensor.info()->element_size();
+			for(int k=0;k<13;k++){
+				std::cerr<<output_net[k]<<',';
+			}
+			std::cerr<<std::endl;
+#endif
+    	}
     }
 
     //Ehsan
@@ -1458,8 +1985,11 @@ bool DetectionOutputAccessor::access_tensor(ITensor &tensor)
 TopNPredictionsAccessor::TopNPredictionsAccessor(const std::string &labels_path, size_t top_n, std::ostream &output_stream,rknn_context* NPU_Context)
     : _labels(), _output_stream(output_stream), _top_n(top_n), _NPU_Context(NPU_Context)
 {
+	if(NPU_Context){
+		_NPU=1;
+	}
     _labels.clear();
-
+    //std::cerr<<"salam\n";
     std::ifstream ifs;
 
     try
@@ -1470,6 +2000,7 @@ TopNPredictionsAccessor::TopNPredictionsAccessor(const std::string &labels_path,
         for(std::string line; !std::getline(ifs, line).fail();)
         {
             _labels.emplace_back(line);
+            //std::cerr<<line<<std::endl;
         }
     }
     catch(const std::ifstream::failure &e)
@@ -1487,12 +2018,25 @@ void TopNPredictionsAccessor::access_predictions_tensor(ITensor &tensor)
     std::vector<size_t> index;
 
     //NPU:
-    /*
+#if NPU_Debug
+    std::cerr<<"NPU is: "<<_NPU<<std::endl;
+#endif
     if(_NPU>0){
 
     	//const auto   output_net  =
     	//const size_t num_classes =
+    	//std::cerr<<"NPU is: "<<_NPU<<std::endl;
+    	rknn_output outputs[1];
+		outputs[0].want_float = true;
+		outputs[0].is_prealloc = false;
 
+		int ret = rknn_outputs_get(*_NPU_Context, 1, outputs, NULL);
+		if(ret < 0) {
+			printf("rknn get outputs fail! ret=%d\n", ret);
+			return;
+		}
+		const float*   output_net=(float*)outputs[0].buf;
+		const size_t num_classes = 1000;
     	classes_prob.resize(num_classes);
 		index.resize(num_classes);
 
@@ -1516,10 +2060,13 @@ void TopNPredictionsAccessor::access_predictions_tensor(ITensor &tensor)
 						   << ", " << _labels[index.at(i)] << std::endl;
 		}
 
-    }*/
+    }
     //If not NPU
-    //else{
+    else{
     	const auto   output_net  = reinterpret_cast<T *>(tensor.buffer() + tensor.info()->offset_first_element_in_bytes());
+    	/*for(int j=0;j<1000;j++){
+    		std::cerr<<j<<":"<<output_net[j]<<std::endl;
+    	}*/
     	const size_t num_classes = tensor.info()->dimension(0);
 
 		classes_prob.resize(num_classes);
@@ -1544,17 +2091,24 @@ void TopNPredictionsAccessor::access_predictions_tensor(ITensor &tensor)
 						   << " - [id = " << index.at(i) << "]"
 						   << ", " << _labels[index.at(i)] << std::endl;
 		}
-    //}
+    }
 }
 
 
 
 bool TopNPredictionsAccessor::access_tensor(ITensor &tensor)
 {
+
     ARM_COMPUTE_ERROR_ON_DATA_TYPE_CHANNEL_NOT_IN(&tensor, 1, DataType::F32, DataType::QASYMM8);
     //Ehsan
     //ARM_COMPUTE_ERROR_ON(_labels.size() != tensor.info()->dimension(0));
-
+#if NPU_Debug
+    std::cerr<<"NPU:"<<_NPU<<std::endl;
+#endif
+    if(_NPU){
+    	access_predictions_tensor<float>(tensor);
+    	return false;
+    }
     switch(tensor.info()->data_type())
     {
         case DataType::QASYMM8:

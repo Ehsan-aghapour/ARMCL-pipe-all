@@ -31,6 +31,8 @@
 #include "arm_compute/gl_vs.h"
 #endif
 
+//#include "Power.h"
+
 
 #include "arm_compute/graph/GraphManager.h"
 
@@ -283,7 +285,7 @@ void GraphManager::execute_graph(Graph &graph, int nn)
         {
             return;
         }
-        //std::cout<<"call all input called\n";
+    //std::cerr<<"call all input called\n";
 	auto tfinish=std::chrono::high_resolution_clock::now();
 	//ANNOTATE_CHANNEL_END(1);
 	//ANNOTATE_CHANNEL_COLOR(2,ANNOTATE_YELLOW,"task");

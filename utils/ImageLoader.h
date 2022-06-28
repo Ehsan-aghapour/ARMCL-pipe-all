@@ -288,6 +288,9 @@ public:
                 window.set(Window::DimY, Window::Dimension(0, _height, 1));
                 window.set(Window::DimZ, Window::Dimension(0, 1, 1));
                 stride_z = tensor.info()->strides_in_bytes()[2];
+#if NPU_Debug
+                std::cerr<<"NCHW-stride_z:"<<stride_z<<std::endl;
+#endif
             }
             else
             {
@@ -295,6 +298,12 @@ public:
                 window.set(Window::DimY, Window::Dimension(0, _width, 1));
                 window.set(Window::DimZ, Window::Dimension(0, _height, 1));
                 stride_z = tensor.info()->strides_in_bytes()[0];
+#if NPU_Debug
+                std::cerr<<"stride_z:"<<stride_z<<std::endl;
+                std::cerr<<tensor.info()->strides_in_bytes()[0]<<","<<
+                		tensor.info()->strides_in_bytes()[1]<<","<<
+						tensor.info()->strides_in_bytes()[2]<<","<<std::endl;
+#endif
             }
 
             Iterator out(&tensor, window);
@@ -469,6 +478,19 @@ public:
             _is_loaded = true;
             _feeder    = std::make_unique<MemoryImageFeeder>(_data.get());
         }
+#if NPU_Debug
+        std::cerr<<"heyyyy:"<<float(rgb_image[0])<<","<<
+        		float(rgb_image[1])<<","<<
+				float(rgb_image[2])<<","<<
+				float(rgb_image[3])<<","<<
+				float(rgb_image[4])<<","<<
+				float(rgb_image[5])<<","<<
+				float(rgb_image[6])<<","<<
+				float(rgb_image[7])<<","<<
+				float(rgb_image[8])<<","<<
+				float(rgb_image[9])<<","<<
+				float(rgb_image[10])<<std::endl;
+#endif
     }
     void close() override
     {

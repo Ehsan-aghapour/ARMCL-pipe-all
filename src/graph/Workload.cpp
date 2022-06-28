@@ -98,11 +98,15 @@ double execute_task2(ExecutionTask &task, int nn)
     {
     	//std::cerr<<"Node name:"<<task.node->name()<<"\t id:"<<task.node->id();
     	//static int n=-1;
+    	std::cerr<<"start running task with blockin and ending"<<task.block<<task.ending<<std::endl;
     	auto start=std::chrono::high_resolution_clock::now();
         task.task->run();
-        if(task.block)
+        if(task.block){
         	arm_compute::CLScheduler::get().queue().finish();
+        	std::cerr<<"block\n";
+        }
         auto finish=std::chrono::high_resolution_clock::now();
+        std::cerr<<"task finished\n";
         t=1000*(std::chrono::duration_cast<std::chrono::duration<double>>(finish - start).count());
         //task_times[task.node->name()]+=1000*(std::chrono::duration_cast<std::chrono::duration<double>>(finish - start).count());
         //std::cerr<<"salam\n";

@@ -56,6 +56,7 @@ static arm_compute::graph::Target g1t;
 #include "rknn_api.h"
 #include "rockx.h"
 #define NPU_Debug 0
+#define ARM_Image_Accessor 1
 
 void print_attr(rknn_tensor_attr attr);
 void print_input(rknn_input input,int n);
@@ -117,7 +118,8 @@ private:
 
     std::array<float, 3> _mean;
     bool  _bgr;
-    float _scale;
+    float _scale=1.0;
+    //bool  _NPU=false;
 };
 
 /** TF preproccessor */
@@ -130,7 +132,7 @@ public:
      * @param[in] max_range Max normalization range. (Defaults to 1.f)
      */
     TFPreproccessor(float min_range = -1.f, float max_range = 1.f);
-
+    //TFPreproccessor(bool NPU, float min_range = -1.f, float max_range = 1.f);
     // Inherited overriden methods
     void preprocess(ITensor &tensor) override;
 
@@ -140,6 +142,7 @@ private:
 
     float _min_range;
     float _max_range;
+    //bool  _NPU;
 };
 
 /** PPM writer class */
@@ -188,10 +191,19 @@ private:
     unsigned int _iterator;
     unsigned int _maximum;
     int 		 _type;
-    bool		 _NPU=false;
-    float*		 _data=NULL;
-    rknn_context* _NPU_Context=NULL;
-    unsigned int _data_size=0;
+    bool		_NPU=false;
+    //bool		From_dummy=false;
+    unsigned int	Input_size=0;
+    float*		Input_data=NULL;
+    rknn_context*	_NPU_Context=NULL;
+    rknn_tensor_attr input_attr;
+    rknn_input	Inputs[1];
+    rknn_tensor_format fmt=RKNN_TENSOR_NHWC;
+    rknn_tensor_type type=RKNN_TENSOR_FLOAT32;
+    bool	Pass=false;
+
+    rknn_output outputs[1];
+
 };
 
 //Ehsan
@@ -230,7 +242,7 @@ public:
      *
      */
 	ReceiverAccessor(bool tran, int Connection_id, int T_id, bool NPU=false, rknn_context* NPU_Context=NULL, int input_size=0, bool From_dummy=false);
-	ReceiverAccessor(bool tran, int Connection_id, int T_id, arm_compute::graph_utils::SenderAccessor* S);
+	ReceiverAccessor(bool tran, int Connection_id, int T_id, arm_compute::graph_utils::SenderAccessor* S, bool Transpose);
     /** Allows instances to move constructed */
 	ReceiverAccessor(ReceiverAccessor &&) = default;
 
@@ -280,6 +292,7 @@ private:
     rknn_tensor_format fmt=RKNN_TENSOR_NHWC;
     rknn_tensor_type type=RKNN_TENSOR_FLOAT32;
     bool	Pass=false;
+    bool	_Transpose=true;
 };
 
 
@@ -428,8 +441,17 @@ private:
 
     const bool                     _bgr;
     std::unique_ptr<IPreprocessor> _preprocessor;
-    //int							   _NPU=-1;
-    rknn_context*			_NPU_Context=NULL;
+    int							   _NPU=0;
+    //rknn_context*			_NPU_Context=NULL;
+
+    unsigned int	Input_size=0;
+	float*		Input_data=NULL;
+	rknn_context*	_NPU_Context=NULL;
+	rknn_tensor_attr input_attr;
+	rknn_input	Inputs[1];
+	rknn_tensor_format fmt=RKNN_TENSOR_NHWC;
+	rknn_tensor_type type=RKNN_TENSOR_FLOAT32;
+	bool	Pass=false;
 };
 
 /** Input Accessor used for network validation */
@@ -588,7 +610,7 @@ private:
     std::vector<std::string> _labels;
     std::ostream            &_output_stream;
     size_t                   _top_n;
-    //int						 _NPU=-1;
+    int						 _NPU=0;
     rknn_context* _NPU_Context = NULL;
 };
 
@@ -630,8 +652,10 @@ public:
 			printf("NPU get output fail! ret=%d\n",ret);
 			return NULL;
 		}
-    	//printf("\n\n*************\n");
+    	printf("\n\n*************\n");
     	//print_output(Outputs[0],Output_attr.n_elems);
+    	//print_output(Outputs[0],100);
+
     	return Outputs;
     }
     void release_outputs(){
@@ -822,8 +846,12 @@ inline void del(){
 inline std::unique_ptr<graph::ITensorAccessor> get_input_accessor(const arm_compute::utils::CommonGraphParams &graph_parameters,
                                                                   std::unique_ptr<IPreprocessor>               preprocessor = nullptr,
                                                                   bool                                         bgr          = true,
-																  rknn_context*								   NPU_Context  = NULL)
+																  rknn_context*								   NPU_Context  = NULL,
+																  size_t										data_size = 0)
 {
+#if NPU_Debug
+	std::cerr<<"get input accessor, filename: "<<graph_parameters.image<<std::endl;
+#endif
     if(!graph_parameters.validation_file.empty())
     {
         return std::make_unique<ValidationInputAccessor>(graph_parameters.validation_file,
@@ -866,17 +894,18 @@ inline std::unique_ptr<graph::ITensorAccessor> get_input_accessor(const arm_comp
 
         else
         {
-            return std::make_unique<DummyAccessor>(2,NPU_Context);
+            return std::make_unique<DummyAccessor>(2,NPU_Context,data_size);
         }
     }
 }
 
 inline std::unique_ptr<graph::ITensorAccessor> get_Receiver_accessor(const arm_compute::utils::CommonGraphParams &graph_parameters,
                                                                   	  int	Connection_id,
-																	  int	T_id,
+																	  int	T_id=0,
 																	  int	input_size=0,
 																	  rknn_context* NPU_Context	=	NULL,
-																	  arm_compute::graph_utils::SenderAccessor* NPU_Sender=NULL
+																	  arm_compute::graph_utils::SenderAccessor* NPU_Sender=NULL,
+																	  bool Transpose=true
                                                                   	  )
 {
 
@@ -896,7 +925,7 @@ inline std::unique_ptr<graph::ITensorAccessor> get_Receiver_accessor(const arm_c
 		}
         else if( graph_parameters.image == "transfer_from_npu" )
 		{
-			return std::make_unique<ReceiverAccessor>(1,Connection_id,T_id, NPU_Sender);
+			return std::make_unique<ReceiverAccessor>(1,Connection_id,T_id, NPU_Sender,Transpose);
 		}
         else if( graph_parameters.image == "npu" )
 		{
@@ -964,7 +993,7 @@ inline std::unique_ptr<graph::ITensorAccessor> get_output_accessor(const arm_com
 
 inline std::unique_ptr<graph::ITensorAccessor> get_Sender_accessor(const arm_compute::utils::CommonGraphParams &graph_parameters,
                                                                    int		Connection_id,
-																   int		T_id,
+																   int		T_id=0,
 																   unsigned int output_size=0,
 																   rknn_context* NPU_Context = NULL,
 																   arm_compute::graph_utils::ReceiverAccessor* NPU_Receiver=NULL,
