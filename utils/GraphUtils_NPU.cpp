@@ -147,7 +147,7 @@ void print_image(rockx_image_t image,int n){
 using namespace arm_compute::graph_utils;
 std::mutex PrintThread::_mutexPrint{};
 
-bool per_frame;
+bool per_frame=false;
 
 //NPU:
 //std::vector<std::unique_ptr<arm_compute::graph_utils::SenderAccessor>> arm_compute::graph_utils::NPU_Senders;
@@ -1121,9 +1121,9 @@ void SenderAccessor::my_access_predictions_tensor(ITensor &tensor)
 						////PrintThread{}<<"first graph is responsible for transition\n";
 						auto tstart=std::chrono::high_resolution_clock::now();
 						//PrintThread{}<<"len rec: "<<Receivers.size()<<" shape receiver: "<<Receivers[id]->desc().shape<<std::endl;
-						std::cerr<<"1:"<<Receivers.size()<<","<<Transmitters.size()<<std::endl;
+						//std::cerr<<"1:"<<Receivers.size()<<","<<Transmitters.size()<<std::endl;
 						Receivers[T_id]->handle()->tensor().copy_from(tensor);
-						std::cerr<<"2\n";
+						//std::cerr<<"2\n";
 						auto tfinish=std::chrono::high_resolution_clock::now();
 						double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
 						////PrintThread{}<<"\nTransfer0 time:"<<cost0<<std::endl<<std::endl;
@@ -1372,6 +1372,15 @@ bool ImageAccessor::access_tensor(ITensor &tensor)
 		_already_loaded = !_already_loaded;
 		return _already_loaded;
 	}*/
+
+	/* latency per_frame */
+	if(per_frame){
+		std::unique_lock<std::mutex> lk(inout);
+		inout_cv.wait(lk,[]{return *start_frame;});
+		*start_frame=false;
+		lk.unlock();
+	}
+	/*********************/
 
     if(!_already_loaded)
     {
@@ -2012,7 +2021,12 @@ TopNPredictionsAccessor::TopNPredictionsAccessor(const std::string &labels_path,
 template <typename T>
 void TopNPredictionsAccessor::access_predictions_tensor(ITensor &tensor)
 {
-
+	/* latency per_frame */
+	if(per_frame){
+		*start_frame=true;
+		std::lock_guard<std::mutex> lk(inout);
+	}
+	/*********************/
     // Get the predicted class
     std::vector<T>      classes_prob;
     std::vector<size_t> index;
@@ -2092,6 +2106,11 @@ void TopNPredictionsAccessor::access_predictions_tensor(ITensor &tensor)
 						   << ", " << _labels[index.at(i)] << std::endl;
 		}
     }
+    /* latency per_frame */
+    if(per_frame){
+    	inout_cv.notify_all();
+    }
+    /*********************/
 }
 
 

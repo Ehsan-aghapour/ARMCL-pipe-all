@@ -36,7 +36,7 @@
 
 //Power
 #include "power.h"
-#define Power_Measurement 0
+#define Power_Measurement 1
 
 //NPU
 #include "rknn_api.h"
@@ -107,6 +107,62 @@ public:
 		}
 		return set;
 	}
+    void fill_host_core(){
+    	std::vector<int> little_cores;
+		std::vector<int> big_cores;
+		for(int i=0;i<common_params.little_cores;i++){
+			little_cores.push_back(i);
+		}
+		for(int i=common_params.little_cores; i<common_params.total_cores;i++){
+			big_cores.push_back(i);
+		}
+
+
+		char NPU_h=common_params.npu_host;
+		char GPU_h=common_params.gpu_host;
+
+		host_core[0]=little_cores.back();
+		if( little_cores.size() > 1){
+			little_cores.pop_back();
+		}
+		host_core[1]=big_cores.back();
+		if( big_cores.size() > 1){
+			big_cores.pop_back();
+		}
+		if(GPU_h=='B'){
+			host_core[2]=big_cores.back();
+			if( big_cores.size() > 1){
+				big_cores.pop_back();
+			}
+		}
+		if(GPU_h=='L'){
+			host_core[2]=little_cores.back();
+			if (little_cores.size() >1 ){
+				little_cores.pop_back();
+			}
+		}
+		if(NPU_h=='B'){
+			npu_host=big_cores.back();
+			if( big_cores.size() > 1){
+				big_cores.pop_back();
+			}
+		}
+		if(NPU_h=='L'){
+			npu_host=little_cores.back();
+			if (little_cores.size() >1 ){
+				little_cores.pop_back();
+			}
+		}
+		std::cout<<"NPU host: "
+				<<npu_host
+				<<"\nLittle Cores host: "
+				<<host_core[0]
+				<<"\nBig Cores host: "
+				<<host_core[1]
+				<<"\nGPU host: "
+				<<host_core[2]
+				<<std::endl;
+    }
 
     int npu_init_context(int npu_index){
         	//std::string model_name="/data/data/com.termux/files/home/ARMCL-RockPi/graphs/"+NPU_Model_Name[npu_index];
@@ -439,8 +495,8 @@ public:
 
     					cpu_set_t set;
     					CPU_ZERO(&set);
-    					//CPU_SET(core[classes[gr_layer[Layer]]],&set);
-    					set_cores(&set,one_master_core,core[classes[gr_layer[Layer]]]);
+    					//CPU_SET(host_core[classes[gr_layer[Layer]]],&set);
+    					set_cores(&set,one_master_core,host_core[classes[gr_layer[Layer]]]);
     					ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
     #if NPU_Debug
     					std::cerr<<"Attach layer: next normal subgraph is prepared\n";
@@ -534,7 +590,10 @@ public:
 
         }
 
-
+	void do_finish(){
+		del();
+		return;
+	}
     bool do_setup(int argc, char **argv) override
     {
         // Parse arguments
@@ -581,7 +640,20 @@ public:
 
         //Ehsan
         //**********************************************************************************
+        fill_host_core();
+#if Power_Measurement
+		if (-1 == GPIOExport(POUT))
+				return(1);
+		if (-1 == GPIODirection(POUT, OUT))
+				return(2);
 
+#endif
+
+#if Power_Measurement
+		//Power
+		if (-1 == GPIOWrite(POUT, 0))
+			std::cerr<<"Could not write 0 to GPIO\n";
+#endif
         int n_l=18;
         std::cerr<<"Number of Layers: "<<n_l<<std::endl;
         std::string lbl=common_params.labels;
@@ -707,8 +779,8 @@ public:
 		//NPU:
 		//
 		if(gr_layer[Layer]>0){
-			//CPU_SET(core[classes[gr_layer[Layer]]],&set);
-			set_cores(&set,one_master_core,core[classes[gr_layer[Layer]]]);
+			//CPU_SET(host_core[classes[gr_layer[Layer]]],&set);
+			set_cores(&set,one_master_core,host_core[classes[gr_layer[Layer]]]);
 			ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
 		}
 		std::cout << common_params << std::endl;
@@ -839,14 +911,6 @@ public:
 		}
 #endif
 
-		//Power:
-#if Power_Measurement
-		if (-1 == GPIOExport(POUT))
-				return(1);
-		if (-1 == GPIODirection(POUT, OUT))
-				return(2);
-
-#endif
 
 		return true;
     }
@@ -928,13 +992,13 @@ private:
     	if (-1 == GPIOUnexport(POUT))
     			std::cerr<<"could not unexport\n";
 #endif
-    	del();
+    	//del();
 
     }
     void run(int graph_id){
     	//std::cerr<<"setup finished now start running\n";
 		int cl=classes[graph_id];
-		int core_id=core[cl];
+		int core_id=host_core[cl];
 		cpu_set_t set;
 		CPU_ZERO(&set);
 		//CPU_SET(core_id,&set);
@@ -1050,11 +1114,12 @@ private:
     void run_npu(int id){
 		//int cl=classes[graph_id];
     	//std::cerr<<"Run NPU\n";
-    	int core_id=common_params.total_cores-(id+1);
+    	//int core_id=common_params.total_cores-(id+1);
 		cpu_set_t set;
 		CPU_ZERO(&set);
 		//CPU_SET(core_id,&set);
-		set_cores(&set,one_master_core,core_id);
+		////set_cores(&set,one_master_core,core_id);
+		set_cores(&set,one_master_core,npu_host);
 		ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
 		//PrintThread{}<<"start running graph "<<graph_id<<std::flush<<std::endl;
 		std::cerr<<"\nnpu_run: Start running NPU "<<id<<std::flush<<std::endl;
@@ -1288,8 +1353,8 @@ private:
     int Layer=0;
     int Layers=0;
     bool			   annotate{false};
-    bool one_master_core=true;
-    std::map<int, int> core = {{0, 1}, {1, 5}, {2, 4}};
+    bool one_master_core=false;
+    std::map<int, int> host_core = {{0, 1}, {1, 5}, {2, 4}};
     ImageAccessor *im_acc=NULL;
     Stream *dump_graph=NULL;
     std::map<int,int> gr_layer;
@@ -1305,6 +1370,8 @@ private:
     arm_compute::graph::ITensorAccessor *Input_Accessor=NULL;
     //std::map<int, int> core_npu = {{},{},{}};
     bool Transpose = false;
+
+    int npu_host;
 
     void add_residual_block(const std::string &data_path, const std::string &name, DataLayout weights_layout,
                             unsigned int base_depth, unsigned int num_units, unsigned int stride)

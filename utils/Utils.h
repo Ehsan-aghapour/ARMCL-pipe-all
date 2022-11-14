@@ -59,6 +59,8 @@
 #include <tuple>
 #include <vector>
 
+#include <unistd.h>
+
 namespace arm_compute
 {
 namespace utils
@@ -94,6 +96,8 @@ public:
     virtual void do_run() {};
     /** Teardown the example. */
     virtual void do_teardown() {};
+
+    virtual void do_finish(){};
 
     /** Default destructor. */
     virtual ~Example() = default;

@@ -47,6 +47,8 @@
 #include "stb/stb_image.h"
 #pragma GCC diagnostic pop
 
+
+
 namespace arm_compute
 {
 namespace utils
@@ -84,7 +86,7 @@ void discard_comments_and_spaces(std::ifstream &fs)
     }
 }
 } // namespace
-
+#define Frequency_Setting 1
 #ifndef BENCHMARK_EXAMPLES
 int run_example(int argc, char **argv, std::unique_ptr<Example> example)
 {
@@ -93,15 +95,66 @@ int run_example(int argc, char **argv, std::unique_ptr<Example> example)
 
     try
     {
+#if Frequency_Setting
+        system("echo userspace > /sys/devices/system/cpu/cpufreq/policy0/scaling_governor");
+        system("echo userspace > /sys/devices/system/cpu/cpufreq/policy4/scaling_governor");
+        system("echo userspace > /sys/devices/platform/ff9a0000.gpu/devfreq/ff9a0000.gpu/governor");
+        int f_i=1;
+#endif
         bool status = example->do_setup(argc, argv);
         if(!status)
         {
             return 1;
         }
-        example->do_run();
-        example->do_teardown();
+#if Frequency_Setting
+        //Min
+        int LFreq=408000, BFreq=408000, GFreq=200000000;
+        //Max
+        //int LFreq=1416000, BFreq=1800000, GFreq=800000000;
 
-        std::cout << "\nTest passed\n";
+        std::string cmd="";
+
+        /*
+        //Set Little CPU Frequency
+		cmd="echo " + to_string(LFreq) + " > /sys/devices/system/cpu/cpufreq/policy0/scaling_setspeed";
+		system(cmd.c_str());
+
+		//Set Big CPU Frequency
+		cmd="echo " + to_string(BFreq) + " > /sys/devices/system/cpu/cpufreq/policy4/scaling_setspeed";
+		system(cmd.c_str());
+
+		//Set GPU Frequency
+		cmd="echo " + to_string(GFreq) + " > /sys/devices/platform/ff9a0000.gpu/devfreq/ff9a0000.gpu/userspace/set_freq";
+		system(cmd.c_str());
+		*/
+        std::cin>>LFreq;
+		std::cin>>BFreq;
+		std::cin>>GFreq;
+
+        while (BFreq && LFreq && GFreq){
+        	std::cerr<<f_i++<<" Running Graph with Frequency: "<<LFreq<<','<<BFreq<<','<<GFreq<<std::endl;
+			//Set Little CPU Frequency
+			cmd="echo " + to_string(LFreq) + " > /sys/devices/system/cpu/cpufreq/policy0/scaling_setspeed";
+			system(cmd.c_str());
+			//Set Big CPU Frequency
+			cmd="echo " + to_string(BFreq) + " > /sys/devices/system/cpu/cpufreq/policy4/scaling_setspeed";
+			system(cmd.c_str());
+			//Set GPU Frequency
+			cmd="echo " + to_string(GFreq) + " > /sys/devices/platform/ff9a0000.gpu/devfreq/ff9a0000.gpu/userspace/set_freq";
+			system(cmd.c_str());
+        	sleep(2);
+        	example->do_run();
+        	std::cin>>LFreq;
+        	std::cin>>BFreq;
+        	std::cin>>GFreq;
+
+        }
+        example->do_finish();
+#else
+        example->do_teardown();
+#endif
+
+        std::cerr << "\nTest passed\n";
         return 0;
     }
 #ifdef ARM_COMPUTE_CL

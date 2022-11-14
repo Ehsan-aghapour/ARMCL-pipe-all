@@ -11,8 +11,10 @@
 #define LOW  0
 #define HIGH 1
 
-
-#define POUT 432
+//Khadas
+//#define POUT 432
+//RockPi
+#define POUT 157  /* P1-07 */
 
 static int
 GPIOExport(int pin)
