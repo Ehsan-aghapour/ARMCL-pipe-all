@@ -290,7 +290,8 @@ void GraphManager::execute_graph(Graph &graph, int nn)
 	//ANNOTATE_CHANNEL_END(1);
 	//ANNOTATE_CHANNEL_COLOR(2,ANNOTATE_YELLOW,"task");
 	/*in += std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();*/
-	input_time += std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+	double x1=std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+	input_time +=x1;
 
 	//std::cout<<"Input accessor duration: "<<Cost0<<std::endl;
         // Run graph
@@ -305,15 +306,20 @@ void GraphManager::execute_graph(Graph &graph, int nn)
 	//ANNOTATE_CHANNEL_COLOR(3,ANNOTATE_BLACK,"output");
 	//if(!task)
 	/*task += std::chrono::duration_cast<std::chrono::duration<double>>(tstart-tfinish).count();*/
-	task_time += std::chrono::duration_cast<std::chrono::duration<double>>(tstart-tfinish).count();
+	double x2=std::chrono::duration_cast<std::chrono::duration<double>>(tstart-tfinish).count();
+
+	task_time += x2;
 
 	//std::cout<<"\n2task:"<<task<<std::endl;
 	//std::cout<<"task duration: "<<task<<std::endl;
         // Call output accessors
+	double x3=0;
         if(!detail::call_all_output_node_accessors(it->second))
         {
 	    tfinish=std::chrono::high_resolution_clock::now();
-	    output_time += std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+	    x3=std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+	    //std::cerr<<"Graph"<<graph.id()<<"   Input: "<<x1*1000<<"   Task: "<<x2*1000<<"   Out: "<<x3*1000<<"   Proc: "<<(x2+x3)*1000<<std::endl;
+	    output_time += x3;
             // std::cout<<"__Output accessor duration: "<<out<<std::endl;
 	    //std::cout<<"tot_(input+tasks+output):"<<tot<<std::endl;
 	    //ANNOTATE_CHANNEL_END(3);
@@ -321,7 +327,10 @@ void GraphManager::execute_graph(Graph &graph, int nn)
         }
 	tfinish=std::chrono::high_resolution_clock::now();
 	/*out += std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();*/
-	output_time += std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+	x3=std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+
+	//std::cerr<<"Graph"<<graph.id()<<"   Input: "<<x1*1000<<"   Task: "<<x2*1000<<"   Out: "<<x3*1000<<"   Proc: "<<(x2+x3)*1000<<std::endl;
+	output_time +=x3;
 
 	//tot = in+task+out;
 	//std::cout<<"Output accessor duration: "<<out<<std::endl;

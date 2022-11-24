@@ -46,11 +46,6 @@ using namespace arm_compute::utils;
 using namespace arm_compute::graph::frontend;
 using namespace arm_compute::graph_utils;
 
-#include <condition_variable>
-std::mutex mutex_;
-std::condition_variable condVar;
-bool* StartRunning=new bool(false);
-
 
 //Ehsan 
 typedef std::vector<std::string> stringvec;
@@ -84,15 +79,6 @@ public:
     GraphGooglenetExample()
         : cmd_parser(), common_opts(cmd_parser), common_params()
     {
-    }
-
-    void print_cpu_set(cpu_set_t set){
-    	std::cerr<<"setting cores to: "<<std::endl;
-		for (long i = 0; i < common_params.total_cores; i++) {
-			if (CPU_ISSET(i, &set)) {
-				std::cerr << "core # " << i << " is in cpuset" << std::endl;
-			}
-		}
     }
 
     cpu_set_t* set_cores(cpu_set_t *set,bool _one_master_core, int _core){
@@ -494,7 +480,6 @@ public:
     					CPU_ZERO(&set);
     					//CPU_SET(host_core[classes[gr_layer[Layer]]],&set);
     					set_cores(&set,one_master_core,host_core[classes[gr_layer[Layer]]]);
-    					//print_cpu_set(set);
     					ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
     #if NPU_Debug
     					std::cerr<<"Attach layer: next normal subgraph is prepared\n";
@@ -669,162 +654,154 @@ public:
         Layers=order.size();
         int g=0;
         //NPU
-		int start_N=-1;
-		int end_N=-1;
-		for(int i=0;i<Layers;i++){
-			if (order[i]=='N'){
-				if (start_N==-1){
-					start_N=i;
-					end_N=i;
-				}
-				else{
-					end_N=i;
-				}
-			}
-		}
-		NPU_Model_Name=NPU_Model_Name+'_'+std::to_string(start_N+1)+'_'+std::to_string(end_N+1)+".rknn";
-		for(int i=0;i<Layers;i++){
-			if(i==0){
-				if (order[i]=='B'){
-					targets.push_back(arm_compute::graph::Target ::NEON);
-					classes.push_back(1);
-				}
-				if (order[i]=='L'){
-					targets.push_back(arm_compute::graph::Target ::NEON);
-					classes.push_back(0);
-				}
-				if (order[i]=='G'){
-					targets.push_back(arm_compute::graph::Target ::CL);
-					classes.push_back(2);
-				}
-				if (order[i]=='N'){
-					//targets.push_back(arm_compute::graph::Target ::NEON);
-					//classes.push_back(3);
-					rknn_context ctx=0;
-					NPU_Contexts.push_back(ctx);
-				}
-				if (order[i]!='-' && order[i]!='N' ){
-					graphs.push_back(new Stream(g,"GoogleNet"));
-					gr_layer[i]=g;
-				}
-				if(order[i]=='-'){
-					gr_layer[i]=-1;
-				}
-				if(order[i]=='N'){
-					gr_layer[i]=-2;
-				}
-			}
+                int start_N=-1;
+                int end_N=-1;
+                for(int i=0;i<Layers;i++){
+                	if (order[i]=='N'){
+                		if (start_N==-1){
+                			start_N=i;
+                			end_N=i;
+                		}
+                		else{
+                			end_N=i;
+                		}
+                	}
+                }
+                NPU_Model_Name=NPU_Model_Name+'_'+std::to_string(start_N+1)+'_'+std::to_string(end_N+1)+".rknn";
+                for(int i=0;i<Layers;i++){
+                	if(i==0){
+        				if (order[i]=='B'){
+        					targets.push_back(arm_compute::graph::Target ::NEON);
+        					classes.push_back(1);
+        				}
+        				if (order[i]=='L'){
+        					targets.push_back(arm_compute::graph::Target ::NEON);
+        					classes.push_back(0);
+        				}
+        				if (order[i]=='G'){
+        					targets.push_back(arm_compute::graph::Target ::CL);
+        					classes.push_back(2);
+        				}
+        				if (order[i]=='N'){
+        					//targets.push_back(arm_compute::graph::Target ::NEON);
+        					//classes.push_back(3);
+        					rknn_context ctx=0;
+        					NPU_Contexts.push_back(ctx);
+        				}
+        				if (order[i]!='-' && order[i]!='N' ){
+        					graphs.push_back(new Stream(g,"GoogleNet"));
+        					gr_layer[i]=g;
+        				}
+        				if(order[i]=='-'){
+        					gr_layer[i]=-1;
+        				}
+        				if(order[i]=='N'){
+        					gr_layer[i]=-2;
+        				}
+                	}
 
-			else if (order[i]!=order[i-1]){
-				if(order[i]=='-'){
-					gr_layer[i]=-1;
-				}
-				else if(order[i]=='N'){
-					gr_layer[i]=-2;
-					rknn_context ctx=0;
-					NPU_Contexts.push_back(ctx);
-				}
-				else{
-					if (order[i]=='B'){
-						targets.push_back(arm_compute::graph::Target ::NEON);
-						classes.push_back(1);
-					}
-					if (order[i]=='L'){
-						targets.push_back(arm_compute::graph::Target ::NEON);
-						classes.push_back(0);
-					}
-					if (order[i]=='G'){
-						targets.push_back(arm_compute::graph::Target ::CL);
-						classes.push_back(2);
-					}
+                	else if (order[i]!=order[i-1]){
+                		if(order[i]=='-'){
+                			gr_layer[i]=-1;
+                		}
+                		else if(order[i]=='N'){
+                			gr_layer[i]=-2;
+                			rknn_context ctx=0;
+                			NPU_Contexts.push_back(ctx);
+                		}
+                		else{
+                			if (order[i]=='B'){
+        						targets.push_back(arm_compute::graph::Target ::NEON);
+        						classes.push_back(1);
+        					}
+        					if (order[i]=='L'){
+        						targets.push_back(arm_compute::graph::Target ::NEON);
+        						classes.push_back(0);
+        					}
+        					if (order[i]=='G'){
+        						targets.push_back(arm_compute::graph::Target ::CL);
+        						classes.push_back(2);
+        					}
 
-					graphs.push_back(new Stream(g+1,"GoogleNet"));
-					gr_layer[i]=graphs.size()-1;
-					g=graphs.size()-1;
-				}
+        					graphs.push_back(new Stream(g+1,"GoogleNet"));
+        					gr_layer[i]=graphs.size()-1;
+        					g=graphs.size()-1;
+                		}
 
-			}
+                	}
 
-			else{
-				if(order[i]!='-' && order[i]!='N')
-					gr_layer[i]=g;
-				if(order[i]=='-')
-					gr_layer[i]=-1;
-				if(order[i]=='N')
-					gr_layer[i]=-2;
-			}
-		}
-		std::cerr<<"graphs id:\n";
-		for (auto gg:graphs){
-			std::cerr<<gg->graph().id()<<std::endl;
-		}
-
-		for(int i=0;i<Layers;i++){
-			//std::cerr<<i<<"\t"<<gr_layer[i]<<std::endl;
-			if(order[i]=='-' || order[i]=='N'){
-				dump_graph=new Stream(1000,"GoogleNEt");
-				break;
-			}
-		}
-#if NPU_Debug
-		std::cerr<<"graph layers:\n";
-		for(int i=0;i<Layers;i++){
-					std::cerr<<i<<"\t"<<gr_layer[i]<<std::endl;
-		}
-#endif
-		////per_frame=(graphs.size()>1);
-		/*for(int i=0;i<8;i++){
-			std::cout<<"Layer:"<<i<<'\t'<<"graph:"<<gr_layer[i]<<'\t'<<"class:"<<classes[gr_layer[i]]<<'\t'<<"target:"<<int(targets[gr_layer[i]])<<std::endl;
-		}*/
+                	else{
+                		if(order[i]!='-' && order[i]!='N')
+                			gr_layer[i]=g;
+                		if(order[i]=='-')
+                			gr_layer[i]=-1;
+                		if(order[i]=='N')
+                			gr_layer[i]=-2;
+                	}
+                }
+                for(int i=0;i<Layers;i++){
+                	//std::cerr<<i<<"\t"<<gr_layer[i]<<std::endl;
+                	if(order[i]=='-' || order[i]=='N'){
+                		dump_graph=new Stream(1000,"GoogleNEt");
+                		break;
+                	}
+                }
+        #if NPU_Debug
+                std::cerr<<"graph layers:\n";
+                for(int i=0;i<Layers;i++){
+                        	std::cerr<<i<<"\t"<<gr_layer[i]<<std::endl;
+                }
+        #endif
+                ////per_frame=(graphs.size()>1);
+                /*for(int i=0;i<8;i++){
+                	std::cout<<"Layer:"<<i<<'\t'<<"graph:"<<gr_layer[i]<<'\t'<<"class:"<<classes[gr_layer[i]]<<'\t'<<"target:"<<int(targets[gr_layer[i]])<<std::endl;
+                }*/
 
 
-		cpu_set_t set;
-		CPU_ZERO(&set);
-		//NPU:
-		//
-		std::cerr<<"----------------->"<<gr_layer[Layer]<<std::endl;
-		if(gr_layer[Layer]>0){
-			//CPU_SET(host_core[classes[gr_layer[Layer]]],&set);
-			set_cores(&set,one_master_core,host_core[classes[gr_layer[Layer]]]);
-			std::cerr<<"cpu cores for first subgraph:\n";
-			//print_cpu_set(set);
-			ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
-		}
-		std::cout << common_params << std::endl;
+                cpu_set_t set;
+        		CPU_ZERO(&set);
+        		//NPU:
+        		//
+        		if(gr_layer[Layer]>0){
+        			//CPU_SET(host_core[classes[gr_layer[Layer]]],&set);
+        			set_cores(&set,one_master_core,host_core[classes[gr_layer[Layer]]]);
+        			ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
+        		}
+                std::cout << common_params << std::endl;
 
-		annotate=common_params.annotate;
-		//ann=annotate;
-		save_model=common_params.save;
+                annotate=common_params.annotate;
+        		//ann=annotate;
+        		save_model=common_params.save;
 
-		//If subgraph is dummy
-		if(gr_layer[Layer]==-1 ){
-			sub_graph=dump_graph;
-			common_params.target=arm_compute::graph::Target ::NEON;
-		}
+        		//If subgraph is dummy
+                if(gr_layer[Layer]==-1 ){
+                	sub_graph=dump_graph;
+                	common_params.target=arm_compute::graph::Target ::NEON;
+                }
 
-		//If subgraph is NPU
-		else if(gr_layer[Layer]==-2){
-			sub_graph=dump_graph;
-			common_params.target=arm_compute::graph::Target ::NEON;
-			NPU_index++;
-			npu_init_context(NPU_index);
-#if NPU_Debug
-			std::cerr<<"Setup: init npu model\n";
-#endif
-			//Input_Accessor=get_input_accessor(common_params, std::move(preprocessor), true, NPU_Contexts[NPU_index]).get();
-			Input_Accessor=get_input_accessor(common_params, std::move(preprocessor), true, &NPU_Contexts[NPU_index],tensor_shape.total_size()).release();
-			im_acc=dynamic_cast<ImageAccessor*>(Input_Accessor);
+                //If subgraph is NPU
+                else if(gr_layer[Layer]==-2){
+                	sub_graph=dump_graph;
+                	common_params.target=arm_compute::graph::Target ::NEON;
+                	NPU_index++;
+                	npu_init_context(NPU_index);
+        #if NPU_Debug
+        			std::cerr<<"Setup: init npu model\n";
+        #endif
+        			//Input_Accessor=get_input_accessor(common_params, std::move(preprocessor), true, NPU_Contexts[NPU_index]).get();
+        			Input_Accessor=get_input_accessor(common_params, std::move(preprocessor), true, &NPU_Contexts[NPU_index],tensor_shape.total_size()).release();
+        			im_acc=dynamic_cast<ImageAccessor*>(Input_Accessor);
 
-			arm_compute::TensorInfo info(input_descriptor.shape,1,input_descriptor.data_type,operation_layout);
-			Input_tensor.allocator()->init(info);
-			Input_tensor.allocator()->allocate();
+        			arm_compute::TensorInfo info(input_descriptor.shape,1,input_descriptor.data_type,operation_layout);
+        			Input_tensor.allocator()->init(info);
+        			Input_tensor.allocator()->allocate();
 
-		}
-		//If subgraph is real
-		else{
-			sub_graph=(graphs[gr_layer[Layer]]);
-			common_params.target=targets[gr_layer[Layer]];
-		}
+                }
+                //If subgraph is real
+                else{
+                	sub_graph=(graphs[gr_layer[Layer]]);
+                	common_params.target=targets[gr_layer[Layer]];
+                }
 
         //***************************************************************
 
@@ -963,11 +940,7 @@ public:
             //Ehsan
         	cpu_set_t set;
         	CPU_ZERO(&set);
-        	//CPU_SET(1,&set);
-    		for(int i=0;i<common_params.total_cores;i++){
-    			CPU_SET(i,&set);
-			}
-    		//print_cpu_set(set);
+        	CPU_SET(1,&set);
         	ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
         	//std::string t;
     #if NPU_Debug
@@ -983,7 +956,7 @@ public:
     			std::cerr<<"att_1:\nNPU Send: "<<i<<" Con id: "<<NPU_Senders[i]->get_connection_id()<<'\n';
     		}
     #endif
-        	//std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+        	std::this_thread::sleep_for(std::chrono::milliseconds(2000));
         	std::vector<std::thread*> stages;
         	std::vector<std::thread*> npu_stages;
         	int n=common_params.n;
@@ -998,25 +971,6 @@ public:
         		//std::cerr<<"thread "<< i<<" created\n";
         		//stages[i]->join();
         	}
-
-        		/*
-        	int jj=5;
-        	for (int j=0;j<jj;j++){
-        		std::cerr<<"Ready to measure power "<<5-j<<"S"<<std::endl;
-        		std::this_thread::sleep_for(std::chrono::milliseconds((j+1)*1000));
-        	}
-        	*/
-        	std::this_thread::sleep_for(std::chrono::milliseconds(5*1000));
-
-
-        	{
-				std::lock_guard<std::mutex> lck(mutex_);
-				*StartRunning = true;
-			}
-        	std::this_thread::sleep_for(std::chrono::milliseconds(100));
-			std::cerr << "\n\n\n\n\n\n\n================================================\nStart Running All Subgraphs ...\n"<<
-					"====================================================\n\n\n"<< std::endl;
-			condVar.notify_all();
 
 
         	for(int i=0;i<stages.size();i++){
@@ -1047,7 +1001,9 @@ public:
 
 
 
-
+        	//Power
+        	/*if (-1 == GPIOWrite(POUT, 1))
+        			std::cerr<<"could not write 1\n";*/
     #if Power_Measurement
         	if (-1 == GPIOUnexport(POUT))
         			std::cerr<<"could not unexport\n";
@@ -1063,7 +1019,6 @@ public:
     		CPU_ZERO(&set);
     		//CPU_SET(core_id,&set);
     		set_cores(&set,one_master_core,core_id);
-    		//print_cpu_set(set);
     		ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
     		//PrintThread{}<<"start running graph "<<graph_id<<std::flush<<std::endl;
 
@@ -1080,7 +1035,7 @@ public:
     		if(imgs && starting){
     			if(image_index>=images_list.size())
     					image_index=image_index%images_list.size();
-    			std::cerr<<"\n\nWarmUp: First graph inferencing image: "<<image_index<<":"<<images_list[image_index]<<std::endl;
+    			PrintThread{}<<"\n\nFirst graph inferencing image: "<<image_index<<":"<<images_list[image_index]<<std::endl;
     			//std::unique_ptr<ImageAccessor> im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
     			im_acc->set_filename(images_list[image_index]);
     #if NPU_Debug
@@ -1102,60 +1057,33 @@ public:
     		graphs[graph_id]->set_output_time(0);
     		graphs[graph_id]->set_cost_time(0);
 
-    		//std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-    		//PrintThread{}<<"\nrun: Start running graph "<<graph_id<<std::flush<<std::endl;
+    		std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    		PrintThread{}<<"\nrun: Start running graph "<<graph_id<<std::flush<<std::endl;
     		/*if(starting){
     			std::this_thread::sleep_for(std::chrono::milliseconds(2000));
     		}*/
     		if(layer_timing)
     			graphs[graph_id]->reset();
-
-    		std::cout << "Subgraph"<<graph_id<<" Ready to trigger Start Running" << std::endl;
-    		{
-				std::unique_lock<std::mutex> lck(mutex_);
-				condVar.wait(lck, []{ return *StartRunning; });   // (4)
-				lck.unlock();
-    		}
-
-
     		auto tstart=std::chrono::high_resolution_clock::now();
 
     		//std::cout<<tstart.time_since_epoch().count()<<std::endl;
 
-#if Power_Measurement
-			//Start Power measurement only when last pipeline stage start processing
-			if(ending){
-				if (-1 == GPIOWrite(POUT, 1))
-					std::cerr<<"Could not write to GPIO\n";
-			}
-#endif
+    #if Power_Measurement
+    		//Power
+    		if (-1 == GPIOWrite(POUT, 1))
+    			std::cerr<<"Could not write to GPIO\n";
+    #endif
 
     		int iii=n/2;
     		for(int i=0;i<n;i++){
-    			/*
-#if Power_Measurement
-    			//Start Power measurement only when last pipeline stage start processing of second frame
-    			//If we trigger when i==0 it start immediately because it waits in graph->run (in input part) for previous data to come
-    			if(ending && i==1){
-    				std::cerr<<"\n\n\n*************************************************\n"<<
-    						"Starting power measurement when last subgraph"<<graph_id<<" start processing of second frame\n"<<
-							"********************************************\n\n\n"<<std::endl;
-    				//std::cerr<<"\033[1;31mRead Power Now...\033[0m\n\n";
-					if (-1 == GPIOWrite(POUT, 1))
-						std::cerr<<"Could not write to GPIO\n";
-    			}
-#endif
-    		*/
     			if(starting && i==iii){
     				std::cerr<<"start of graph: "<<graph_id<<" for frame: "<<i<<std::endl;
     				start=std::chrono::high_resolution_clock::now();
     			}
-
     			if(imgs && starting){
     				if(image_index>=images_list.size())
     						image_index=image_index%images_list.size();
-    				std::cerr<<"\n\nFirst graph inferencing image: "<<image_index<<":"<<images_list[image_index]<<std::endl;
-    				//PrintThread{};
+    				PrintThread{}<<"\n\nFirst graph inferencing image: "<<image_index<<":"<<images_list[image_index]<<std::endl;
     				//std::unique_ptr<ImageAccessor> im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
     				im_acc->set_filename(images_list[image_index++]);
     			}
@@ -1175,20 +1103,11 @@ public:
     				latency += std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - start).count();
     				//start=std::chrono::high_resolution_clock::now();
     			}
-
-
-
     		}
-
-
-#if Power_Measurement
-    		//Stop power measurement as soon as first pipeline stage finished its processing
-    		if (starting){
-    			std::cerr<<"Finishing power measurement with first subgraph"<<graph_id<<std::endl;
-				if (-1 == GPIOWrite(POUT, 0))
-					std::cerr<<"could not write 1\n";
-    		}
-#endif
+    #if Power_Measurement
+    		if (-1 == GPIOWrite(POUT, 0))
+    		    std::cerr<<"could not write 1\n";
+    #endif
     		auto tfinish=std::chrono::high_resolution_clock::now();
     		double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
     		//graphs[graph_id]->set_input_time(in);
@@ -1217,10 +1136,9 @@ public:
     		//CPU_SET(core_id,&set);
     		////set_cores(&set,one_master_core,core_id);
     		set_cores(&set,one_master_core,npu_host);
-    		//print_cpu_set(set);
     		ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
     		//PrintThread{}<<"start running graph "<<graph_id<<std::flush<<std::endl;
-    		//std::cerr<<"\nnpu_run: Start running NPU "<<id<<std::flush<<std::endl;
+    		std::cerr<<"\nnpu_run: Start running NPU "<<id<<std::flush<<std::endl;
     		double in=0;
     		double task=0;
     		double out=0;
@@ -1307,34 +1225,22 @@ public:
     		graphs[graph_id]->set_cost_time(0);
     		if(layer_timing)
     			graphs[graph_id]->reset();*/
-    		//std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    		std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     		//if(id==0){
     		/*if(starting){
     			std::this_thread::sleep_for(std::chrono::milliseconds(2000));
     		}*/
-
-			std::cout << "NPU"<<id<<" Ready to trigger Start Running" << std::endl;
-			{
-				std::unique_lock<std::mutex> lck(mutex_);
-				condVar.wait(lck, []{ return *StartRunning; });   // (4)
-				lck.unlock();
-			}
     		auto tstart=std::chrono::high_resolution_clock::now();
 
     		//std::cout<<tstart.time_since_epoch().count()<<std::endl;
 
-
-#if Power_Measurement
-    		//Start Power measurement only when last pipeline stage start processing
-			if(ending){
-				if (-1 == GPIOWrite(POUT, 1))
-					std::cerr<<"Could not write to GPIO\n";
-			}
-#endif
-
+    #if Power_Measurement
+    		//Power
+    		if (-1 == GPIOWrite(POUT, 1))
+    			std::cerr<<"Could not write to GPIO\n";
+    #endif
     		int iii=n/2;
     		for(int i=0;i<n;i++){
-
     			//if(id==0){
     			if(starting){
     #if NPU_Debug
@@ -1378,23 +1284,6 @@ public:
     #if NPU_Debug
     			std::cerr<<"npu_run: Calling NPU Run id: "<<id<<'\n';
     #endif
-
-/*
-#if Power_Measurement
-    			//Start Power measurement only when last pipeline stage start processing for first frame
-    			//When NPU is triggering PM we can start by first frame because at this point data of first frame has arrived
-    			if(ending && i==0){
-    				std::cerr<<"\n\n\n*****************************************\n"<<
-    						"Starting power measurement with NPU"<<id<<
-							"\n*******************************\n\n\n\n"<<std::endl;
-    				//std::cerr<<"\033[1;31mRead Power...\033[0m\n\n";
-					if (-1 == GPIOWrite(POUT, 1))
-						std::cerr<<"Could not write to GPIO\n";
-    			}
-#endif
-*/
-
-
     			ret = rknn_run(NPU_Contexts[id], NULL);
     #if NPU_Debug
     			std::cerr<<"npu_run: Finish Calling NPU Run id: "<<id<<'\n';
@@ -1442,14 +1331,10 @@ public:
     				graphs[graph_id]->run(annotate);
     			}*/
     		}
-#if Power_Measurement
-    		//Stop power measurement as soon as first pipeline stage finished its processing
-    		if (starting){
-    			std::cerr<<"Finishing power measurement with id"<<id<<std::endl;
-				if (-1 == GPIOWrite(POUT, 0))
-					std::cerr<<"could not write 1\n";
-    		}
-#endif
+    #if Power_Measurement
+    		if (-1 == GPIOWrite(POUT, 0))
+    		    std::cerr<<"could not write 1\n";
+    #endif
     		auto tfinish=std::chrono::high_resolution_clock::now();
     		double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
     		NPU_time[id]=cost0;
