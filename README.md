@@ -1,5 +1,5 @@
 # ARMCL-PipeALL
-Pipe-All is an integrated high-throughput CPU-GPU CNN inference pipeline design for ARM-based Heterogeneous MPSoCs.
+Pipe-All is an integrated high-throughput CPU-GPU CNN inference pipeline design for ARM-based Heterogeneous Multi-Processors System-on-Chip~(HMPSoCs).
 
 # Publication
 
