@@ -1,16 +1,16 @@
 # ARMCL-PipeALL
-Pipe-All is an integrated high-throughput CPU-GPU CNN inference pipeline design for ARM-based Heterogeneous Multi-Processors System-on-Chips (HMPSoCs).
+*Pipe-All* is an integrated high-throughput CPU-GPU CNN inference pipeline design for ARM-based Heterogeneous Multi-Processors System-on-Chips (HMPSoCs).
 
 # Publication
 
 Details of Pipe-ALL can be found in our paper (pre-print), and please consider citing this paper in your work if you find this implementation useful in your research.
 
-> Ehsan Aghapour, Gayathri Ananthanarayanan, Anuj Pathania. **"Integrated ARM big. Little-Mali Pipeline for High-Throughput CNN Inference."** TechRxiv.
+> Ehsan Aghapour, Gayathri Ananthanarayanan, and Anuj Pathania. **"Integrated ARM big. Little-Mali Pipeline for High-Throughput CNN Inference."** TechRxiv.
 
 [TechRxiv](https://www.techrxiv.org/ndownloader/files/28864056/1) 
 
 # Run the Pipe-all
-We create the pipe-all for AlexNet, GoogleNet, MobileNet, ResNet50 and SqueezeNet graphs. The pipe-all versions of these graphs are graph_AlexNet_all_pipe_sync, graph_GoogleNet_all_pipe_sync, graph_MobileNet_all_pipe_sync, graph_ResNet50_all_pipe_sync, and graph_SqueezeNet_all_pipe_sync respectively.
+We create the pipe-all for *AlexNet*, *GoogleNet*, *MobileNet*, *ResNet50*, and *SqueezeNet* graphs. The pipe-all versions of these graphs are graph_AlexNet_all_pipe_sync, graph_GoogleNet_all_pipe_sync, graph_MobileNet_all_pipe_sync, graph_ResNet50_all_pipe_sync, and graph_SqueezeNet_all_pipe_sync respectively.
 
 git clone https://github.com/Ehsan-aghapour/ARMCL-PipeALL.git -b pipe-all
 
