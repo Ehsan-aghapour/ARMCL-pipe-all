@@ -69,9 +69,14 @@ void read_directory(const std::string& name, stringvec& v)
 size_t image_index=0;
 stringvec images_list;
 bool imgs=0;
+  /*
 std::set<int> google_blocking {2,3,6,14,23,31,39,47,55,64,72,81,83};
 int end_tasks[]={2,3,6,14,23,31,39,47,55,64,72,81,83};
 int qend_tasks[]={1,2,4,12,21,29,37,45,53,62,70,79,81};
+*/
+int end_tasks[]={2,3,5,13,22,30,38,46,54,63,71,80,82};
+int qend_tasks[]={};
+std::set<std::string> end_task_names = { "pool1/norm1", "conv2/3x3_reduce", "pool2/3x3_s2", "inception_3a/concat", "pool3/3x3_s2", "inception_4a/concat", "inception_4b/concat", "inception_4c/concat", "inception_4d/concat", "pool4/3x3_s2", "inception_5a/concat", "pool5/7x7_s1", "prob" };
 
 //NPU
 arm_compute::ITensor *temp_tensor=NULL;
@@ -312,7 +317,8 @@ public:
     				}
     				std::cerr<<std::endl;
     #endif
-    				sub_graph->finalize(common_params.target, config, &e_t,common_params.layer_time);
+    				//sub_graph->finalize(common_params.target, config, &e_t,common_params.layer_time);
+    				sub_graph->finalize(common_params.target, config, &end_task_names,common_params.layer_time);
     				if(gr_layer[Layer-1]>0){
     					for(auto &node : sub_graph->graph().nodes())
     					{
@@ -1183,7 +1189,7 @@ public:
 
 #if Power_Measurement
     		//Stop power measurement as soon as first pipeline stage finished its processing
-    		if (starting){
+    		if (ending){
     			std::cerr<<"Finishing power measurement with first subgraph"<<graph_id<<std::endl;
 				if (-1 == GPIOWrite(POUT, 0))
 					std::cerr<<"could not write 1\n";
@@ -1444,7 +1450,7 @@ public:
     		}
 #if Power_Measurement
     		//Stop power measurement as soon as first pipeline stage finished its processing
-    		if (starting){
+    		if (ending){
     			std::cerr<<"Finishing power measurement with id"<<id<<std::endl;
 				if (-1 == GPIOWrite(POUT, 0))
 					std::cerr<<"could not write 1\n";

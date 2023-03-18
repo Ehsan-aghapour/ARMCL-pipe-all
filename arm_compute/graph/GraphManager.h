@@ -68,7 +68,9 @@ public:
      * @param[in] pm     Pass manager to use for any optimization passes
      * @param[in] target Execution target (Single target execution is currently supported)
      */
-    void finalize_graph(Graph &graph, GraphContext &ctx, PassManager &pm, Target target, std::set<int> *b=NULL, int blocking=0);
+
+    void finalize_graph(Graph &graph, GraphContext &ctx, PassManager &pm, Target target, std::set<std::string> *b=NULL, int blocking=0);
+    void finalize_graph(Graph &graph, GraphContext &ctx, PassManager &pm, Target target, std::set<int> *b, int blocking=0);
     /** Executes a graph
      *
      * @param[in] graph Graph to execute

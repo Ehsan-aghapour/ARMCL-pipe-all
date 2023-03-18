@@ -43,6 +43,12 @@ void Stream::finalize(Target target, const GraphConfig &config, std::set<int> *b
     _ctx.set_config(config);
     _manager.finalize_graph(_g, _ctx, pm, target, b, blocking);
 }
+void Stream::finalize(Target target, const GraphConfig &config, std::set<std::string> *b, int blocking)
+{
+    PassManager pm = create_default_pass_manager(target, config);
+    _ctx.set_config(config);
+    _manager.finalize_graph(_g, _ctx, pm, target, b, blocking);
+}
 
 void Stream::measure(int n)
 {

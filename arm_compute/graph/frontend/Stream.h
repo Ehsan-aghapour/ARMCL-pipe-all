@@ -60,7 +60,9 @@ public:
      * @param[in] target Execution target
      * @param[in] config (Optional) Graph configuration to use
      */
-    void finalize(Target target, const GraphConfig &config, std::set<int> *b=NULL, int blocking=0);
+    void finalize(Target target, const GraphConfig &config, std::set<std::string> *b=NULL, int blocking=0);
+    void finalize(Target target, const GraphConfig &config, std::set<int> *b, int blocking=0);
+
     /** Executes the stream **/
     //Ehsan
     void run(int nn=0);

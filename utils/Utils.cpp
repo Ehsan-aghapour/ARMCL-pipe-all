@@ -86,7 +86,7 @@ void discard_comments_and_spaces(std::ifstream &fs)
     }
 }
 } // namespace
-#define Frequency_Setting 1
+#define Frequency_Setting 0
 #ifndef BENCHMARK_EXAMPLES
 int run_example(int argc, char **argv, std::unique_ptr<Example> example)
 {
@@ -151,6 +151,7 @@ int run_example(int argc, char **argv, std::unique_ptr<Example> example)
         }
         example->do_finish();
 #else
+        example->do_run();
         example->do_teardown();
 #endif
 

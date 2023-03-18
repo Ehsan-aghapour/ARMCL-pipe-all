@@ -47,6 +47,10 @@ using namespace arm_compute::utils;
 using namespace arm_compute::graph::frontend;
 using namespace arm_compute::graph_utils;
 
+#include <condition_variable>
+std::mutex mutex_;
+std::condition_variable condVar;
+bool* StartRunning=new bool(false);
 
 //Ehsan 
 typedef std::vector<std::string> stringvec;
@@ -70,6 +74,7 @@ std::set<int> mobile_blocking {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19
 int end_tasks[]={0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,27,30};
 int qend_tasks[]={0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,27,30};
 //std::map<std::string,double> task_times;
+std::set<std::string> end_task_names = { "Conv2d_0+Conv2d_0/BatchNorm", "Conv2d_1_depthwise/depthwise+Conv2d_1_depthwise/BatchNorm", "Conv2d_1_pointwise/Conv2D+Conv2d_1_pointwise/BatchNorm", "Conv2d_2_depthwise/depthwise+Conv2d_2_depthwise/BatchNorm", "Conv2d_2_pointwise/Conv2D+Conv2d_2_pointwise/BatchNorm", "Conv2d_3_depthwise/depthwise+Conv2d_3_depthwise/BatchNorm", "Conv2d_3_pointwise/Conv2D+Conv2d_3_pointwise/BatchNorm", "Conv2d_4_depthwise/depthwise+Conv2d_4_depthwise/BatchNorm", "Conv2d_4_pointwise/Conv2D+Conv2d_4_pointwise/BatchNorm", "Conv2d_5_depthwise/depthwise+Conv2d_5_depthwise/BatchNorm", "Conv2d_5_pointwise/Conv2D+Conv2d_5_pointwise/BatchNorm", "Conv2d_6_depthwise/depthwise+Conv2d_6_depthwise/BatchNorm", "Conv2d_6_pointwise/Conv2D+Conv2d_6_pointwise/BatchNorm", "Conv2d_7_depthwise/depthwise+Conv2d_7_depthwise/BatchNorm", "Conv2d_7_pointwise/Conv2D+Conv2d_7_pointwise/BatchNorm", "Conv2d_8_depthwise/depthwise+Conv2d_8_depthwise/BatchNorm", "Conv2d_8_pointwise/Conv2D+Conv2d_8_pointwise/BatchNorm", "Conv2d_9_depthwise/depthwise+Conv2d_9_depthwise/BatchNorm", "Conv2d_9_pointwise/Conv2D+Conv2d_9_pointwise/BatchNorm", "Conv2d_10_depthwise/depthwise+Conv2d_10_depthwise/BatchNorm", "Conv2d_10_pointwise/Conv2D+Conv2d_10_pointwise/BatchNorm", "Conv2d_11_depthwise/depthwise+Conv2d_11_depthwise/BatchNorm", "Conv2d_11_pointwise/Conv2D+Conv2d_11_pointwise/BatchNorm", "Conv2d_12_depthwise/depthwise+Conv2d_12_depthwise/BatchNorm", "Conv2d_12_pointwise/Conv2D+Conv2d_12_pointwise/BatchNorm", "Conv2d_13_depthwise/depthwise+Conv2d_13_depthwise/BatchNorm", "Logits/AvgPool_1a", "Softmax" };
 
 
 //NPU
@@ -308,7 +313,8 @@ public:
     				}
     				std::cerr<<std::endl;
     #endif
-    				sub_graph->finalize(common_params.target, config, &e_t,common_params.layer_time);
+    				//sub_graph->finalize(common_params.target, config, &e_t,common_params.layer_time);
+    				sub_graph->finalize(common_params.target, config, &end_task_names,common_params.layer_time);
     				//std::cerr<<"here\n";
     				if(gr_layer[Layer-1]>0){
     					for(auto &node : sub_graph->graph().nodes())
@@ -864,425 +870,516 @@ public:
     }
 
     void do_run() override
-    {
-        // Run graph
-        //Ehsan
-    	cpu_set_t set;
-    	CPU_ZERO(&set);
-    	CPU_SET(1,&set);
-    	ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
-    	//std::string t;
-#if NPU_Debug
-    	std::cerr<<"\n\n\n_________________________\n\n\nSize of NPU contexts: "<<NPU_Contexts.size()
-    			<<"\nSize of NPU senders: "<<NPU_Senders.size()
-				<<"\nSize of NPU receivers: "<<NPU_Receivers.size()
-				<<"\nNumber of ARMCL subgraphs: "<<graphs.size()
-				<<"\nNumber of NPU subgraphs: "<<NPU_Contexts.size()
-				<<std::endl;
-#endif
-#if NPU_Debug
-    	for(int i=0;i<NPU_Senders.size();i++){
-			std::cerr<<"att_1:\nNPU Send: "<<i<<" Con id: "<<NPU_Senders[i]->get_connection_id()<<'\n';
-		}
-#endif
-    	std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-    	std::vector<std::thread*> stages;
-    	std::vector<std::thread*> npu_stages;
-    	int n=common_params.n;
-    	//NPU:
-		for(int i=0;i<NPU_Contexts.size();i++){
-			npu_stages.push_back(new std::thread(&GraphMobilenetExample::run_npu,this,i));
-		}
-		//std::this_thread::sleep_for(std::chrono::milliseconds(4000));
-    	for(int i=0;i<graphs.size();i++){
-    		//std::cerr<<"creating thread "<< i<<"\n";
-    		stages.push_back(new std::thread(&GraphMobilenetExample::run,this,i));
-    		//std::cerr<<"thread "<< i<<" created\n";
-    		//stages[i]->join();
-    	}
-
-
-    	for(int i=0;i<stages.size();i++){
-			stages[i]->join();
-    	}
-    	for(int i=0;i<npu_stages.size();i++){
-			npu_stages[i]->join();
-		}
-    	for(int i=0;i<graphs.size();i++){
-			//std::cout<<"graph_id: "<<i<<" \t start: "<<graphs[i]->get_start_time().time_since_epoch().count()<<" \t end: "<<graphs[i]->get_finish_time().time_since_epoch().count()<<std::endl;
-    		if(common_params.layer_time)
-    				graphs[i]->measure(n);
-
-			double tot=graphs[i]->get_input_time()+graphs[i]->get_task_time()+graphs[i]->get_output_time();
-			PrintThread{}<<"\n\nCost"<<i<<":"<<1000*graphs[i]->get_cost_time()/n<<std::endl;
-			PrintThread{}<<"input"<<i<<"_time:"<<1000*graphs[i]->get_input_time()/n<<"\ntask"<<i<<"_time:"<<1000*graphs[i]->get_task_time()/n<<"\noutput"<<i<<"_time:"<<1000*graphs[i]->get_output_time()/n<<"\ntotal"<<i<<"_time:"<<1000*tot/n<<std::endl;
-			PrintThread{}<<"***************************************\n\n";
-
-		}
-    	for(int i=0;i<NPU_time.size();i++){
-    		PrintThread{}<<"\nNPU subgraph: "<<i<<" --> Cost: "<<NPU_time[i]*1000/n<<"\n\n";
-    		PrintThread{}<<"******************************************************\n\n";
-
-    	}
-
-
-    	PrintThread{}<<"Frame Latency: "<<1000*latency<<std::endl;
-
-
-
-    	//Power
-    	/*if (-1 == GPIOWrite(POUT, 1))
-    			std::cerr<<"could not write 1\n";*/
-#if Power_Measurement
-    	if (-1 == GPIOUnexport(POUT))
-    			std::cerr<<"could not unexport\n";
-#endif
-    	//del();
-
-    }
-    void run(int graph_id){
-    	//std::cerr<<"setup finished now start running\n";
-		int cl=classes[graph_id];
-		int core_id=host_core[cl];
-		cpu_set_t set;
-		CPU_ZERO(&set);
-		//CPU_SET(core_id,&set);
-		set_cores(&set,one_master_core,core_id);
-		ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
-		//PrintThread{}<<"start running graph "<<graph_id<<std::flush<<std::endl;
-
-		double in=0;
-		double task=0;
-		double out=0;
-		int n=(common_params.n);
-		bool layer_timing=common_params.layer_time;
-		bool ending=(graph_id==graphs.size()-1)&&(Output_Accessor==NULL);
-		bool starting=(graph_id==0)&&(Input_Accessor==NULL);
-		latency=0;
-		//auto tstart=std::chrono::high_resolution_clock::now();
-		//std::cerr<<"graph__id:"<<graph_id<<'\n';//"   time:"<<tstart.time_since_epoch().count()<<std::endl;
-		if(imgs && starting){
-			if(image_index>=images_list.size())
-					image_index=image_index%images_list.size();
-			PrintThread{}<<"\n\nFirst graph inferencing image: "<<image_index<<":"<<images_list[image_index]<<std::endl;
-			//std::unique_ptr<ImageAccessor> im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
-			im_acc->set_filename(images_list[image_index]);
-#if NPU_Debug
-			PrintThread{}<<"\n\nSet file name done!\n"<<std::endl;
-#endif
-		}
-		if(layer_timing){
-			//std::cerr<<i<<" graph_id:"<<graph_id<<"   time:"<<std::chrono::high_resolution_clock::now().time_since_epoch().count()<<std::endl;
-			graphs[graph_id]->run(annotate);
-			//graphs[graph_id]->set_finish_time(std::chrono::high_resolution_clock::now());
-		}
-		else{
-			graphs[graph_id]->run(annotate);
-		}
-		//std::cerr<<"run: finish running graph id: "<<graph_id<<'\n';
-
-		graphs[graph_id]->set_input_time(0);
-		graphs[graph_id]->set_task_time(0);
-		graphs[graph_id]->set_output_time(0);
-		graphs[graph_id]->set_cost_time(0);
-
-		std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-		PrintThread{}<<"\nrun: Start running graph "<<graph_id<<std::flush<<std::endl;
-		/*if(starting){
-			std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-		}*/
-		if(layer_timing)
-			graphs[graph_id]->reset();
-		auto tstart=std::chrono::high_resolution_clock::now();
-
-		//std::cout<<tstart.time_since_epoch().count()<<std::endl;
-
-#if Power_Measurement
-		//Power
-		if (-1 == GPIOWrite(POUT, 1))
-			std::cerr<<"Could not write to GPIO\n";
-#endif
-
-		int iii=n/2;
-		for(int i=0;i<n;i++){
-			if(starting && i==iii){
-				std::cerr<<"start of graph: "<<graph_id<<" for frame: "<<i<<std::endl;
-				start=std::chrono::high_resolution_clock::now();
+        {
+            // Run graph
+            //Ehsan
+        	cpu_set_t set;
+        	CPU_ZERO(&set);
+        	//CPU_SET(1,&set);
+    		for(int i=0;i<common_params.total_cores;i++){
+    			CPU_SET(i,&set);
 			}
-			if(imgs && starting){
-				if(image_index>=images_list.size())
-						image_index=image_index%images_list.size();
-				PrintThread{}<<"\n\nFirst graph inferencing image: "<<image_index<<":"<<images_list[image_index]<<std::endl;
-				//std::unique_ptr<ImageAccessor> im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
-				im_acc->set_filename(images_list[image_index++]);
+    		//print_cpu_set(set);
+        	ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
+        	//std::string t;
+    #if NPU_Debug
+        	std::cerr<<"\n\n\n_________________________\n\n\nSize of NPU contexts: "<<NPU_Contexts.size()
+        			<<"\nSize of NPU senders: "<<NPU_Senders.size()
+    				<<"\nSize of NPU receivers: "<<NPU_Receivers.size()
+    				<<"\nNumber of ARMCL subgraphs: "<<graphs.size()
+    				<<"\nNumber of NPU subgraphs: "<<NPU_Contexts.size()
+    				<<std::endl;
+    #endif
+    #if NPU_Debug
+        	for(int i=0;i<NPU_Senders.size();i++){
+    			std::cerr<<"att_1:\nNPU Send: "<<i<<" Con id: "<<NPU_Senders[i]->get_connection_id()<<'\n';
+    		}
+    #endif
+        	//std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+        	std::vector<std::thread*> stages;
+        	std::vector<std::thread*> npu_stages;
+        	int n=common_params.n;
+        	//NPU:
+    		for(int i=0;i<NPU_Contexts.size();i++){
+    			npu_stages.push_back(new std::thread(&GraphMobilenetExample::run_npu,this,i));
+    		}
+    		//std::this_thread::sleep_for(std::chrono::milliseconds(4000));
+        	for(int i=0;i<graphs.size();i++){
+        		//std::cerr<<"creating thread "<< i<<"\n";
+        		stages.push_back(new std::thread(&GraphMobilenetExample::run,this,i));
+        		//std::cerr<<"thread "<< i<<" created\n";
+        		//stages[i]->join();
+        	}
+
+        		/*
+        	int jj=5;
+        	for (int j=0;j<jj;j++){
+        		std::cerr<<"Ready to measure power "<<5-j<<"S"<<std::endl;
+        		std::this_thread::sleep_for(std::chrono::milliseconds((j+1)*1000));
+        	}
+        	*/
+        	std::this_thread::sleep_for(std::chrono::milliseconds(5*1000));
+
+
+        	{
+				std::lock_guard<std::mutex> lck(mutex_);
+				*StartRunning = true;
 			}
-			if(layer_timing){
-				//std::cerr<<i<<" graph_id:"<<graph_id<<" start  time:"<<(std::chrono::high_resolution_clock::now().time_since_epoch().count()/1000000)%10000<<std::endl;
-				graphs[graph_id]->run(annotate,n);
-				//std::cerr<<i<<" graph_id:"<<graph_id<<"  finish time:"<<(std::chrono::high_resolution_clock::now().time_since_epoch().count()/1000000)%10000<<std::endl;
-				//graphs[graph_id]->set_finish_time(std::chrono::high_resolution_clock::now());
-
-			}
-			else{
-				graphs[graph_id]->run(annotate);
-			}
-			if(ending && i==iii){
-				//std::cerr<<"end of graph: "<<graph_id<<" for frame: "<<i<<std::endl;
-				//latency += std::chrono::duration_cast<std::chrono::duration<double>>(graphs[graph_id]->get_finish_time() - graphs[0]->get_start_time()).count();
-				latency += std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - start).count();
-				//start=std::chrono::high_resolution_clock::now();
-			}
-		}
-#if Power_Measurement
-		if (-1 == GPIOWrite(POUT, 0))
-		    std::cerr<<"could not write 1\n";
-#endif
-		auto tfinish=std::chrono::high_resolution_clock::now();
-		double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
-		//graphs[graph_id]->set_input_time(in);
-		//graphs[graph_id]->set_task_time(task);
-		//graphs[graph_id]->set_output_time(out);
-		graphs[graph_id]->set_cost_time(cost0);
-		/*double Cost=cost0/n;
-		in=in/n;
-		task=task/n;
-		out=out/n;
-		double tot=in+task+out;
-		PrintThread{}<<"\n\nCost"<<graph_id<<":"<<Cost<<std::endl;
-		PrintThread{}<<"input"<<graph_id<<"_time:"<<in<<"\ntask"<<graph_id<<"_time:"<<task<<"\noutput"<<graph_id<<"_time:"<<out<<"\ntotal"<<graph_id<<"_time:"<<tot<<std::endl;
-		std::cout<<"***************************************\n\n";*/
+        	std::this_thread::sleep_for(std::chrono::milliseconds(100));
+			std::cerr << "\n\n\n\n\n\n\n================================================\nStart Running All Subgraphs ...\n"<<
+					"====================================================\n\n\n"<< std::endl;
+			condVar.notify_all();
 
 
-	}
+        	for(int i=0;i<stages.size();i++){
+    			stages[i]->join();
+        	}
+        	for(int i=0;i<npu_stages.size();i++){
+    			npu_stages[i]->join();
+    		}
+        	for(int i=0;i<graphs.size();i++){
+    			//std::cout<<"graph_id: "<<i<<" \t start: "<<graphs[i]->get_start_time().time_since_epoch().count()<<" \t end: "<<graphs[i]->get_finish_time().time_since_epoch().count()<<std::endl;
+        		if(common_params.layer_time)
+        				graphs[i]->measure(n);
 
-    //Run NPU
-    void run_npu(int id){
-		//int cl=classes[graph_id];
-    	//std::cerr<<"Run NPU\n";
-    	//int core_id=common_params.total_cores-(id+1);
-		cpu_set_t set;
-		CPU_ZERO(&set);
-		//CPU_SET(core_id,&set);
-		////set_cores(&set,one_master_core,core_id);
-		set_cores(&set,one_master_core,npu_host);
-		ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
-		//PrintThread{}<<"start running graph "<<graph_id<<std::flush<<std::endl;
-		std::cerr<<"\nnpu_run: Start running NPU "<<id<<std::flush<<std::endl;
-		double in=0;
-		double task=0;
-		double out=0;
-		int n=(common_params.n);
-		//bool layer_timing=common_params.layer_time;
-		//bool end=(id==NPU_Contexts.size()-1);
-		bool starting=(Input_Accessor!=NULL);
-		bool ending=(Output_Accessor!=NULL);
-		latency=0;
-		//auto tstart=std::chrono::high_resolution_clock::now();
-		//std::cerr<<"graph__id:"<<graph_id<<"   time:"<<tstart.time_since_epoch().count()<<std::endl;
-		//if(imgs && id==0){
-		if(starting && imgs){
-			if(image_index>=images_list.size())
-					image_index=image_index%images_list.size();
-			PrintThread{}<<"\n\nFirst graph inferencing image: "<<image_index<<":"<<images_list[image_index]<<std::endl;
-			//std::unique_ptr<ImageAccessor> im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
-			im_acc->set_filename(images_list[image_index]);
-		}
-		/*if(layer_timing){
-			//std::cerr<<i<<" graph_id:"<<graph_id<<"   time:"<<std::chrono::high_resolution_clock::now().time_since_epoch().count()<<std::endl;
-			graphs[graph_id]->run(annotate);
-			//graphs[graph_id]->set_finish_time(std::chrono::high_resolution_clock::now());
-		}
-		else{
-			graphs[graph_id]->run(annotate);
-		}*/
-		if(starting){
-#if NPU_Debug
-			std::cerr<<"npu_run: Calling NPU Input accessor id: "<<id<<'\n';
-#endif
-			Input_Accessor->access_tensor(Input_tensor);
-#if NPU_Debug
-			std::cerr<<"npu_run: Finish Calling NPU Input accessor id: "<<id<<'\n';
-#endif
-		}
-		else{
-#if NPU_Debug
-			std::cerr<<"npu_run: Calling NPU Receiver id: "<<id<<'\n';
-#endif
-			NPU_Receivers[id]->access_tensor(*temp_tensor);
-#if NPU_Debug
-			std::cerr<<"npu_run: Finish Calling NPU Receiver id: "<<id<<'\n';
-#endif
-		}
-#if NPU_Debug
-		std::cerr<<"npu_run: Calling NPU Run id: "<<id<<'\n';
-#endif
-		int ret = rknn_run(NPU_Contexts[id], NULL);
-		if(ret<0){
-			std::cerr<<"npu_run: Error "<<ret<<" running NPU part with id: "<<id<<std::endl;
-		}
-#if NPU_Debug
-		std::cerr<<"npu_run: Finish Calling NPU Run id: "<<id<<'\n';
+    			double tot=graphs[i]->get_input_time()+graphs[i]->get_task_time()+graphs[i]->get_output_time();
+    			PrintThread{}<<"\n\nCost"<<i<<":"<<1000*graphs[i]->get_cost_time()/n<<std::endl;
+    			PrintThread{}<<"input"<<i<<"_time:"<<1000*graphs[i]->get_input_time()/n<<"\ntask"<<i<<"_time:"<<1000*graphs[i]->get_task_time()/n<<"\noutput"<<i<<"_time:"<<1000*graphs[i]->get_output_time()/n<<"\ntotal"<<i<<"_time:"<<1000*tot/n<<std::endl;
+    			PrintThread{}<<"***************************************\n\n";
+
+    		}
+        	for(int i=0;i<NPU_time.size();i++){
+        		PrintThread{}<<"\nNPU subgraph: "<<i<<" --> Cost: "<<NPU_time[i]*1000/n<<"\n\n";
+        		PrintThread{}<<"******************************************************\n\n";
+
+        	}
 
 
-		for(int i=0;i<NPU_Senders.size();i++){
-			std::cerr<<"att_1:\nNPU Send: "<<i<<" Con id: "<<NPU_Senders[i]->get_connection_id()<<'\n';
-		}
-#endif
-		if(ending){
-#if NPU_Debug
-			std::cerr<<"npu_run: Calling NPU Output id: "<<id<<'\n';
-#endif
-			/*if(&(*temp_tensor)==NULL){
-				std::cerr<<"temp is null\n";
-			}*/
-			Output_Accessor->access_tensor(*temp_tensor);
-		}
-		else{
-#if NPU_Debug
-			std::cerr<<"npu_run: Calling NPU Sender id: "<<id<<'\n';
-#endif
-			//ITensor *temp_tensor2;
-			NPU_Senders[id]->access_tensor(*temp_tensor);
-#if NPU_Debug
-			std::cerr<<"npu_run: Finish Calling NPU Sender id: "<<id<<'\n';
-#endif
-		}
+        	PrintThread{}<<"Frame Latency: "<<1000*latency<<std::endl;
 
-		/*graphs[graph_id]->set_input_time(0);
-		graphs[graph_id]->set_task_time(0);
-		graphs[graph_id]->set_output_time(0);
-		graphs[graph_id]->set_cost_time(0);
-		if(layer_timing)
-			graphs[graph_id]->reset();*/
-		std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-		//if(id==0){
-		/*if(starting){
-			std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-		}*/
-		auto tstart=std::chrono::high_resolution_clock::now();
 
-		//std::cout<<tstart.time_since_epoch().count()<<std::endl;
+
+
+    #if Power_Measurement
+        	if (-1 == GPIOUnexport(POUT))
+        			std::cerr<<"could not unexport\n";
+    #endif
+        	//del();
+
+        }
+        void run(int graph_id){
+        	//std::cerr<<"setup finished now start running\n";
+    		int cl=classes[graph_id];
+    		int core_id=host_core[cl];
+    		cpu_set_t set;
+    		CPU_ZERO(&set);
+    		//CPU_SET(core_id,&set);
+    		set_cores(&set,one_master_core,core_id);
+    		//print_cpu_set(set);
+    		ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
+    		//PrintThread{}<<"start running graph "<<graph_id<<std::flush<<std::endl;
+
+    		double in=0;
+    		double task=0;
+    		double out=0;
+    		int n=(common_params.n);
+    		bool layer_timing=common_params.layer_time;
+    		bool ending=(graph_id==graphs.size()-1)&&(Output_Accessor==NULL);
+    		bool starting=(graph_id==0)&&(Input_Accessor==NULL);
+    		latency=0;
+    		//auto tstart=std::chrono::high_resolution_clock::now();
+    		//std::cerr<<"graph__id:"<<graph_id<<'\n';//"   time:"<<tstart.time_since_epoch().count()<<std::endl;
+    		if(imgs && starting){
+    			if(image_index>=images_list.size())
+    					image_index=image_index%images_list.size();
+    			std::cerr<<"\n\nWarmUp: First graph inferencing image: "<<image_index<<":"<<images_list[image_index]<<std::endl;
+    			//std::unique_ptr<ImageAccessor> im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
+    			im_acc->set_filename(images_list[image_index]);
+    #if NPU_Debug
+    			PrintThread{}<<"\n\nSet file name done!\n"<<std::endl;
+    #endif
+    		}
+    		if(layer_timing){
+    			//std::cerr<<i<<" graph_id:"<<graph_id<<"   time:"<<std::chrono::high_resolution_clock::now().time_since_epoch().count()<<std::endl;
+    			graphs[graph_id]->run(annotate);
+    			//graphs[graph_id]->set_finish_time(std::chrono::high_resolution_clock::now());
+    		}
+    		else{
+    			graphs[graph_id]->run(annotate);
+    		}
+    		//std::cerr<<"run: finish running graph id: "<<graph_id<<'\n';
+
+    		graphs[graph_id]->set_input_time(0);
+    		graphs[graph_id]->set_task_time(0);
+    		graphs[graph_id]->set_output_time(0);
+    		graphs[graph_id]->set_cost_time(0);
+
+    		//std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    		//PrintThread{}<<"\nrun: Start running graph "<<graph_id<<std::flush<<std::endl;
+    		/*if(starting){
+    			std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+    		}*/
+    		if(layer_timing)
+    			graphs[graph_id]->reset();
+
+    		std::cout << "Subgraph"<<graph_id<<" Ready to trigger Start Running" << std::endl;
+    		{
+				std::unique_lock<std::mutex> lck(mutex_);
+				condVar.wait(lck, []{ return *StartRunning; });   // (4)
+				lck.unlock();
+    		}
+
+
+    		auto tstart=std::chrono::high_resolution_clock::now();
+
+    		//std::cout<<tstart.time_since_epoch().count()<<std::endl;
 
 #if Power_Measurement
-		//Power
-		if (-1 == GPIOWrite(POUT, 1))
-			std::cerr<<"Could not write to GPIO\n";
-#endif
-		int iii=n/2;
-		for(int i=0;i<n;i++){
-			//if(id==0){
-			if(starting){
-#if NPU_Debug
-				std::cerr<<"Input accessor is not null!\n";
-#endif
-				if(i==iii)
-					start=std::chrono::high_resolution_clock::now();
-				if(imgs){
-					if(image_index>=images_list.size())
-							image_index=image_index%images_list.size();
-					PrintThread{}<<"\n\nFirst graph inferencing image: "<<image_index<<":"<<images_list[image_index]<<std::endl;
-					//std::unique_ptr<ImageAccessor> im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
-					im_acc->set_filename(images_list[image_index++]);
-#if NPU_Debug
-					std::cerr<<"npu_run: Calling NPU Image accessor id: "<<id<<'\n';
-#endif
-					im_acc->access_tensor(Input_tensor);
-#if NPU_Debug
-					std::cerr<<"npu_run: Finish Calling NPU Image accessor id: "<<id<<'\n';
-#endif
-				}
-				else{
-#if NPU_Debug
-					std::cerr<<"npu_run: Calling NPU Input accessor id: "<<id<<'\n';
-#endif
-					Input_Accessor->access_tensor(*temp_tensor);
-#if NPU_Debug
-					std::cerr<<"npu_run: Finish Calling NPU Input accessor id: "<<id<<'\n';
-#endif
-				}
-			}
-			else{
-#if NPU_Debug
-				std::cerr<<"npu_run: Calling NPU Rec accessor id: "<<id<<'\n';
-#endif
-				NPU_Receivers[id]->access_tensor(*temp_tensor);
-#if NPU_Debug
-				std::cerr<<"npu_run: Finsih Calling NPU Rec accessor id: "<<id<<'\n';
-#endif
-			}
-#if NPU_Debug
-			std::cerr<<"npu_run: Calling NPU Run id: "<<id<<'\n';
-#endif
-			ret = rknn_run(NPU_Contexts[id], NULL);
-#if NPU_Debug
-			std::cerr<<"npu_run: Finish Calling NPU Run id: "<<id<<'\n';
-#endif
-			if(ret<0){
-				//std::string c;
-				std::cerr<<"Error "<<ret<<" running NPU part with id: "<<id<<std::endl;
-				//std::cin>>c;
-			}
-
+			//Start Power measurement only when last pipeline stage start processing
 			if(ending){
-#if NPU_Debug
-				std::cerr<<"npu_run: Calling NPU Output accessor id: "<<id<<'\n';
+				if (-1 == GPIOWrite(POUT, 1))
+					std::cerr<<"Could not write to GPIO\n";
+			}
 #endif
-				Output_Accessor->access_tensor(*temp_tensor);
-				if(i==iii)
-					latency += std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - start).count();
-#if NPU_Debug
-				std::cerr<<"npu_run: Finish Calling NPU Output accessor id: "<<id<<'\n';
 
-				start=std::chrono::high_resolution_clock::now();
-#endif
-			}
-			else{
-#if NPU_Debug
-				std::cerr<<"npu_run: Calling NPU Sender accessor id: "<<id<<'\n';
-#endif
-				NPU_Senders[id]->access_tensor(*temp_tensor);
-#if NPU_Debug
-				std::cerr<<"npu_run: Finish Calling NPU Sender accessor id: "<<id<<'\n';
-#endif
-			}
-			/*if(layer_timing){
-				//std::cerr<<i<<" graph_id:"<<graph_id<<" start  time:"<<(std::chrono::high_resolution_clock::now().time_since_epoch().count()/1000000)%10000<<std::endl;
-				graphs[graph_id]->run(annotate,n);
-				//std::cerr<<i<<" graph_id:"<<graph_id<<"  finish time:"<<(std::chrono::high_resolution_clock::now().time_since_epoch().count()/1000000)%10000<<std::endl;
-				//graphs[graph_id]->set_finish_time(std::chrono::high_resolution_clock::now());
-				if(end){
-					//latency += std::chrono::duration_cast<std::chrono::duration<double>>(graphs[graph_id]->get_finish_time() - graphs[0]->get_start_time()).count();
-					latency += std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - start).count();
-					start=std::chrono::high_resolution_clock::now();
-				}
-			}
-			else{
-				graphs[graph_id]->run(annotate);
-			}*/
-		}
+    		int iii=n/2;
+    		for(int i=0;i<n;i++){
+    			/*
 #if Power_Measurement
-		if (-1 == GPIOWrite(POUT, 0))
-		    std::cerr<<"could not write 1\n";
+    			//Start Power measurement only when last pipeline stage start processing of second frame
+    			//If we trigger when i==0 it start immediately because it waits in graph->run (in input part) for previous data to come
+    			if(ending && i==1){
+    				std::cerr<<"\n\n\n*************************************************\n"<<
+    						"Starting power measurement when last subgraph"<<graph_id<<" start processing of second frame\n"<<
+							"********************************************\n\n\n"<<std::endl;
+    				//std::cerr<<"\033[1;31mRead Power Now...\033[0m\n\n";
+					if (-1 == GPIOWrite(POUT, 1))
+						std::cerr<<"Could not write to GPIO\n";
+    			}
 #endif
-		auto tfinish=std::chrono::high_resolution_clock::now();
-		double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
-		NPU_time[id]=cost0;
-		//graphs[graph_id]->set_input_time(in);
-		//graphs[graph_id]->set_task_time(task);
-		//graphs[graph_id]->set_output_time(out);
-		////graphs[graph_id]->set_cost_time(cost0);
-		/*double Cost=cost0/n;
-		in=in/n;
-		task=task/n;
-		out=out/n;
-		double tot=in+task+out;
-		PrintThread{}<<"\n\nCost"<<graph_id<<":"<<Cost<<std::endl;
-		PrintThread{}<<"input"<<graph_id<<"_time:"<<in<<"\ntask"<<graph_id<<"_time:"<<task<<"\noutput"<<graph_id<<"_time:"<<out<<"\ntotal"<<graph_id<<"_time:"<<tot<<std::endl;
-		std::cout<<"***************************************\n\n";*/
+    		*/
+    			if(starting && i==iii){
+    				std::cerr<<"start of graph: "<<graph_id<<" for frame: "<<i<<std::endl;
+    				start=std::chrono::high_resolution_clock::now();
+    			}
+
+    			if(imgs && starting){
+    				if(image_index>=images_list.size())
+    						image_index=image_index%images_list.size();
+    				std::cerr<<"\n\nFirst graph inferencing image: "<<image_index<<":"<<images_list[image_index]<<std::endl;
+    				//PrintThread{};
+    				//std::unique_ptr<ImageAccessor> im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
+    				im_acc->set_filename(images_list[image_index++]);
+    			}
+    			if(layer_timing){
+    				//std::cerr<<i<<" graph_id:"<<graph_id<<" start  time:"<<(std::chrono::high_resolution_clock::now().time_since_epoch().count()/1000000)%10000<<std::endl;
+    				graphs[graph_id]->run(annotate,n);
+    				//std::cerr<<i<<" graph_id:"<<graph_id<<"  finish time:"<<(std::chrono::high_resolution_clock::now().time_since_epoch().count()/1000000)%10000<<std::endl;
+    				//graphs[graph_id]->set_finish_time(std::chrono::high_resolution_clock::now());
+
+    			}
+    			else{
+    				graphs[graph_id]->run(annotate);
+    			}
+    			if(ending && i==iii){
+    				//std::cerr<<"end of graph: "<<graph_id<<" for frame: "<<i<<std::endl;
+    				//latency += std::chrono::duration_cast<std::chrono::duration<double>>(graphs[graph_id]->get_finish_time() - graphs[0]->get_start_time()).count();
+    				latency += std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - start).count();
+    				//start=std::chrono::high_resolution_clock::now();
+    			}
 
 
-	}
 
+    		}
+
+
+#if Power_Measurement
+    		//Stop power measurement as soon as first pipeline stage finished its processing
+    		if (ending){
+    			std::cerr<<"Finishing power measurement with first subgraph"<<graph_id<<std::endl;
+				if (-1 == GPIOWrite(POUT, 0))
+					std::cerr<<"could not write 1\n";
+    		}
+#endif
+    		auto tfinish=std::chrono::high_resolution_clock::now();
+    		double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+    		//graphs[graph_id]->set_input_time(in);
+    		//graphs[graph_id]->set_task_time(task);
+    		//graphs[graph_id]->set_output_time(out);
+    		graphs[graph_id]->set_cost_time(cost0);
+    		/*double Cost=cost0/n;
+    		in=in/n;
+    		task=task/n;
+    		out=out/n;
+    		double tot=in+task+out;
+    		PrintThread{}<<"\n\nCost"<<graph_id<<":"<<Cost<<std::endl;
+    		PrintThread{}<<"input"<<graph_id<<"_time:"<<in<<"\ntask"<<graph_id<<"_time:"<<task<<"\noutput"<<graph_id<<"_time:"<<out<<"\ntotal"<<graph_id<<"_time:"<<tot<<std::endl;
+    		std::cout<<"***************************************\n\n";*/
+
+
+    	}
+
+        //Run NPU
+        void run_npu(int id){
+    		//int cl=classes[graph_id];
+        	//std::cerr<<"Run NPU\n";
+        	//int core_id=common_params.total_cores-(id+1);
+    		cpu_set_t set;
+    		CPU_ZERO(&set);
+    		//CPU_SET(core_id,&set);
+    		////set_cores(&set,one_master_core,core_id);
+    		set_cores(&set,one_master_core,npu_host);
+    		//print_cpu_set(set);
+    		ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
+    		//PrintThread{}<<"start running graph "<<graph_id<<std::flush<<std::endl;
+    		//std::cerr<<"\nnpu_run: Start running NPU "<<id<<std::flush<<std::endl;
+    		double in=0;
+    		double task=0;
+    		double out=0;
+    		int n=(common_params.n);
+    		//bool layer_timing=common_params.layer_time;
+    		//bool end=(id==NPU_Contexts.size()-1);
+    		bool starting=(Input_Accessor!=NULL);
+    		bool ending=(Output_Accessor!=NULL);
+    		latency=0;
+    		//auto tstart=std::chrono::high_resolution_clock::now();
+    		//std::cerr<<"graph__id:"<<graph_id<<"   time:"<<tstart.time_since_epoch().count()<<std::endl;
+    		//if(imgs && id==0){
+    		if(starting && imgs){
+    			if(image_index>=images_list.size())
+    					image_index=image_index%images_list.size();
+    			PrintThread{}<<"\n\nFirst graph inferencing image: "<<image_index<<":"<<images_list[image_index]<<std::endl;
+    			//std::unique_ptr<ImageAccessor> im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
+    			im_acc->set_filename(images_list[image_index]);
+    		}
+    		/*if(layer_timing){
+    			//std::cerr<<i<<" graph_id:"<<graph_id<<"   time:"<<std::chrono::high_resolution_clock::now().time_since_epoch().count()<<std::endl;
+    			graphs[graph_id]->run(annotate);
+    			//graphs[graph_id]->set_finish_time(std::chrono::high_resolution_clock::now());
+    		}
+    		else{
+    			graphs[graph_id]->run(annotate);
+    		}*/
+    		if(starting){
+    #if NPU_Debug
+    			std::cerr<<"npu_run: Calling NPU Input accessor id: "<<id<<'\n';
+    #endif
+    			Input_Accessor->access_tensor(Input_tensor);
+    #if NPU_Debug
+    			std::cerr<<"npu_run: Finish Calling NPU Input accessor id: "<<id<<'\n';
+    #endif
+    		}
+    		else{
+    #if NPU_Debug
+    			std::cerr<<"npu_run: Calling NPU Receiver id: "<<id<<'\n';
+    #endif
+    			NPU_Receivers[id]->access_tensor(*temp_tensor);
+    #if NPU_Debug
+    			std::cerr<<"npu_run: Finish Calling NPU Receiver id: "<<id<<'\n';
+    #endif
+    		}
+    #if NPU_Debug
+    		std::cerr<<"npu_run: Calling NPU Run id: "<<id<<'\n';
+    #endif
+    		int ret = rknn_run(NPU_Contexts[id], NULL);
+    		if(ret<0){
+    			std::cerr<<"npu_run: Error "<<ret<<" running NPU part with id: "<<id<<std::endl;
+    		}
+    #if NPU_Debug
+    		std::cerr<<"npu_run: Finish Calling NPU Run id: "<<id<<'\n';
+
+
+    		for(int i=0;i<NPU_Senders.size();i++){
+    			std::cerr<<"att_1:\nNPU Send: "<<i<<" Con id: "<<NPU_Senders[i]->get_connection_id()<<'\n';
+    		}
+    #endif
+    		if(ending){
+    #if NPU_Debug
+    			std::cerr<<"npu_run: Calling NPU Output id: "<<id<<'\n';
+    #endif
+    			/*if(&(*temp_tensor)==NULL){
+    				std::cerr<<"temp is null\n";
+    			}*/
+    			Output_Accessor->access_tensor(*temp_tensor);
+    		}
+    		else{
+    #if NPU_Debug
+    			std::cerr<<"npu_run: Calling NPU Sender id: "<<id<<'\n';
+    #endif
+    			//ITensor *temp_tensor2;
+    			NPU_Senders[id]->access_tensor(*temp_tensor);
+    #if NPU_Debug
+    			std::cerr<<"npu_run: Finish Calling NPU Sender id: "<<id<<'\n';
+    #endif
+    		}
+
+    		/*graphs[graph_id]->set_input_time(0);
+    		graphs[graph_id]->set_task_time(0);
+    		graphs[graph_id]->set_output_time(0);
+    		graphs[graph_id]->set_cost_time(0);
+    		if(layer_timing)
+    			graphs[graph_id]->reset();*/
+    		//std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    		//if(id==0){
+    		/*if(starting){
+    			std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+    		}*/
+
+			std::cout << "NPU"<<id<<" Ready to trigger Start Running" << std::endl;
+			{
+				std::unique_lock<std::mutex> lck(mutex_);
+				condVar.wait(lck, []{ return *StartRunning; });   // (4)
+				lck.unlock();
+			}
+    		auto tstart=std::chrono::high_resolution_clock::now();
+
+    		//std::cout<<tstart.time_since_epoch().count()<<std::endl;
+
+
+#if Power_Measurement
+    		//Start Power measurement only when last pipeline stage start processing
+			if(ending){
+				if (-1 == GPIOWrite(POUT, 1))
+					std::cerr<<"Could not write to GPIO\n";
+			}
+#endif
+
+    		int iii=n/2;
+    		for(int i=0;i<n;i++){
+
+    			//if(id==0){
+    			if(starting){
+    #if NPU_Debug
+    				std::cerr<<"Input accessor is not null!\n";
+    #endif
+    				if(i==iii)
+    					start=std::chrono::high_resolution_clock::now();
+    				if(imgs){
+    					if(image_index>=images_list.size())
+    							image_index=image_index%images_list.size();
+    					PrintThread{}<<"\n\nFirst graph inferencing image: "<<image_index<<":"<<images_list[image_index]<<std::endl;
+    					//std::unique_ptr<ImageAccessor> im_acc=dynamic_cast<ImageAccessor*>(graph.graph().node(0)->output(0)->accessor());
+    					im_acc->set_filename(images_list[image_index++]);
+    #if NPU_Debug
+    					std::cerr<<"npu_run: Calling NPU Image accessor id: "<<id<<'\n';
+    #endif
+    					im_acc->access_tensor(Input_tensor);
+    #if NPU_Debug
+    					std::cerr<<"npu_run: Finish Calling NPU Image accessor id: "<<id<<'\n';
+    #endif
+    				}
+    				else{
+    #if NPU_Debug
+    					std::cerr<<"npu_run: Calling NPU Input accessor id: "<<id<<'\n';
+    #endif
+    					Input_Accessor->access_tensor(*temp_tensor);
+    #if NPU_Debug
+    					std::cerr<<"npu_run: Finish Calling NPU Input accessor id: "<<id<<'\n';
+    #endif
+    				}
+    			}
+    			else{
+    #if NPU_Debug
+    				std::cerr<<"npu_run: Calling NPU Rec accessor id: "<<id<<'\n';
+    #endif
+    				NPU_Receivers[id]->access_tensor(*temp_tensor);
+    #if NPU_Debug
+    				std::cerr<<"npu_run: Finsih Calling NPU Rec accessor id: "<<id<<'\n';
+    #endif
+    			}
+    #if NPU_Debug
+    			std::cerr<<"npu_run: Calling NPU Run id: "<<id<<'\n';
+    #endif
+
+/*
+#if Power_Measurement
+    			//Start Power measurement only when last pipeline stage start processing for first frame
+    			//When NPU is triggering PM we can start by first frame because at this point data of first frame has arrived
+    			if(ending && i==0){
+    				std::cerr<<"\n\n\n*****************************************\n"<<
+    						"Starting power measurement with NPU"<<id<<
+							"\n*******************************\n\n\n\n"<<std::endl;
+    				//std::cerr<<"\033[1;31mRead Power...\033[0m\n\n";
+					if (-1 == GPIOWrite(POUT, 1))
+						std::cerr<<"Could not write to GPIO\n";
+    			}
+#endif
+*/
+
+
+    			ret = rknn_run(NPU_Contexts[id], NULL);
+    #if NPU_Debug
+    			std::cerr<<"npu_run: Finish Calling NPU Run id: "<<id<<'\n';
+    #endif
+    			if(ret<0){
+    				//std::string c;
+    				std::cerr<<"Error "<<ret<<" running NPU part with id: "<<id<<std::endl;
+    				//std::cin>>c;
+    			}
+
+    			if(ending){
+    #if NPU_Debug
+    				std::cerr<<"npu_run: Calling NPU Output accessor id: "<<id<<'\n';
+    #endif
+    				Output_Accessor->access_tensor(*temp_tensor);
+    				if(i==iii)
+    					latency += std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - start).count();
+    #if NPU_Debug
+    				std::cerr<<"npu_run: Finish Calling NPU Output accessor id: "<<id<<'\n';
+
+    				start=std::chrono::high_resolution_clock::now();
+    #endif
+    			}
+    			else{
+    #if NPU_Debug
+    				std::cerr<<"npu_run: Calling NPU Sender accessor id: "<<id<<'\n';
+    #endif
+    				NPU_Senders[id]->access_tensor(*temp_tensor);
+    #if NPU_Debug
+    				std::cerr<<"npu_run: Finish Calling NPU Sender accessor id: "<<id<<'\n';
+    #endif
+    			}
+    			/*if(layer_timing){
+    				//std::cerr<<i<<" graph_id:"<<graph_id<<" start  time:"<<(std::chrono::high_resolution_clock::now().time_since_epoch().count()/1000000)%10000<<std::endl;
+    				graphs[graph_id]->run(annotate,n);
+    				//std::cerr<<i<<" graph_id:"<<graph_id<<"  finish time:"<<(std::chrono::high_resolution_clock::now().time_since_epoch().count()/1000000)%10000<<std::endl;
+    				//graphs[graph_id]->set_finish_time(std::chrono::high_resolution_clock::now());
+    				if(end){
+    					//latency += std::chrono::duration_cast<std::chrono::duration<double>>(graphs[graph_id]->get_finish_time() - graphs[0]->get_start_time()).count();
+    					latency += std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - start).count();
+    					start=std::chrono::high_resolution_clock::now();
+    				}
+    			}
+    			else{
+    				graphs[graph_id]->run(annotate);
+    			}*/
+    		}
+#if Power_Measurement
+    		//Stop power measurement as soon as first pipeline stage finished its processing
+    		if (ending){
+    			std::cerr<<"Finishing power measurement with id"<<id<<std::endl;
+				if (-1 == GPIOWrite(POUT, 0))
+					std::cerr<<"could not write 1\n";
+    		}
+#endif
+    		auto tfinish=std::chrono::high_resolution_clock::now();
+    		double cost0 = std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
+    		NPU_time[id]=cost0;
+    		//graphs[graph_id]->set_input_time(in);
+    		//graphs[graph_id]->set_task_time(task);
+    		//graphs[graph_id]->set_output_time(out);
+    		////graphs[graph_id]->set_cost_time(cost0);
+    		/*double Cost=cost0/n;
+    		in=in/n;
+    		task=task/n;
+    		out=out/n;
+    		double tot=in+task+out;
+    		PrintThread{}<<"\n\nCost"<<graph_id<<":"<<Cost<<std::endl;
+    		PrintThread{}<<"input"<<graph_id<<"_time:"<<in<<"\ntask"<<graph_id<<"_time:"<<task<<"\noutput"<<graph_id<<"_time:"<<out<<"\ntotal"<<graph_id<<"_time:"<<tot<<std::endl;
+    		std::cout<<"***************************************\n\n";*/
+
+
+    	}
 
 
 private:

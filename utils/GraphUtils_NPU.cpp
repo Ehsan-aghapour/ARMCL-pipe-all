@@ -147,7 +147,7 @@ void print_image(rockx_image_t image,int n){
 using namespace arm_compute::graph_utils;
 std::mutex PrintThread::_mutexPrint{};
 
-bool per_frame=false;
+bool per_frame=true;
 
 //NPU:
 //std::vector<std::unique_ptr<arm_compute::graph_utils::SenderAccessor>> arm_compute::graph_utils::NPU_Senders;

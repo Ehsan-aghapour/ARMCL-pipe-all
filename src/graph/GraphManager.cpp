@@ -126,15 +126,35 @@ void GraphManager::finalize_graph(Graph &graph, GraphContext &ctx, PassManager &
     int ii=0;
     //std::set<int> blocking_set1 {1, 2, 3, 4};
     //std::set<int> *blocking_set=&blocking_set1;
+    std::vector<std::string> task_names;
+    std::stringstream ss;
+    std::stringstream ss2;
+    ss<<"std::string task_names[] = { ";
+    ss2<<"std::set<std::string> end_task_names = { ";
+    int eccc=0;
+    int ccc=0;
+
     for(auto &task : workload.tasks)
     {
     	if(!task.task)
     		continue;
+
+    	std::cerr<<eccc<<"( "<<ccc<<" ):"<<task.node->name()<<std::endl;
+
+    	ss<<"\""<<task.node->name()<<"\", ";
+    	ccc++;
+    	//std::cerr<<"Task Name: "<<task.node->name()<<std::endl;
+    	task_names.push_back(task.node->name());
+
     	bool b=false;
     	if(blocking_set->find(ii) != blocking_set->end()){
     	      b=true;
     	      task.ending=true;
+    	      eccc++;
+    	      ss2<<"\""<<task.node->name()<<"\", ";
+
     	}
+
     	if(blocking==1){
     		if(blocking_set!=NULL and b && target==arm_compute::graph::Target ::CL)
     		    task.block=1;
@@ -147,6 +167,168 @@ void GraphManager::finalize_graph(Graph &graph, GraphContext &ctx, PassManager &
 
     	ii++;
     }
+
+    ss.seekp(-2, std::ios_base::end);
+    ss<<" };\n";
+    std::cerr<<ss.str();
+    std::cerr<<"number of tasks: "<<ccc<<std::endl;
+
+    ss2.seekp(-2, std::ios_base::end);
+	ss2<<" };\n";
+	std::cerr<<ss2.str();
+	std::cerr<<"number of end tasks: "<<eccc<<std::endl;
+
+#if My_print > 0
+    //Ehsan
+        DotGraphPrinter p;
+        p.print(graph,std::cout);
+#endif
+
+    // Setup tensor memory (Allocate all tensors or setup transition manager)
+    if(ctx.config().use_transition_memory_manager)
+    {
+#if My_print > 0
+    	//Ehsan
+    	std::cout<<"transition memory mangaer is used\n";
+#endif
+
+        detail::configure_transition_manager(graph, ctx, workload);
+    }
+    else
+    {
+        detail::allocate_all_tensors(graph);
+    }
+    // Finalize Graph context
+    ctx.finalize();
+
+    // Register graph
+    _workloads.insert(std::make_pair(graph.id(), std::move(workload)));
+    ARM_COMPUTE_LOG_GRAPH_VERBOSE("Created workload for graph with ID : " << graph.id() << std::endl);
+    //std::cerr<<"after pass graph "<<graph.id()<<std::endl;
+    //print_times(graph,1);
+}
+//Ehsan
+
+void GraphManager::finalize_graph(Graph &graph, GraphContext &ctx, PassManager &pm, Target target, std::set<std::string> *blocking_set, int blocking)
+{
+    // Check if graph has been registered
+    if(_workloads.find(graph.id()) != std::end(_workloads))
+    {
+        ARM_COMPUTE_ERROR("Graph is already registered!");
+    }
+    //std::cout<<"graph id:"<<graph.id()<<std::endl;
+    // Apply IR mutating passes
+    //std::cerr<<"befor pass 1 graph "<<graph.id()<<std::endl;
+    //print_times(graph,1);
+
+    pm.run_type(graph, IGraphMutator::MutationType::IR);
+    // Force target to all graph construct
+    // TODO (COMPMID-2014) : Support heterogeneous execution
+    Target forced_target = target;
+    if(!is_target_supported(target))
+    {
+	//Ehsan
+	//std::cout<<"target is not supported."<<std::endl;
+
+        forced_target = get_default_target();
+        ARM_COMPUTE_LOG_GRAPH_INFO("Switching target from " << target << " to " << forced_target << std::endl);
+    }
+#if My_print > 0
+    //Ehsan
+    std::cout<<"*********force target is: "<<target<<std::endl;
+#endif
+    force_target_to_graph(graph, forced_target);
+
+
+    // Setup backend context
+    // TODO (COMPMID-2014) : Setup all backends needed by the graph
+
+    setup_requested_backend_context(ctx, forced_target);
+    // Configure all tensors
+    /*Ehsan:
+     * set TensforHandle for all tensors which TensorInfo of TensorAllocator for each TensorHandle is set based on information of each tensor such as shape,datatype,
+     * quantinfo and ...
+     * strides in bytes for all dimensions also is set in tensorInfo
+     */
+    detail::configure_all_tensors(graph);
+    // Apply backend mutating passes
+
+    //std::cerr<<"befor pass 2 graph "<<graph.id()<<std::endl;
+    //print_times(graph,1);
+    pm.run_type(graph, IGraphMutator::MutationType::Backend);
+    // Perform topological sort
+    std::vector<NodeID> topological_sorted_nodes = dfs(graph);
+    // Validate all nodes
+    detail::validate_all_nodes(graph);
+
+    // Configure all nodes
+    auto workload = detail::configure_all_nodes(graph, ctx, topological_sorted_nodes);
+    ARM_COMPUTE_ERROR_ON_MSG(workload.tasks.empty(), "Could not configure all nodes!");
+#if My_print > 0
+    //Ehsan
+    std::cout<<"\nGraphManager, outputs size:"<<workload.outputs.size()<<std::endl;
+#endif
+    // Allocate const tensors and call accessors
+    detail::allocate_const_tensors(graph);
+    detail::call_all_const_node_accessors(graph);
+    // Prepare graph
+    detail::prepare_all_tasks(workload);
+
+    //Ehsan
+    int ii=0;
+    //std::set<int> blocking_set1 {1, 2, 3, 4};
+    //std::set<int> *blocking_set=&blocking_set1;
+    std::vector<std::string> task_names;
+    std::stringstream ss;
+    std::stringstream ss2;
+    ss<<"std::string task_names[] = { ";
+    ss2<<"std::set<std::string> end_task_names = { ";
+    int eccc=0;
+    int ccc=0;
+
+    for(auto &task : workload.tasks)
+    {
+    	if(!task.task)
+    		continue;
+
+    	std::cerr<<eccc<<"( "<<ccc<<" ):"<<task.node->name()<<std::endl;
+
+    	ss<<"\""<<task.node->name()<<"\", ";
+    	ccc++;
+    	//std::cerr<<"Task Name: "<<task.node->name()<<std::endl;
+    	task_names.push_back(task.node->name());
+
+    	bool b=false;
+    	if(blocking_set->find(task.node->name()) != blocking_set->end()){
+    	      b=true;
+    	      task.ending=true;
+    	      eccc++;
+    	      ss2<<"\""<<task.node->name()<<"\", ";
+
+    	}
+
+    	if(blocking==1){
+    		if(blocking_set!=NULL and b && target==arm_compute::graph::Target ::CL)
+    		    task.block=1;
+    	}
+    	if(blocking==2){
+    		if(blocking_set!=NULL && target==arm_compute::graph::Target ::CL){
+    			task.block=1;
+    		}
+    	}
+
+    	ii++;
+    }
+
+    ss.seekp(-2, std::ios_base::end);
+    ss<<" };\n";
+    std::cerr<<ss.str();
+    std::cerr<<"number of tasks: "<<ccc<<std::endl;
+
+    ss2.seekp(-2, std::ios_base::end);
+	ss2<<" };\n";
+	std::cerr<<ss2.str();
+	std::cerr<<"number of end tasks: "<<eccc<<std::endl;
 
 #if My_print > 0
     //Ehsan
