@@ -1240,7 +1240,7 @@ public:
 
 #if Power_Measurement
     		//Stop power measurement as soon as first pipeline stage finished its processing
-    		if (ending){
+    		if (starting){
     			std::cerr<<"Finishing power measurement with first subgraph"<<graph_id<<std::endl;
 				if (-1 == GPIOWrite(POUT, 0))
 					std::cerr<<"could not write 1\n";
@@ -1501,7 +1501,7 @@ public:
     		}
 #if Power_Measurement
     		//Stop power measurement as soon as first pipeline stage finished its processing
-    		if (ending){
+    		if (starting){
     			std::cerr<<"Finishing power measurement with id"<<id<<std::endl;
 				if (-1 == GPIOWrite(POUT, 0))
 					std::cerr<<"could not write 1\n";

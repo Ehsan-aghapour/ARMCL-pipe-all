@@ -99,6 +99,7 @@ public:
 
     virtual void do_finish(){};
 
+    virtual void do_run(std::map<std::string, std::array<int, 3>>){};
     /** Default destructor. */
     virtual ~Example() = default;
 

@@ -46,7 +46,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb/stb_image.h"
 #pragma GCC diagnostic pop
-
+#include<set>
 
 
 namespace arm_compute
@@ -86,6 +86,66 @@ void discard_comments_and_spaces(std::ifstream &fs)
     }
 }
 } // namespace
+
+static std::map<std::string, std::array<int, 3>> freq_layer;
+std::vector<std::string> get_end_task_names(std::string graph_name="alex"){
+	std::vector<std::string> _end_task_names;
+	if(graph_name=="alex"){
+		_end_task_names={ "pool1", "pool2", "conv3", "conv4", "pool5", "fc6", "fc7", "prob" };
+	}
+	if(graph_name=="google"){
+		_end_task_names={ "pool1/norm1", "conv2/3x3_reduce", "pool2/3x3_s2", "inception_3a/concat", "pool3/3x3_s2", "inception_4a/concat", "inception_4b/concat", "inception_4c/concat", "inception_4d/concat", "pool4/3x3_s2", "inception_5a/concat", "pool5/7x7_s1", "prob" };
+	}
+	if(graph_name=="mobile"){
+		_end_task_names={ "Conv2d_0+Conv2d_0/BatchNorm", "Conv2d_1_depthwise/depthwise+Conv2d_1_depthwise/BatchNorm", "Conv2d_1_pointwise/Conv2D+Conv2d_1_pointwise/BatchNorm", "Conv2d_2_depthwise/depthwise+Conv2d_2_depthwise/BatchNorm", "Conv2d_2_pointwise/Conv2D+Conv2d_2_pointwise/BatchNorm", "Conv2d_3_depthwise/depthwise+Conv2d_3_depthwise/BatchNorm", "Conv2d_3_pointwise/Conv2D+Conv2d_3_pointwise/BatchNorm", "Conv2d_4_depthwise/depthwise+Conv2d_4_depthwise/BatchNorm", "Conv2d_4_pointwise/Conv2D+Conv2d_4_pointwise/BatchNorm", "Conv2d_5_depthwise/depthwise+Conv2d_5_depthwise/BatchNorm", "Conv2d_5_pointwise/Conv2D+Conv2d_5_pointwise/BatchNorm", "Conv2d_6_depthwise/depthwise+Conv2d_6_depthwise/BatchNorm", "Conv2d_6_pointwise/Conv2D+Conv2d_6_pointwise/BatchNorm", "Conv2d_7_depthwise/depthwise+Conv2d_7_depthwise/BatchNorm", "Conv2d_7_pointwise/Conv2D+Conv2d_7_pointwise/BatchNorm", "Conv2d_8_depthwise/depthwise+Conv2d_8_depthwise/BatchNorm", "Conv2d_8_pointwise/Conv2D+Conv2d_8_pointwise/BatchNorm", "Conv2d_9_depthwise/depthwise+Conv2d_9_depthwise/BatchNorm", "Conv2d_9_pointwise/Conv2D+Conv2d_9_pointwise/BatchNorm", "Conv2d_10_depthwise/depthwise+Conv2d_10_depthwise/BatchNorm", "Conv2d_10_pointwise/Conv2D+Conv2d_10_pointwise/BatchNorm", "Conv2d_11_depthwise/depthwise+Conv2d_11_depthwise/BatchNorm", "Conv2d_11_pointwise/Conv2D+Conv2d_11_pointwise/BatchNorm", "Conv2d_12_depthwise/depthwise+Conv2d_12_depthwise/BatchNorm", "Conv2d_12_pointwise/Conv2D+Conv2d_12_pointwise/BatchNorm", "Conv2d_13_depthwise/depthwise+Conv2d_13_depthwise/BatchNorm", "Logits/AvgPool_1a", "Softmax" };
+	}
+	if(graph_name=="res50"){
+		_end_task_names={ "pool1/MaxPool", "block1/unit1/bottleneck_v1/Relu", "block1/unit2/bottleneck_v1/Relu", "block1/unit3/bottleneck_v1/Relu", "block2/unit1/bottleneck_v1/Relu", "block2/unit2/bottleneck_v1/Relu", "block2/unit3/bottleneck_v1/Relu", "block2/unit4/bottleneck_v1/Relu", "block3/unit1/bottleneck_v1/Relu", "block3/unit2/bottleneck_v1/Relu", "block3/unit3/bottleneck_v1/Relu", "block3/unit4/bottleneck_v1/Relu", "block3/unit5/bottleneck_v1/Relu", "block3/unit6/bottleneck_v1/Relu", "block4/unit1/bottleneck_v1/Relu", "block4/unit2/bottleneck_v1/Relu", "pool5", "predictions/Softmax" };
+	}
+	if(graph_name=="squeeze"){
+		_end_task_names={ "pool1", "fire2/squeeze1x1", "fire2/concat", "fire3/squeeze1x1", "fire3/concat", "fire4/squeeze1x1", "pool4", "fire5/squeeze1x1", "fire5/concat", "fire6/squeeze1x1", "fire6/concat", "fire7/squeeze1x1", "fire7/concat", "fire8/squeeze1x1", "pool8", "fire9/squeeze1x1", "fire9/concat", "pool10", "prob" };
+	}
+	return _end_task_names;
+}
+
+static void set_freq_map(std::string freqs, std::string _order,std::string graph_name){
+	std::vector<std::string> _end_task_names= get_end_task_names();
+	std::stringstream ss(freqs);
+	std::string token;
+	int i=_end_task_names.size()-1;
+	while (std::getline(ss, token, '-')) {
+		//freq_layer[*it++] = std::stoi(token);
+		std::cerr<<"token is:"<<token<<std::endl;
+		int j=(i+1)%_order.size();
+		int l=0,b=0,g=0;
+		char p=_order[j];
+		if (token.find('[')!=std::string::npos){
+			if(p!='G'){
+				std::cerr<<"Error\n\n\n\n";
+			}
+			token.erase(0, 1);
+			token.erase(token.size() - 1, 1);
+			std::stringstream t(token);
+			char comma;
+			t >> g >> comma >> b;
+		}
+		else{
+			if (p=='L'){
+				l=std::stoi(token);
+			}
+			if (p=='B'){
+				b=std::stoi(token);
+			}
+		}
+		freq_layer[_end_task_names[i]]={l,b,g};
+		i=i+1;
+		i=i%(_order.size());
+	}
+	for(auto it: _end_task_names){
+		std::cout<<"layer:"<<it<<"\tLittle:"<<freq_layer[it][0]<<"\tbig:"<<freq_layer[it][1]<<"\tGPU:"<<freq_layer[it][2]<<std::endl;
+	}
+}
+
 #define Frequency_Setting 0
 #ifndef BENCHMARK_EXAMPLES
 int run_example(int argc, char **argv, std::unique_ptr<Example> example)

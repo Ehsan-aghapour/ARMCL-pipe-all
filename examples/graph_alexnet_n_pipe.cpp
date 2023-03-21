@@ -46,7 +46,8 @@
 #include "utils/Utils.h"
 
 //Power
-#include "power.h"
+//#include "power.h"
+#include "utils/Power.h"
 
 using namespace arm_compute;
 using namespace arm_compute::utils;

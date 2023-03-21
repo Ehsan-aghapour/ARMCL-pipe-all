@@ -41,6 +41,9 @@
 #include "arm_compute/graph/Utils.h"
 #include "arm_compute/graph/backends/BackendRegistry.h"
 
+//#include "power.h"
+#include "utils/Power.h"
+
 namespace arm_compute
 {
 namespace graph
@@ -319,6 +322,8 @@ void call_all_tasks(ExecutionWorkload &workload,int nn)
     static int cc=0;
     static int c=0;
 #endif
+    std::string last_task_name=workload.tasks[workload.tasks.size()-1].node->name();
+    //std::string last_task_name=workload.tasks[workload.tasks.size()-1].node->name();
     for(auto &task : workload.tasks)
     {
     	if(nn==0)
@@ -327,7 +332,33 @@ void call_all_tasks(ExecutionWorkload &workload,int nn)
 #if streamline > 0
     		ANNOTATE_CHANNEL_COLOR(cc,((c%2)==0)?ANNOTATE_GREEN:ANNOTATE_YELLOW, (std::to_string(c)+" "+task.node->name()).c_str() );
 #endif
+
+    		if(task.starting){
+    			if (-1 == GPIOWrite(POUT, 0)){
+    				std::cerr<<"Could not write to GPIO\n";
+    			}
+			}
     		task(nn);
+
+    		/*Profiling tasks
+    		if(task.ending && task.node->name()!=last_task_name){
+    			if (-1 == GPIOWrite(POUT, 1)){
+    				std::cerr<<"Could not write to GPIO\n";
+    			}
+    			task.apply_freq(task.node->name());
+    			std::this_thread::sleep_for(std::chrono::milliseconds(8));
+    		}*/
+    		//Profiling transfers
+    		if(task.ending ){
+				if (-1 == GPIOWrite(POUT, 1)){
+					std::cerr<<"Could not write to GPIO\n";
+				}
+				task.apply_freq(task.node->name());
+				//std::this_thread::sleep_for(std::chrono::milliseconds(8));
+			}
+
+
+
 #if streamline > 0
     		if(task.ending)
     			c=c+1;

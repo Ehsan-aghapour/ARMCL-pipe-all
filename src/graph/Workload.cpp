@@ -30,12 +30,24 @@
 //Ehsan
 #include "arm_compute/runtime/CL/CLScheduler.h"
 //std::map<std::string,double> task_times;
+#include "utils/Power.h"
+#include "utils/DVFS.h"
 
 
 namespace arm_compute
 {
 namespace graph
 {
+
+//DVFS ExecutionTask::dvfs;
+DVFS dvfs;
+void ExecutionTask::init(){
+	dvfs.init();
+}
+void ExecutionTask::finish(){
+	dvfs.finish();
+}
+
 void ExecutionTask::operator()()
 {
     TaskExecutor::get().execute_function(*this);
@@ -56,6 +68,19 @@ double ExecutionTask::time(int n){
 void ExecutionTask::reset(){
 	t=0;
 	n=0;
+}
+
+void ExecutionTask::apply_freq(std::string name){
+	if(ending){
+		//std::cerr<<"Layer: "<<name<<" Applying freqs Little:"<<LittleFreq<<" big: "<<bigFreq<<" GPU:"<<GPUFreq<<std::endl;
+		dvfs.commit_freq(LittleFreq, bigFreq, GPUFreq);
+
+	}
+	/*else{
+		std::cerr<<"calling applyfreq for a node that is not ending\n";
+		std::string s;
+		std::cin>>s;
+	}*/
 }
 
 
@@ -148,5 +173,9 @@ TaskExecutor &TaskExecutor::get()
     static TaskExecutor executor;
     return executor;
 }
+
+
+
+
 } // namespace graph
 } // namespace arm_compute

@@ -122,6 +122,9 @@ namespace utils
     os << "Order is : "
     		<< common_params.order
     		<< std::endl;
+    os << "freqs of layers : "
+    		<< common_params.freqs
+			<<std::endl;
 
     os << "GPU host is: "
     		<< common_params.gpu_host
@@ -180,6 +183,7 @@ CommonGraphOptions::CommonGraphOptions(CommandLineParser &parser)
 	  little_cores(parser.add_option<SimpleOption<int>>("little_cores", 4)),
 	  layer_time(parser.add_option<SimpleOption<int>>("layer_time", 0)),
 	  order(parser.add_option<SimpleOption<std::string>>("order")),
+	  freqs(parser.add_option<SimpleOption<std::string>>("freqs")),
 	  gpu_host(parser.add_option<SimpleOption<char>>("gpu_host",'B')),
 	  npu_host(parser.add_option<SimpleOption<char>>("npu_host",'B')),
 	  input_s(parser.add_option<SimpleOption<int>>("input_s", 227)),
@@ -251,6 +255,7 @@ CommonGraphOptions::CommonGraphOptions(CommandLineParser &parser)
     little_cores->set_help("Number of little cores");
     layer_time->set_help("Layer timing");
     order->set_help("order of processors for sub graphs, eg., B-L-G");
+    freqs->set_help("Frequency index for each layer seperated with - ");
     gpu_host->set_help("GPU host B or L");
     npu_host->set_help("NPU host B or L");
 }
@@ -292,6 +297,7 @@ CommonGraphParams consume_common_graph_parameters(CommonGraphOptions &options)
     common_params.little_cores			 = options.little_cores->value();
     common_params.layer_time			 = options.layer_time->value();
     common_params.order              = options.order->value();
+    common_params.freqs					= options.freqs->value();
     common_params.gpu_host              = options.gpu_host->value();
     common_params.npu_host              = options.npu_host->value();
 

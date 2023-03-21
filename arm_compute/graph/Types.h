@@ -93,6 +93,7 @@ struct GraphConfig
     int			big_cores{4};
     int			little_cores{2};
     bool		first_big{false};
+    std::map<std::string, std::array<int, 3>> freq;
 };
 
 /**< Device target types */

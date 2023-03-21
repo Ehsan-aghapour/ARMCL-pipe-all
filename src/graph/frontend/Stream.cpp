@@ -50,13 +50,17 @@ void Stream::finalize(Target target, const GraphConfig &config, std::set<std::st
     _manager.finalize_graph(_g, _ctx, pm, target, b, blocking);
 }
 
-void Stream::measure(int n)
+void Stream::measure(int n,std::vector<std::string> endings)
 {
-	_manager.print_times(_g, n);
+	_manager.print_times(_g, n, endings);
+}
+void Stream::print_config(){
+	_manager.print_lw_config(_g);
 }
 
 void Stream::reset()
 {
+	cost=0;
 	_manager.reset(_g);
 }
 

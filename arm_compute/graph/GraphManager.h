@@ -29,6 +29,9 @@
 
 #include <map>
 
+
+
+
 namespace arm_compute
 {
 namespace graph
@@ -42,6 +45,7 @@ class PassManager;
  *
  * Manages a list of graphs along with their resources
  */
+
 
 
 class GraphManager final
@@ -88,7 +92,8 @@ public:
     void invalidate_graph(Graph &graph);
 
     //Ehsan
-    void print_times(Graph &graph, int n);
+    void print_times(Graph &graph, int n,std::vector<std::string> endings);
+    void print_lw_config(Graph &graph);
     void reset(Graph &graph);
 
     void set_input_time(double t){
@@ -99,6 +104,9 @@ public:
     }
     void set_output_time(double t){
         output_time=t;
+    }
+    void set_transfer_time(double t){
+    	transfer_time=t;
     }
 
 
@@ -111,6 +119,18 @@ public:
     double get_output_time(){
     	return output_time;
     }
+    double get_transfer_time(){
+    	return transfer_time;
+    }
+
+    void set_tasks_freqs(Graph &graph,std::map<std::string, std::array<int, 3>> freq_layer);
+    //static std::chrono::time_point<std::chrono::high_resolution_clock>* Task_finish_time; //= std::chrono::high_resolution_clock::now();
+    //static std::chrono::time_point<std::chrono::high_resolution_clock>* Output_finish_time; //= std::chrono::high_resolution_clock::now();
+    static std::atomic<std::chrono::time_point<std::chrono::high_resolution_clock>> Task_finish_time;
+	static std::atomic<std::chrono::time_point<std::chrono::high_resolution_clock>> Output_finish_time;
+	static std::mutex mmtx;
+    static bool First_time;
+    static int last_graph_id;
 
 
 private:
@@ -118,6 +138,13 @@ private:
     double input_time=0;
     double task_time=0;
     double output_time=0;
+    double transfer_time=0;
+    //int	last_graph_id=0;
+
+    /*double in[20];
+    double out[20];
+    double trans[20];
+    int frame=0;*/
 };
 } // namespace graph
 } // namespace arm_compute

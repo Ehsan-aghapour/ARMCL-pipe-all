@@ -1,0 +1,106 @@
+# Copyright (c) 2017 Arm Limited.
+#
+# SPDX-License-Identifier: MIT
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to
+# deal in the Software without restriction, including without limitation the
+# rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+# sell copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+import SCons
+import os.path
+
+Import('env')
+Import('install_bin')
+
+#examples_env = env.Clone()
+Import('examples_env')
+npu_examples_env=examples_env.Clone()
+
+#examples_env.Append(CPPPATH = ["#"])
+
+# Build examples
+#utils = examples_env.Object("../../utils/Utils.cpp")
+#Import('utils')
+utils_lw = examples_env.Object("../../utils/Utils_LW.cpp")
+
+
+if env['os'] in ['android', 'macos', 'bare_metal'] or env['standalone']:
+    Import('arm_compute_graph_a')
+    Import('arm_compute_a')
+    Import('arm_compute_core_a')
+    arm_compute_libs = [ arm_compute_a, arm_compute_core_a ]
+    arm_compute_graph_libs = arm_compute_libs # The graph library needs to be linked separately with --whole-archive
+    arm_compute_dependency = arm_compute_a
+    graph_dependency = [arm_compute_graph_a]
+else:
+    Import('arm_compute_graph_so')
+    Import('arm_compute_so')
+    arm_compute_libs = ["arm_compute", "arm_compute_core"]
+    arm_compute_graph_libs = [ "arm_compute_graph" ] + arm_compute_libs
+    arm_compute_dependency = arm_compute_so
+    graph_dependency = [arm_compute_graph_so]
+
+extra_link_flags = []
+if env['os'] != 'bare_metal':
+    extra_link_flags += ['-fstack-protector-strong']
+
+load_whole_archive = '-Wl,--whole-archive'
+noload_whole_archive = '-Wl,--no-whole-archive'
+if 'macos' in examples_env['os']:
+    load_whole_archive = '-Wl,-force_load'
+    noload_whole_archive = '-Wl,-noall_load'
+
+
+#npu_examples_env.Append(LINKFLAGS=[
+#    '-Wl,-rpath,/system/usr/lib/'
+#])
+NPU_LINKFLAGS=['-Wl','-rpath','/system/usr/lib/','-static-libstdc++']
+NPU_LIBS=['rknn_api','rockx','stdc++','log','z']
+NPU_CPPPATH=['rockx-rk3399pro-Android/include','LW']
+
+# Build graph examples
+#graph_utils_lw = examples_env.Object("../../utils/GraphUtils_NPU.cpp", LIBS = NPU_LIBS, LINKFLAGS=examples_env["LINKFLAGS"] + NPU_LINKFLAGS, CPPPATH=examples_env["CPPPATH"]+NPU_CPPPATH)
+#graph_utils_lw += examples_env.Object("../../utils/CommonGraphOptions.cpp")
+Import('graph_utils_npu')
+#Ehsan
+#graph_utils += examples_env.Object("annotate/streamline_annotate.c")
+
+examples_libs = examples_env.get("LIBS",[])
+
+
+
+
+for file in Glob("./graph_*.cpp"):
+    example = os.path.basename(os.path.splitext(str(file))[0])
+    #print(file)
+    #print(example)
+    #input()
+    prog = None
+
+    if env['os'] in ['android', 'macos', 'bare_metal'] or env['standalone']:
+        prog = npu_examples_env.Program(example, ["{}.cpp".format(example), utils_lw, graph_utils_npu], LIBPATH=['libs/'], LIBS = examples_libs + arm_compute_graph_libs + NPU_LIBS, LINKFLAGS=npu_examples_env["LINKFLAGS"]+[load_whole_archive, graph_dependency, noload_whole_archive] + extra_link_flags + NPU_LINKFLAGS, CPPPATH=npu_examples_env["CPPPATH"]+NPU_CPPPATH)
+        Depends(prog, graph_dependency)
+        prog = install_bin(prog)
+    else:
+        #-Wl,--allow-shlib-undefined: Ignore dependencies of dependencies
+        prog = npu_examples_env.Program(example, ["{}.cpp".format(example), utils_lw, graph_utils_npu], LIBS = examples_libs + arm_compute_graph_libs, LINKFLAGS=npu_examples_env["LINKFLAGS"]+['-Wl,--allow-shlib-undefined'] )
+        Depends(prog, graph_dependency)
+        prog = install_bin(prog)
+    alias = npu_examples_env.Alias(example+"_lw", prog)
+    Default(alias)
+
+
+        

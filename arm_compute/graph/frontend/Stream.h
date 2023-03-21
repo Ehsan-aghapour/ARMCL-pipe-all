@@ -68,7 +68,11 @@ public:
     void run(int nn=0);
     void run(bool annotate, int nn=0);
 
-    void measure(int n);
+    void measure(int n,std::vector<std::string> endings={});
+    void print_config();
+    void set_tasks_freq(std::map<std::string, std::array<int, 3>> freq_layer){
+    	_manager.set_tasks_freqs(_g,freq_layer);
+    }
     void reset();
     // Inherited overridden methods
     void add_layer(ILayer &layer) override;
@@ -102,6 +106,9 @@ public:
     void set_cost_time(double t){
     	cost=t;
     }
+    void set_transfer_time(double t){
+    	_manager.set_transfer_time(t);
+    }
 
     double get_input_time(){
     	return _manager.get_input_time();
@@ -115,6 +122,10 @@ public:
     double get_cost_time(){
         return cost;
     }
+    double get_transfer_time(){
+    	return _manager.get_transfer_time();
+    }
+
 
 private:
     //Important: GraphContext must be declared *before* the GraphManager because the GraphManager
@@ -130,6 +141,8 @@ private:
     double task_time=0;
     double output_time=0;
     double cost=0;
+    double transfer_time=0;
+
 };
 } // namespace frontend
 } // namespace graph

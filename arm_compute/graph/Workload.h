@@ -29,9 +29,12 @@
 #include "arm_compute/runtime/IFunction.h"
 #include "arm_compute/runtime/IMemoryGroup.h"
 
+
+
 #include <functional>
 #include <memory>
 #include <vector>
+//#include <utils/DVFS.h>
 //extern std::map<std::string,double> task_times;
 
 namespace arm_compute
@@ -98,6 +101,16 @@ struct ExecutionTask
 
     /** Prepare execution task */
     void prepare();
+    //cluster -> little:0 big:1 gpu:2
+    void set_freq(std::array<int, 3> freqs){
+    	LittleFreq=freqs[0];
+    	bigFreq=freqs[1];
+    	GPUFreq=freqs[2];
+    	return;
+    }
+    void apply_freq(std::string name);
+    static void init();
+    static void finish();
 
     double time(int n);
     void reset();
@@ -105,6 +118,11 @@ struct ExecutionTask
     int n=0;
     bool block=0;
     bool ending=0;
+    int LittleFreq=-1;
+    int bigFreq=-1;
+    int GPUFreq=-1;
+    bool starting=false;
+    //static DVFS dvfs;
 };
 
 /** Execution workload */
