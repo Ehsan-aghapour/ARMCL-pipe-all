@@ -1,0 +1,459 @@
+++ '[' build/examples/LW/graph_test_transfer_n_pipe_npu_lw == -h ']'
+++ _path=/data/data/com.termux/files/home/ARMCL-RockPi/
+++ full_dir=/data/data/com.termux/files/home/ARMCL-RockPi//test_graph/
+++ adb shell mkdir -p /data/data/com.termux/files/home/ARMCL-RockPi//test_graph/
+++ adb push build/examples/LW/graph_test_transfer_n_pipe_npu_lw /data/data/com.termux/files/home/ARMCL-RockPi//test_graph/
+build/examples/LW/graph_test_transfer_n_pipe_npu_lw: 1 file pushed, 0 skipped. 21.8 MB/s (18051952 bytes in 0.791s)
++++ basename build/examples/LW/graph_test_transfer_n_pipe_npu_lw
+++ _file=graph_test_transfer_n_pipe_npu_lw
+++ _file=/data/data/com.termux/files/home/ARMCL-RockPi//test_graph//graph_test_transfer_n_pipe_npu_lw
+++ _test=/data/data/com.termux/files/home/ARMCL-RockPi//3test.sh
+++ model=Alex
+++ '[' Alex ']'
+++ v=BL
++++ expr index BL N
+++ start=0
++++ awk -FN '{print NF-1}'
+++ count=0
+++ end=-1
+++ ((  0>0  ))
+++ unset model
+++ adb shell /data/data/com.termux/files/home/ARMCL-RockPi//3test.sh /data/data/com.termux/files/home/ARMCL-RockPi//test_graph//graph_test_transfer_n_pipe_npu_lw CL 1 0 0 100 0 0 100 100 BL 1 2 4 B B --freqs=5-5
+/data/data/com.termux/files/home/ARMCL-RockPi//test_graph//graph_test_transfer_n_pipe_npu_lw  --target=CL  --image=/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/  --n=100 --save=0 --annotate=0 --partition_point=100 --partition_point2=100 --order=BL --layer_time=1 --threads=2  --threads2=4 --GPU_host=B --NPU_host=B --freqs=5-5
+pandoon
+pandoon
+pandoon
+
+/data/data/com.termux/files/home/ARMCL-RockPi//test_graph//graph_test_transfer_n_pipe_npu_lw
+
+Pandoon opened at 3
+5 Input images are read from /data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/
+CN:B, CG:B
+NPU host: 4
+Little Cores host: 3
+Big Cores host: 5
+GPU host: 4
+Number of Layers: 2
+Threads : 2
+Small Cores Threads : 4
+Target : CL
+Data type : F32
+Data layout : NHWC
+Tuner enabled? : false
+Cache enabled? : true
+Tuner mode : Normal
+Tuner file : 
+MLGO file : 
+Fast math enabled? : false
+Image file : /data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/space_shuttle_227.jpg
+Labels file : 
+Partition point is : 100
+Second partition point is : 100
+Order is : BL
+freqs of layers : 5-5
+GPU host is: B
+NPU host is: B
+Number of totla cores is : 6
+Number of little cores is : 4
+Run network for 100 times.
+Layer timing: 1
+
+start creating graph
+creating image accessor
+std::string task_names[] = { "conv1", "norm1", "pool1" };
+number of tasks: 3
+std::set<std::string> end_task_names = { "pool1" };
+number of end tasks: 1
+std::set<std::string> start_task_names = { "conv1" };
+number of start tasks: 1
+after pass graph 0
+std::string task_names[] = { "conv2", "norm2", "pool2" };
+number of tasks: 3
+std::set<std::string> end_task_names = { "pool2" };
+number of end tasks: 1
+std::set<std::string> start_task_names = { "conv2" };
+number of start tasks: 1
+Total layers:2
+
+after pass graph 1
+0 Running Graph with 7-5 LW DVFS
+layer:pool1	Little:5	big:0	GPU:0
+layer:pool2	Little:0	big:7	GPU:0
+task: conv1 set freq for next task to -1, -1, -1
+task: norm1 set freq for next task to -1, -1, -1
+task: pool1 set freq for next task to 5, 0, 0
+task: conv2 set freq for next task to -1, -1, -1
+task: norm2 set freq for next task to -1, -1, -1
+task: pool2 set freq for next task to 0, 7, 0
+
+
+WarmUp: First graph inferencing image: 0:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/space_shuttle_227.jpg
+
+
+
+
+
+
+
+================================================
+Start Running All Subgraphs ...
+====================================================
+
+
+
+Subgraph0 Ready to trigger Start Running
+
+
+First graph inferencing image: 0:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/space_shuttle_227.jpg
+Subgraph1 Ready to trigger Start Running
+
+
+First graph inferencing image: 1:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/gold_fish.ppm
+
+
+First graph inferencing image: 2:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/gondola.ppm
+
+
+First graph inferencing image: 3:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/school_bus.ppm
+
+
+First graph inferencing image: 4:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/go_kart.ppm
+
+
+First graph inferencing image: 0:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/space_shuttle_227.jpg
+
+
+First graph inferencing image: 1:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/gold_fish.ppm
+
+
+First graph inferencing image: 2:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/gondola.ppm
+
+
+First graph inferencing image: 3:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/school_bus.ppm
+
+
+First graph inferencing image: 4:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/go_kart.ppm
+
+
+First graph inferencing image: 0:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/space_shuttle_227.jpg
+
+
+First graph inferencing image: 1:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/gold_fish.ppm
+
+
+First graph inferencing image: 2:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/gondola.ppm
+
+
+First graph inferencing image: 3:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/school_bus.ppm
+
+
+First graph inferencing image: 4:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/go_kart.ppm
+
+
+First graph inferencing image: 0:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/space_shuttle_227.jpg
+
+
+First graph inferencing image: 1:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/gold_fish.ppm
+
+
+First graph inferencing image: 2:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/gondola.ppm
+
+
+First graph inferencing image: 3:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/school_bus.ppm
+
+
+First graph inferencing image: 4:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/go_kart.ppm
+
+
+First graph inferencing image: 0:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/space_shuttle_227.jpg
+
+
+First graph inferencing image: 1:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/gold_fish.ppm
+
+
+First graph inferencing image: 2:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/gondola.ppm
+
+
+First graph inferencing image: 3:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/school_bus.ppm
+
+
+First graph inferencing image: 4:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/go_kart.ppm
+
+
+First graph inferencing image: 0:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/space_shuttle_227.jpg
+
+
+First graph inferencing image: 1:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/gold_fish.ppm
+
+
+First graph inferencing image: 2:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/gondola.ppm
+
+
+First graph inferencing image: 3:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/school_bus.ppm
+
+
+First graph inferencing image: 4:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/go_kart.ppm
+
+
+First graph inferencing image: 0:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/space_shuttle_227.jpg
+
+
+First graph inferencing image: 1:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/gold_fish.ppm
+
+
+First graph inferencing image: 2:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/gondola.ppm
+
+
+First graph inferencing image: 3:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/school_bus.ppm
+
+
+First graph inferencing image: 4:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/go_kart.ppm
+
+
+First graph inferencing image: 0:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/space_shuttle_227.jpg
+
+
+First graph inferencing image: 1:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/gold_fish.ppm
+
+
+First graph inferencing image: 2:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/gondola.ppm
+
+
+First graph inferencing image: 3:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/school_bus.ppm
+
+
+First graph inferencing image: 4:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/go_kart.ppm
+
+
+First graph inferencing image: 0:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/space_shuttle_227.jpg
+
+
+First graph inferencing image: 1:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/gold_fish.ppm
+
+
+First graph inferencing image: 2:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/gondola.ppm
+
+
+First graph inferencing image: 3:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/school_bus.ppm
+
+
+First graph inferencing image: 4:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/go_kart.ppm
+
+
+First graph inferencing image: 0:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/space_shuttle_227.jpg
+
+
+First graph inferencing image: 1:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/gold_fish.ppm
+
+
+First graph inferencing image: 2:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/gondola.ppm
+
+
+First graph inferencing image: 3:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/school_bus.ppm
+
+
+First graph inferencing image: 4:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/go_kart.ppm
+start of graph: 0 for frame: 50
+
+
+First graph inferencing image: 0:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/space_shuttle_227.jpg
+
+
+First graph inferencing image: 1:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/gold_fish.ppm
+
+
+First graph inferencing image: 2:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/gondola.ppm
+
+
+First graph inferencing image: 3:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/school_bus.ppm
+
+
+First graph inferencing image: 4:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/go_kart.ppm
+
+
+First graph inferencing image: 0:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/space_shuttle_227.jpg
+
+
+First graph inferencing image: 1:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/gold_fish.ppm
+
+
+First graph inferencing image: 2:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/gondola.ppm
+
+
+First graph inferencing image: 3:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/school_bus.ppm
+
+
+First graph inferencing image: 4:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/go_kart.ppm
+
+
+First graph inferencing image: 0:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/space_shuttle_227.jpg
+
+
+First graph inferencing image: 1:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/gold_fish.ppm
+
+
+First graph inferencing image: 2:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/gondola.ppm
+
+
+First graph inferencing image: 3:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/school_bus.ppm
+
+
+First graph inferencing image: 4:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/go_kart.ppm
+
+
+First graph inferencing image: 0:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/space_shuttle_227.jpg
+
+
+First graph inferencing image: 1:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/gold_fish.ppm
+
+
+First graph inferencing image: 2:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/gondola.ppm
+
+
+First graph inferencing image: 3:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/school_bus.ppm
+
+
+First graph inferencing image: 4:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/go_kart.ppm
+
+
+First graph inferencing image: 0:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/space_shuttle_227.jpg
+
+
+First graph inferencing image: 1:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/gold_fish.ppm
+
+
+First graph inferencing image: 2:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/gondola.ppm
+
+
+First graph inferencing image: 3:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/school_bus.ppm
+
+
+First graph inferencing image: 4:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/go_kart.ppm
+
+
+First graph inferencing image: 0:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/space_shuttle_227.jpg
+
+
+First graph inferencing image: 1:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/gold_fish.ppm
+
+
+First graph inferencing image: 2:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/gondola.ppm
+
+
+First graph inferencing image: 3:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/school_bus.ppm
+
+
+First graph inferencing image: 4:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/go_kart.ppm
+
+
+First graph inferencing image: 0:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/space_shuttle_227.jpg
+
+
+First graph inferencing image: 1:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/gold_fish.ppm
+
+
+First graph inferencing image: 2:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/gondola.ppm
+
+
+First graph inferencing image: 3:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/school_bus.ppm
+
+
+First graph inferencing image: 4:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/go_kart.ppm
+
+
+First graph inferencing image: 0:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/space_shuttle_227.jpg
+
+
+First graph inferencing image: 1:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/gold_fish.ppm
+
+
+First graph inferencing image: 2:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/gondola.ppm
+
+
+First graph inferencing image: 3:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/school_bus.ppm
+
+
+First graph inferencing image: 4:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/go_kart.ppm
+
+
+First graph inferencing image: 0:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/space_shuttle_227.jpg
+
+
+First graph inferencing image: 1:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/gold_fish.ppm
+
+
+First graph inferencing image: 2:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/gondola.ppm
+
+
+First graph inferencing image: 3:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/school_bus.ppm
+
+
+First graph inferencing image: 4:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/go_kart.ppm
+
+
+First graph inferencing image: 0:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/space_shuttle_227.jpg
+
+
+First graph inferencing image: 1:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/gold_fish.ppm
+
+
+First graph inferencing image: 2:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/gondola.ppm
+
+
+First graph inferencing image: 3:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/school_bus.ppm
+
+
+First graph inferencing image: 4:/data/data/com.termux/files/home/ARMCL-RockPi/assets/./ppm_images_227/go_kart.ppm
+Finishing power measurement with first subgraph1
+0	Layer Name: conv1 	 Layer time: 0 	 number of inputs: 3 	 input shape: 3x227x227 	 output shape: 19200x55x55
+1	Layer Name: norm1 	 Layer time: 0 	 number of inputs: 1 	 input shape: 19200x55x55 	 output shape: 19200x55x55
+2	Layer Name: pool1 	 Layer time: 0 	 number of inputs: 1 	 input shape: 19200x55x55 	 output shape: 19200x27x27
+Layer Number: 0 	 time: 0
+----------------------------
+
+ Sum of Layers time: 0
+
+ input time of layer 0 : 15.3569
+
+ transfer_time of layer 0 : 0
+
+ output time of layer 0 : 0.0114858
+
+ this part task time: 3.32025
+0	Layer Name: conv2 	 Layer time: 0 	 number of inputs: 3 	 input shape: 19200x27x27 	 output shape: 256x27x27
+
+
+Cost0:164.001
+input0_time:15.3569
+task0_time:3.32025
+output0_time:0.0114858
+total0_time:18.6887
+***************************************
+
+1	Layer Name: norm2 	 Layer time: 0 	 number of inputs: 1 	 input shape: 256x27x27 	 output shape: 256x27x27
+2	Layer Name: pool2 	 Layer time: 0 	 number of inputs: 1 	 input shape: 256x27x27 	 output shape: 256x13x13
+Layer Number: 1 	 time: 0
+----------------------------
+
+ Sum of Layers time: 0
+
+ input time of layer 1 : 39.71
+
+ transfer_time of layer 1 : 39.7214
+
+ output time of layer 1 : 0.0174913
+
+ this part task time: 3.49612
+
+
+Cost1:61.9641
+input1_time:39.71
+task1_time:3.49612
+output1_time:0.0174913
+total1_time:43.2236
+***************************************
+
+Frame Latency: 104.201
+Profiling these DVFS settings finised
+
+Test passed

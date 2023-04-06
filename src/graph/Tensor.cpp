@@ -27,6 +27,7 @@
 
 
 #include "arm_compute/graph/Tensor.h"
+#include <mutex>
 
 namespace arm_compute
 {
@@ -102,7 +103,28 @@ bool Tensor::call_accessor()
 
     return retval;
 }
+class _PrintThread: public std::ostringstream
+{
+public:
+    _PrintThread() = default;
+   /* PrintThread(int l=1){
+    	level=l;
+    }*/
 
+
+    ~_PrintThread()
+    {
+        std::lock_guard<std::mutex> guard(_mutexPrint);
+        //if(level>print_level)
+        	std::cerr << this->str();
+    }
+
+private:
+    static std::mutex _mutexPrint;
+    //int	level=1;
+    //int print_level=0;
+};
+std::mutex _PrintThread::_mutexPrint{};
 //Ehsan
 bool Tensor::my_call_accessor()
 {
@@ -117,10 +139,11 @@ bool Tensor::my_call_accessor()
     ////static int c=4;
     ///ANNOTATE_CHANNEL_COLOR(c,ANNOTATE_GREEN,"map");
     // Map tensor
-    //auto start=std::chrono::high_resolution_clock::now();
+    auto start=std::chrono::high_resolution_clock::now();
     _handle->map(true);
-    //auto finish=std::chrono::high_resolution_clock::now();
-    //std::cerr<<"mapping: "<<1000*(std::chrono::duration_cast<std::chrono::duration<double>>(finish - start).count())<<std::endl;
+
+    auto finish=std::chrono::high_resolution_clock::now();
+    ////_PrintThread{}<<"Tensor "<<_id<<" "<<_desc.shape[0]<<" mapping: "<<1000*(std::chrono::duration_cast<std::chrono::duration<double>>(finish - start).count())<<std::endl;
     //std::cerr<<"*******my_call_accessor************************\n\n";
     ////ANNOTATE_CHANNEL_END(c++);
     // Return in case of null backend buffer
@@ -133,18 +156,18 @@ bool Tensor::my_call_accessor()
     // Call accessor
     //std::string cc;
     //std::cout<<"salammm\n";
-    ////start=std::chrono::high_resolution_clock::now();
+    start=std::chrono::high_resolution_clock::now();
     //std::cerr<<"accessor\n";
     bool retval = _accessor->access_tensor(_handle->tensor());
-    ////finish=std::chrono::high_resolution_clock::now();
-    ////std::cerr<<"access: "<<(std::chrono::duration_cast<std::chrono::duration<double>>(finish - start).count())<<std::endl;
+    finish=std::chrono::high_resolution_clock::now();
+    ////_PrintThread{}<<"Tensor "<<_id<<" "<<_desc.shape[0]<<" access: "<<1000*(std::chrono::duration_cast<std::chrono::duration<double>>(finish - start).count())<<std::endl;
     ////ANNOTATE_CHANNEL_END(c++);
     ////ANNOTATE_CHANNEL_COLOR(c,ANNOTATE_RED,"unmap");
     // Unmap tensor
-    ////start=std::chrono::high_resolution_clock::now();
+    start=std::chrono::high_resolution_clock::now();
     _handle->unmap();
-    ////finish=std::chrono::high_resolution_clock::now();
-    ////std::cerr<<"unmap: "<<(std::chrono::duration_cast<std::chrono::duration<double>>(finish - start).count())<<std::endl;
+    finish=std::chrono::high_resolution_clock::now();
+    ////_PrintThread{}<<"Tensor "<<_id<<" "<<_desc.shape[0]<<" unmap: "<<1000*(std::chrono::duration_cast<std::chrono::duration<double>>(finish - start).count())<<std::endl;
     ////ANNOTATE_CHANNEL_END(c++);
     return retval;
 }

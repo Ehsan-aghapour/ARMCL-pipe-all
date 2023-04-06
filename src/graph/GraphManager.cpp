@@ -610,14 +610,30 @@ void GraphManager::execute_graph(Graph &graph, int nn)
 			update_out(tfinish);
 			auto &task=it->second.tasks[it->second.tasks.size()-1];
 			task.apply_freq(task.node->name());
-			//if(graph.id()==last_graph_id && nn){
-			/*profiling task mode
+
+			/*
+			 * profiling task mode
 			if(graph.id()==last_graph_id && nn){
 				if (-1 == GPIOWrite(POUT, 1)){
 					std::cerr<<"Could not write to GPIO\n";
 				}
 
 			}*/
+
+			/*******************************************
+			 * Profiling whole network
+			 ******************************************/
+			if(graph.id()==last_graph_id && nn){
+				if(graph.id()==last_graph_id && nn){
+					if (-1 == GPIOWrite(POUT, 1)){
+						std::cerr<<"Could not write to GPIO\n";
+					}
+
+				}
+			}
+			/*******************************************
+			 ******************************************/
+
 			x3=std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
 			//out[frame]=x3;
 			output_time += x3;

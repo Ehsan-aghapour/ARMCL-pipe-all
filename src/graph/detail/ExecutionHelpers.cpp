@@ -338,9 +338,11 @@ void call_all_tasks(ExecutionWorkload &workload,int nn)
     				std::cerr<<"Could not write to GPIO\n";
     			}
 			}
-    		task(nn);
+
+
 
     		/*Profiling tasks
+			task(nn);
     		if(task.ending && task.node->name()!=last_task_name){
     			if (-1 == GPIOWrite(POUT, 1)){
     				std::cerr<<"Could not write to GPIO\n";
@@ -348,13 +350,18 @@ void call_all_tasks(ExecutionWorkload &workload,int nn)
     			task.apply_freq(task.node->name());
     			std::this_thread::sleep_for(std::chrono::milliseconds(8));
     		}*/
-    		//Profiling transfers
+    		/*Profiling transfers
     		if(task.ending ){
+    			task.apply_freq(task.node->name());
+    			std::this_thread::sleep_for(std::chrono::milliseconds(12));
 				if (-1 == GPIOWrite(POUT, 1)){
 					std::cerr<<"Could not write to GPIO\n";
 				}
+			}*/
+    		//Profiling whole network
+			if(task.ending ){
+				task(nn);
 				task.apply_freq(task.node->name());
-				//std::this_thread::sleep_for(std::chrono::milliseconds(8));
 			}
 
 

@@ -51,6 +51,9 @@
 #include "utils/DVFS.h"
 #include "arm_compute/graph/Workload.h"
 
+#include <chrono>
+#include <thread>
+
 //int fd = 0;
 
 namespace arm_compute
@@ -126,6 +129,9 @@ std::vector<std::string> get_end_task_names(std::string graph_name="alex"){
 	if(graph_name=="squeeze"){
 		_end_task_names={ "pool1", "fire2/concat", "fire3/concat", "pool4", "fire5/concat", "fire6/concat", "fire7/concat", "pool8", "fire9/concat", "prob" };
 	}
+	if(graph_name=="test"){
+		_end_task_names={ "pool1", "pool2"};
+	}
 	return _end_task_names;
 }
 
@@ -166,9 +172,11 @@ static void set_freq_map(std::string freqs, std::string _order,std::string graph
 		else{
 			if (p=='L'){
 				l=std::stoi(token);
+				//b=7;
 			}
 			if (p=='B'){
 				b=std::stoi(token);
+				//l=5;
 			}
 		}
 		freq_layer[_end_task_names[i]]={l,b,g};
@@ -254,9 +262,10 @@ int run_example(int argc, char **argv, std::unique_ptr<Example_LW> example)
         std::cin>>fqs;
         int i=0;
         while(fqs!="end"){
-        	//std::this_thread::sleep_for(std::chrono::milliseconds(2));
+
         	std::cerr<<i++<<" Running Graph with "<<fqs<<" LW DVFS\n";
         	set_freq_map(fqs,example->common_params.order,example->Name);
+        	std::this_thread::sleep_for(std::chrono::milliseconds(6000));
         	example->do_run(freq_layer);
 
         	std::cerr<<"Profiling these DVFS settings finised\n";
