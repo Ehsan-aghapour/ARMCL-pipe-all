@@ -949,7 +949,7 @@ public:
 
 		// Layer 2
 		(*sub_graph) << ConvolutionLayer(
-				  5U, 5U, 256U,
+				  5U, 5U, 5U,
 				  get_weights_accessor(data_path, "/cnn_data/alexnet_model/conv2_w.npy", weights_layout),
 				  get_weights_accessor(data_path, "/cnn_data/alexnet_model/conv2_b.npy"),
 				  PadStrideInfo(1, 1, 2, 2), 1).set_name("conv2")

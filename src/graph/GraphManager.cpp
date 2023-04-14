@@ -587,7 +587,7 @@ void GraphManager::execute_graph(Graph &graph, int nn)
 		//in[frame]=x1;
 		input_time +=x1;
 
-		detail::call_all_tasks(it->second,nn);
+		detail::call_all_tasks(it->second,nn,graph.id()==last_graph_id);
 		tstart=std::chrono::high_resolution_clock::now();
 		/*profile tasks mode
 		if(graph.id()!=last_graph_id && nn){
@@ -609,7 +609,16 @@ void GraphManager::execute_graph(Graph &graph, int nn)
 			//Output_finish_time.store(tfinish);
 			update_out(tfinish);
 			auto &task=it->second.tasks[it->second.tasks.size()-1];
-			task.apply_freq(task.node->name());
+			//Just the last layer apply freqs and GPIO after output
+			if(graph.id()==last_graph_id ){
+				task.apply_freq(task.node->name());
+				if(nn){
+					if (-1 == GPIOWrite(POUT, 1)){
+						std::cerr<<"Could not write to GPIO\n";
+					}
+				}
+			}
+			//task.apply_freq(task.node->name());
 
 			/*
 			 * profiling task mode
@@ -622,7 +631,7 @@ void GraphManager::execute_graph(Graph &graph, int nn)
 
 			/*******************************************
 			 * Profiling whole network
-			 ******************************************/
+			 ******************************************
 			if(graph.id()==last_graph_id && nn){
 				if(graph.id()==last_graph_id && nn){
 					if (-1 == GPIOWrite(POUT, 1)){

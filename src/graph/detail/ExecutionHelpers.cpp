@@ -302,7 +302,14 @@ void prepare_all_tasks(ExecutionWorkload &workload)
     }
 }
 
-void call_all_tasks(ExecutionWorkload &workload,int nn)
+
+#define PROFILE_MODE_LAYERS 1
+#define PROFILE_MODE_WHOLE_NETWORK 2
+#define PROFILE_MODE_TRANSFER_TIMES 3
+#define PROFILE_MODE_SYNTHETIC_TRANSFERS 4
+
+#define PROFILE_MODE PROFILE_MODE_WHOLE_NETWORK
+void call_all_tasks(ExecutionWorkload &workload,int nn,bool last_graph)
 {
     ARM_COMPUTE_ERROR_ON(workload.ctx == nullptr);
 
@@ -315,7 +322,7 @@ void call_all_tasks(ExecutionWorkload &workload,int nn)
         }
     }
 
-    // Execute tasks
+
 #if streamline > 0
     ANNOTATE_SETUP;
     ANNOTATE_MARKER_STR("start_running tasks");
@@ -323,7 +330,6 @@ void call_all_tasks(ExecutionWorkload &workload,int nn)
     static int c=0;
 #endif
     std::string last_task_name=workload.tasks[workload.tasks.size()-1].node->name();
-    //std::string last_task_name=workload.tasks[workload.tasks.size()-1].node->name();
     for(auto &task : workload.tasks)
     {
     	if(nn==0)
@@ -339,6 +345,48 @@ void call_all_tasks(ExecutionWorkload &workload,int nn)
     			}
 			}
 
+
+
+			bool last_layer=last_graph && task.node->name()==last_task_name;
+#if PROFILE_MODE == PROFILE_MODE_LAYERS
+			/************Profile layers time and power*********/
+			task(nn);
+			if(task.ending && !last_layer){
+				task.apply_freq(task.node->name());
+				if (-1 == GPIOWrite(POUT, 1)){
+					std::cerr<<"Could not write to GPIO\n";
+				}
+				std::this_thread::sleep_for(std::chrono::milliseconds(8));
+			}
+			/**************************************************/
+#elif PROFILE_MODE == PROFILE_MODE_WHOLE_NETWORK
+			/************Profiling whole network *********/
+			task(nn);
+			if(task.ending && !last_layer){
+				task.apply_freq(task.node->name());
+			}
+			/**************************************************/
+#elif PROFILE_MODE == PROFILE_MODE_TRANSFER_TIMES
+			/************Profile transfer time between real layers *********/
+			task(nn);
+			if(task.ending && !last_layer){
+				task.apply_freq(task.node->name());
+				if (-1 == GPIOWrite(POUT, 1)){
+					std::cerr<<"Could not write to GPIO\n";
+				}
+			}
+			/***************************************************************/
+#elif PROFILE_MODE == PROFILE_MODE_SYNTHETIC_TRANSFERS
+			/***********Profiling synthetic transfers*********/
+			if(task.ending){
+				task.apply_freq(task.node->name());
+				std::this_thread::sleep_for(std::chrono::milliseconds(15));
+				if (-1 == GPIOWrite(POUT, 1)){
+					std::cerr<<"Could not write to GPIO\n";
+				}
+			}
+			/*************************************************/
+#endif
 
 
     		/*Profiling tasks
@@ -358,11 +406,12 @@ void call_all_tasks(ExecutionWorkload &workload,int nn)
 					std::cerr<<"Could not write to GPIO\n";
 				}
 			}*/
-    		//Profiling whole network
+    		/*Profiling whole network **
+    		task(nn);
 			if(task.ending ){
-				task(nn);
 				task.apply_freq(task.node->name());
 			}
+			/**************************/
 
 
 
