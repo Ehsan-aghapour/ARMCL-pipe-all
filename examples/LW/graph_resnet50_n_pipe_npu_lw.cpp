@@ -1048,6 +1048,7 @@ private:
         	for(int i=0;i<npu_stages.size();i++){
     			npu_stages[i]->join();
     		}
+        	*StartRunning=false;
         	for(int i=0;i<graphs.size();i++){
     			//std::cout<<"graph_id: "<<i<<" \t start: "<<graphs[i]->get_start_time().time_since_epoch().count()<<" \t end: "<<graphs[i]->get_finish_time().time_since_epoch().count()<<std::endl;
         		if(common_params.layer_time)

@@ -1118,7 +1118,7 @@ public:
 				*StartRunning = true;
 			}
         	std::this_thread::sleep_for(std::chrono::milliseconds(100));
-			std::cerr << "\n\n\n\n\n\n\n================================================\nStart Running All Subgraphs ...\n"<<
+			std::cerr << "\n\n\n\n\n\n\n================================================\nStartt Running All Subgraphs ...\n"<<
 					"====================================================\n\n\n"<< std::endl;
 			condVar.notify_all();
 
@@ -1129,6 +1129,7 @@ public:
         	for(int i=0;i<npu_stages.size();i++){
     			npu_stages[i]->join();
     		}
+        	*StartRunning=false;
         	for(int i=0;i<graphs.size();i++){
     			//std::cout<<"graph_id: "<<i<<" \t start: "<<graphs[i]->get_start_time().time_since_epoch().count()<<" \t end: "<<graphs[i]->get_finish_time().time_since_epoch().count()<<std::endl;
         		if(common_params.layer_time)
