@@ -563,10 +563,12 @@ void GraphManager::execute_graph(Graph &graph, int nn)
 		//ANNOTATE_CHANNEL_COLOR(1,ANNOTATE_GREEN,"input");
 		auto tstart=std::chrono::high_resolution_clock::now();
 		//std::cerr<<"graph_id:"<<graph.id()<<"last id: "<<last_graph_id <<std::endl;
+		//std::cerr<<graph.id()<<" heye1\n\n";
 		if(!detail::call_all_input_node_accessors(it->second))
 		{
 			return;
 		}
+		//std::cerr<<graph.id()<<" heye2\n\n";
 		auto tfinish=std::chrono::high_resolution_clock::now();
 		//ANNOTATE_CHANNEL_END(1);
 		//ANNOTATE_CHANNEL_COLOR(2,ANNOTATE_YELLOW,"task");
@@ -586,7 +588,7 @@ void GraphManager::execute_graph(Graph &graph, int nn)
 		}
 		//in[frame]=x1;
 		input_time +=x1;
-
+		//std::cerr<<graph.id()<<" before\n\n";
 		detail::call_all_tasks(it->second,nn,graph.id()==last_graph_id);
 		tstart=std::chrono::high_resolution_clock::now();
 		/*profile tasks mode

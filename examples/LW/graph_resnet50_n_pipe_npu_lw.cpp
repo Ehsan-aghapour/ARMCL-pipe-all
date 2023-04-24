@@ -1029,7 +1029,7 @@ private:
         		std::this_thread::sleep_for(std::chrono::milliseconds((j+1)*1000));
         	}
         	*/
-        	std::this_thread::sleep_for(std::chrono::milliseconds(5*1000));
+        	std::this_thread::sleep_for(std::chrono::milliseconds(10*1000));
 
 
         	{
@@ -1089,6 +1089,7 @@ private:
         	}
         void run(int graph_id){
         	//std::cerr<<"setup finished now start running\n";
+        	//PrintThread{}<<"\n\n-------------------------Graph "<<graph_id<<"0\n\n";
     		int cl=classes[graph_id];
     		int core_id=host_core[cl];
     		cpu_set_t set;
@@ -1098,7 +1099,7 @@ private:
     		//print_cpu_set(set);
     		ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
     		//PrintThread{}<<"start running graph "<<graph_id<<std::flush<<std::endl;
-
+    		//PrintThread{}<<"\n\n-------------------------Graph "<<graph_id<<"1\n\n";
     		double in=0;
     		double task=0;
     		double out=0;
@@ -1109,6 +1110,7 @@ private:
     		latency=0;
     		//auto tstart=std::chrono::high_resolution_clock::now();
     		//std::cerr<<"graph__id:"<<graph_id<<'\n';//"   time:"<<tstart.time_since_epoch().count()<<std::endl;
+    		//PrintThread{}<<"\n\n-------------------------Graph "<<graph_id<<"2\n\n";
     		if(imgs && starting){
     			if(image_index>=images_list.size())
     					image_index=image_index%images_list.size();
@@ -1128,7 +1130,7 @@ private:
     			graphs[graph_id]->run(annotate);
     		}
     		//std::cerr<<"run: finish running graph id: "<<graph_id<<'\n';
-
+    		//PrintThread{}<<"\n\n-------------------------Graph "<<graph_id<<"3\n\n";
     		/*graphs[graph_id]->set_input_time(0);
 			graphs[graph_id]->set_task_time(0);
 			graphs[graph_id]->set_output_time(0);
@@ -1136,6 +1138,7 @@ private:
 			graphs[graph_id]->set_transfer_time(0);
 			if(layer_timing)*/
 				graphs[graph_id]->reset();
+				//PrintThread{}<<"\n\n-------------------------Graph "<<graph_id<<"4\n\n";
 
     		std::cout << "Subgraph"<<graph_id<<" Ready to trigger Start Running" << std::endl;
     		{
@@ -1219,7 +1222,7 @@ private:
 #if Power_Measurement
     		//Stop power measurement as soon as first pipeline stage finished its processing
     		if (ending){
-    			std::this_thread::sleep_for(std::chrono::milliseconds(4));
+    			std::this_thread::sleep_for(std::chrono::milliseconds(200));
     			std::cerr<<"Finishing power measurement with first subgraph"<<graph_id<<std::endl;
 				if (-1 == GPIOWrite(POUT, 0))
 					std::cerr<<"could not write 1\n";

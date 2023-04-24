@@ -76,6 +76,7 @@ void Stream::run(int n)
 }*/
 void Stream::run(bool anotate, int nn)
 {
+	//std::cerr<<"\n\nrun-----------------\n\n";
 	//start=std::chrono::high_resolution_clock::now();
     _manager.execute_graph(_g, anotate, nn);
     //finish=std::chrono::high_resolution_clock::now();

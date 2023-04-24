@@ -930,7 +930,7 @@ public:
         		std::this_thread::sleep_for(std::chrono::milliseconds((j+1)*1000));
         	}
         	*/
-        	std::this_thread::sleep_for(std::chrono::milliseconds(5*1000));
+        	std::this_thread::sleep_for(std::chrono::milliseconds(10*1000));
 
 
         	{
@@ -1120,7 +1120,7 @@ public:
 #if Power_Measurement
     		//Stop power measurement as soon as first pipeline stage finished its processing
     		if (ending){
-    			std::this_thread::sleep_for(std::chrono::milliseconds(4));
+    			std::this_thread::sleep_for(std::chrono::milliseconds(200));
     			std::cerr<<"Finishing power measurement with first subgraph"<<graph_id<<std::endl;
 				if (-1 == GPIOWrite(POUT, 0))
 					std::cerr<<"could not write 1\n";

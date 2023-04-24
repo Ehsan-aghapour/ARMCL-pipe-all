@@ -265,7 +265,7 @@ int run_example(int argc, char **argv, std::unique_ptr<Example_LW> example)
 
         	std::cerr<<i++<<" Running Graph with "<<fqs<<" LW DVFS\n";
         	set_freq_map(fqs,example->common_params.order,example->Name);
-        	std::this_thread::sleep_for(std::chrono::milliseconds(6000));
+        	//std::this_thread::sleep_for(std::chrono::milliseconds(10000));
         	example->do_run(freq_layer);
 
         	std::cerr<<"Profiling these DVFS settings finised\n";
