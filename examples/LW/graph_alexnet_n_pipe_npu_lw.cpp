@@ -391,6 +391,7 @@ public:
 				}
 				std::cerr<<std::endl;
 #endif
+
 				//sub_graph->finalize(common_params.target, config, &e_t,common_params.layer_time);
 				sub_graph->finalize(common_params.target, config, &end_task_names,common_params.layer_time);
 
@@ -921,6 +922,7 @@ public:
         (*sub_graph) << common_params.target
               << common_params.fast_math_hint;
         		auto ii=InputLayer(input_descriptor, get_input_accessor(common_params, (gr_layer[Layer]==-2)?NULL:std::move(preprocessor)));
+
         		(*sub_graph)  << ii;
               // Layer 1
 		        		(*sub_graph) << ConvolutionLayer(

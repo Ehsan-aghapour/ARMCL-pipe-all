@@ -263,7 +263,9 @@ void GraphManager::finalize_graph(Graph &graph, GraphContext &ctx, PassManager &
      * quantinfo and ...
      * strides in bytes for all dimensions also is set in tensorInfo
      */
+
     detail::configure_all_tensors(graph);
+
     // Apply backend mutating passes
 
     //std::cerr<<"befor pass 2 graph "<<graph.id()<<std::endl;
@@ -273,7 +275,6 @@ void GraphManager::finalize_graph(Graph &graph, GraphContext &ctx, PassManager &
     std::vector<NodeID> topological_sorted_nodes = dfs(graph);
     // Validate all nodes
     detail::validate_all_nodes(graph);
-
     // Configure all nodes
     auto workload = detail::configure_all_nodes(graph, ctx, topological_sorted_nodes);
     ARM_COMPUTE_ERROR_ON_MSG(workload.tasks.empty(), "Could not configure all nodes!");
@@ -589,7 +590,7 @@ void GraphManager::execute_graph(Graph &graph, int nn)
 		//in[frame]=x1;
 		input_time +=x1;
 		//std::cerr<<graph.id()<<" before\n\n";
-		detail::call_all_tasks(it->second,nn,graph.id()==last_graph_id);
+		detail::call_all_tasks(it->second,nn,graph.id()==last_graph_id, graph.name());
 		tstart=std::chrono::high_resolution_clock::now();
 		/*profile tasks mode
 		if(graph.id()!=last_graph_id && nn){

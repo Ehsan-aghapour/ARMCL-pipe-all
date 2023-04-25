@@ -181,13 +181,14 @@ struct KeyHash {
 
 std::unordered_map<Key, double, KeyHash> data;
 bool Data_Loaded=false;
+std::map<std::string,std::string> graph_names={{"AlexNet","alex"},{"GoogleNet","google"},{"MobileNet","mobile"},{"ResNet50","res50"},{"SqueezeNet","squeeze"}};
 
 int Load_Layers_Percetage(){
 	if(Data_Loaded){
 		return 0;
 	}
 
-    std::ifstream file("Layers_Percentage.csv"); // Replace "data.csv" with your actual CSV file name
+    std::ifstream file("/data/data/com.termux/files/home/ARMCL-RockPi/Layers_Percentage.csv"); // Replace "data.csv" with your actual CSV file name
     if (!file.is_open()) {
         std::cout << "Failed to open file" << std::endl;
         return 1;
@@ -202,6 +203,7 @@ int Load_Layers_Percetage(){
         double timePercentageG;
         double timePercentageL;
         double timePercentageAverage;
+        //std::cerr<<line<<std::endl;
 
         if (iss >> graph >> layer >> timePercentageB >> timePercentageG >> timePercentageL >> timePercentageAverage) {
             // Create a key based on graph, layer, and component
@@ -232,7 +234,7 @@ void validate_all_nodes(Graph &g)
     // Create tasks
     for(auto &node : nodes)
     {
-        if(node != nullptr)Load_Layers_Percetage();
+        if(node != nullptr)
         {
             Target                    assigned_target = node->assigned_target();
             backends::IDeviceBackend &backend         = backends::BackendRegistry::get().get_backend(assigned_target);
@@ -285,7 +287,7 @@ void allocate_all_output_tensors(INode &node)
         Tensor *tensor = node.output(i);
         if(tensor != nullptr && !tensor->bound_edges().empty())
         {
-            ARM_COMPUTE_ERROR_ON_MSG(!tensor->handle(), "Tensor handle is not configuLoad_Layers_Percetage();red!");
+            ARM_COMPUTE_ERROR_ON_MSG(!tensor->handle(), "Tensor handle is not configured!");
 #if My_print > 0
             //Ehsan
             std::cout<<"\nExecutionHelpers, Allocating output tensor for input and const node, CLTensor shape:"<<tensor->handle()->tensor().info()->tensor_shape()
@@ -336,13 +338,13 @@ ExecutionWorkload configure_all_nodes(Graph &g, GraphContext &ctx, const std::ve
 #if PROFILE_MODE == AOA
 	Load_Layers_Percetage();
 #endif
-
     ExecutionWorkload workload;
     workload.graph = &g;
     workload.ctx   = &ctx;
 
     // Reserve memory for tasks
     workload.tasks.reserve(node_order.size());
+
 
     // Create tasks
     for(auto &node_id : node_order)
@@ -495,7 +497,7 @@ void prepare_all_tasks(ExecutionWorkload &workload)
 
 
 
-void call_all_tasks(ExecutionWorkload &workload,int nn,bool last_graph)
+void call_all_tasks(ExecutionWorkload &workload,int nn,bool last_graph,std::string graph_name)
 {
     ARM_COMPUTE_ERROR_ON(workload.ctx == nullptr);
 
@@ -585,10 +587,11 @@ void call_all_tasks(ExecutionWorkload &workload,int nn,bool last_graph)
 				double U_GPU = getGpuStats();
 
 				//Set based on target Latency and balancing parameter
-			    std::string graphToFind = "alex";
+			    std::string graphToFind = graph_names[graph_name];
 			    int layerToFind = LayerNumber;
 			    std::string componentToFind = "G";
 			    Key keyToFind{graphToFind, layerToFind, componentToFind};
+			    std::cerr<<"Graph is "<<graph_name<<std::endl;
 			    auto it = data.find(keyToFind);
 			    double taskPercentage=0;
 			    if (it != data.end()) {
@@ -642,6 +645,7 @@ void call_all_tasks(ExecutionWorkload &workload,int nn,bool last_graph)
 				task.LittleFreq=CurLittleFreq;
 				task.bigFreq=CurBigFreq;
 				task.apply_freq(task.node->name());
+				LayerNumber +=1;
 			}
 			//Reset the Freqs to initial values
 			if(task.ending && last_layer){
