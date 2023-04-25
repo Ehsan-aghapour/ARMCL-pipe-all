@@ -64,8 +64,12 @@ namespace detail
 #define AOA 5
 
 //#define PROFILE_MODE PROFILE_MODE_WHOLE_NETWORK
-#define PROFILE_MODE AOA
+#define PROFILE_MODE PROFILE_MODE_WHOLE_NETWORK
 
+#define DL0 0
+#define DL1 1
+#define DL2 2
+#define DebugLevel DL0
 
 
 /*
@@ -75,7 +79,7 @@ namespace detail
 
 std::chrono::time_point<std::chrono::high_resolution_clock> GlobalStartTime;
 int LayerNumber = 0;
-double TargetLatency=250; //ms
+std::map<std::string,double> TargetLatency={{"alex",300},{"google",450},{"mobile",350},{"res50",900},{"squeeze",400}}; //ms
 double Gamma=0.2;
 int LFreqInit=0;
 int BFreqInit=0;
@@ -101,8 +105,7 @@ double getCpuStats() {
     unsigned long long user, nice, system, idle, iowait, irq, softirq, steal, guest, guest_nice;
     unsigned long long total_time = 0;
     unsigned long long idle_time = 0;
-    total_time = 0;
-    idle_time = 0;
+
 
     if (file.is_open()) {
         std::getline(file, line);
@@ -119,7 +122,11 @@ double getCpuStats() {
     file.close();
     unsigned long long diff_idle=idle_time-prev_idle_time;
     unsigned long long diff_total=total_time-prev_total_time;
-    double util=100*(1- (diff_idle/diff_total) );
+    double util=100.0*(1.0 - ((double)diff_idle/(double)diff_total) );
+#if DebugL == DL1
+    std::cerr<<"Prevtotal: "<<prev_total_time<<" PrevIdle: "<<prev_idle_time<<"\ncurtotal: "<<total_time<<\
+    		" curIdle: "<<idle_time<<"\ndiff_total: "<<diff_total<<" diff_idle: "<<diff_idle<<"\nU: "<<util<<std::endl;
+#endif
     prev_total_time=total_time;
     prev_idle_time=idle_time;
     return util;
@@ -152,9 +159,13 @@ double getGpuStats( ) {
     file_suspend.close();
     unsigned long long diff_active=active_time-prev_active_time;
     unsigned long long diff_idle=idle_time-prev_idle_time;
+    double u=100.0*(((double)diff_active/((double)(diff_active+diff_idle))));
+#if DebugL == DL1
+    std::cerr<<"prev active: "<<prev_active_time<<" cur active: "<<active_time<<"\nprev idle: "<<prev_idle_time<<" cur idle: "<<idle_time<<std::endl;
+    std::cerr<<"gpu diff active: "<<diff_active<<" gpu_diff_idle: "<<diff_idle<<" u: "<<u<<std::endl;
+#endif
     prev_idle_time=idle_time;
     prev_active_time=active_time;
-    double u=100*(diff_active/(diff_active+diff_idle));
     return u;
 }
 
@@ -181,7 +192,7 @@ struct KeyHash {
 
 std::unordered_map<Key, double, KeyHash> data;
 bool Data_Loaded=false;
-std::map<std::string,std::string> graph_names={{"AlexNet","alex"},{"GoogleNet","google"},{"MobileNet","mobile"},{"ResNet50","res50"},{"SqueezeNet","squeeze"}};
+std::map<std::string,std::string> graph_names={{"AlexNet","alex"},{"GoogleNet","google"},{"MobileNet","mobile"},{"ResNet","res50"},{"SqueezeNet","squeeze"}};
 
 int Load_Layers_Percetage(){
 	if(Data_Loaded){
@@ -475,8 +486,9 @@ bool call_all_input_node_accessors(ExecutionWorkload &workload)
     	  LayerNumber=0;
     	  elapsed_Task_Percent=0.0;
     	  //Just for setting prev_times inside this functions
-    	  getCpuStats();
-    	  getGpuStats();
+    	  //But no, at the end of last layer we will do that (and for first run the warmup did it)
+    	  //getCpuStats();
+    	  //getGpuStats();
       }
 
 #endif
@@ -494,7 +506,6 @@ void prepare_all_tasks(ExecutionWorkload &workload)
         release_unused_tensors(*workload.graph);
     }
 }
-
 
 
 void call_all_tasks(ExecutionWorkload &workload,int nn,bool last_graph,std::string graph_name)
@@ -520,8 +531,23 @@ void call_all_tasks(ExecutionWorkload &workload,int nn,bool last_graph,std::stri
     std::string last_task_name=workload.tasks[workload.tasks.size()-1].node->name();
     for(auto &task : workload.tasks)
     {
-    	if(nn==0)
+    	if(nn==0){
     		task();
+#if PROFILE_MODE == AOA
+    		bool last_layer=last_graph && task.node->name()==last_task_name;
+    		//Reset the Freqs to initial values
+			if(task.ending && last_layer){
+#if DebugLevel == DL1
+				std::cerr<<"\n\nLayer: "<<LayerNumber<<" finished in warmup, setting Freqs to initial values for next run\n";
+#endif
+				task.GPUFreq=CurGPUFreq=GFreqInit;
+				task.LittleFreq=CurLittleFreq=LFreqInit;
+				task.bigFreq=CurBigFreq=BFreqInit;
+				getCpuStats();
+				getGpuStats();
+			}
+#endif
+    	}
     	else{
 #if streamline > 0
     		ANNOTATE_CHANNEL_COLOR(cc,((c%2)==0)?ANNOTATE_GREEN:ANNOTATE_YELLOW, (std::to_string(c)+" "+task.node->name()).c_str() );
@@ -581,9 +607,16 @@ void call_all_tasks(ExecutionWorkload &workload,int nn,bool last_graph,std::stri
 			/************Profiling whole network *********/
 			task(nn);
 			if(task.ending && !last_layer){
-
-
+#if DebugLevel == DL1
+				std::cerr<<"\n\n\nLayer: "<<LayerNumber<<" finished\n";
+#endif
 				double U_CPU = getCpuStats();
+				//Sclae utilization because there are just two cores and 4 small cores
+				U_CPU = (U_CPU/2.0)*6.0;
+				//Test to see if GPU u will decrease by this sleep
+				//std::this_thread::sleep_for(std::chrono::milliseconds(500));
+				//std::string sss;
+				//std::cin>>sss;
 				double U_GPU = getGpuStats();
 
 				//Set based on target Latency and balancing parameter
@@ -591,39 +624,57 @@ void call_all_tasks(ExecutionWorkload &workload,int nn,bool last_graph,std::stri
 			    int layerToFind = LayerNumber;
 			    std::string componentToFind = "G";
 			    Key keyToFind{graphToFind, layerToFind, componentToFind};
+#if DebugLevel == DL1
 			    std::cerr<<"Graph is "<<graph_name<<std::endl;
+#endif
 			    auto it = data.find(keyToFind);
 			    double taskPercentage=0;
 			    if (it != data.end()) {
 			        taskPercentage = it->second;
+#if DebugLevel == DL1
 			        std::cerr << "Time Percentage for " << graphToFind << " in component " << componentToFind
 			                  << " for layer " << layerToFind << ": " << taskPercentage << std::endl;
 
-
+#endif
 			    } else {
 			        std::cerr << "Data not found for the given key." << std::endl;
 			    }
 
 			    auto CurTime = std::chrono::high_resolution_clock::now();
 			    auto elapsed_Time = std::chrono::duration_cast<std::chrono::nanoseconds>(CurTime - GlobalStartTime).count();
-			    double elapsed_Time_Percent=elapsed_Time/TargetLatency;
+			    elapsed_Time=elapsed_Time/1000000;
+			    double elapsed_Time_Percent=100*elapsed_Time/TargetLatency[graphToFind];
 			    elapsed_Task_Percent += taskPercentage;
-			    int jump_freq = std::ceil(elapsed_Time_Percent/elapsed_Task_Percent);
+			    int jump_freq = elapsed_Time_Percent/elapsed_Task_Percent;
 			    CurGPUFreq += jump_freq;
-
-
+			    CurGPUFreq = std::max(4,CurGPUFreq);
+#if DebugLevel == DL1
+			    std::cerr<<"Elapsed_time: "<<elapsed_Time<<" elapsed_Time_percent: "<<elapsed_Time_Percent<<
+			    		" elapsed_task_percent: "<<elapsed_Task_Percent<<"\nJump: "<<jump_freq<<" CurGPUFreq: "<<CurGPUFreq<<std::endl;
+#endif
 			    //Balancing
 			    double W = (U_GPU - U_CPU)/(U_GPU + U_CPU);
+#if DebugLevel == DL1
+			    std::cerr<<"U(CPU): "<<U_CPU<<", U(GPU): "<<U_GPU<<", W: "<<W<<std::endl;
+#endif
 				if(std::abs(W) > Gamma){
 					//Imbalanced
+#if DebugLevel == DL1
 					std::cerr<<"Imbalanced\n";
+#endif
 					if(W > 0){
 						//More load on GPU
 						if (CurGPUFreq < 4){
 							CurGPUFreq += 1;
+#if DebugLevel == DL1
+							std::cerr<<"More load on GPU increase GPU freq to: "<<CurGPUFreq<<std::endl;
+#endif
 						}
 						else{
 							CurBigFreq=std::max(0, CurBigFreq-1);
+#if DebugLevel == DL1
+							std::cerr<<"More load on GPU Decrease big CPU freq to: "<<CurBigFreq<<std::endl;
+#endif
 						}
 
 					}
@@ -631,15 +682,23 @@ void call_all_tasks(ExecutionWorkload &workload,int nn,bool last_graph,std::stri
 						//More load on CPU
 						if (CurBigFreq < 7){
 							CurBigFreq +=1;
+#if DebugLevel == DL1
+							std::cerr<<"More load on CPU increase Big CPU freq to: "<<CurBigFreq<<std::endl;
+#endif
 						}
 						else{
 							CurGPUFreq = std::max(0, CurGPUFreq-1);
+#if DebugLevel == DL1
+							std::cerr<<"More load on CPU decrease GPU freq to: "<<CurGPUFreq<<std::endl;
+#endif
 						}
 					}
 
 				}
 				else{
+#if DebugLevel == DL1
 					std::cerr<<"Balance CPU and GPU\n";
+#endif
 				}
 				task.GPUFreq=CurGPUFreq;
 				task.LittleFreq=CurLittleFreq;
@@ -649,9 +708,14 @@ void call_all_tasks(ExecutionWorkload &workload,int nn,bool last_graph,std::stri
 			}
 			//Reset the Freqs to initial values
 			if(task.ending && last_layer){
+#if DebugLevel == DL1
+				std::cerr<<"\n\nLayer: "<<LayerNumber<<" finished, setting Freqs to initial values for next run\n";
+#endif
 				task.GPUFreq=CurGPUFreq=GFreqInit;
 				task.LittleFreq=CurLittleFreq=LFreqInit;
 				task.bigFreq=CurBigFreq=BFreqInit;
+				getCpuStats();
+				getGpuStats();
 			}
 			/**************************************************/
 

@@ -143,7 +143,7 @@ void Example_LW::initialize_dvfs(){
 
 static void set_freq_map(std::string freqs, std::string _order,std::string graph_name){
 	std::vector<std::string> _end_task_names= get_end_task_names(graph_name);
-	if(freqs=="min"){
+	if(freqs=="min" or freqs=="[min]"){
 		for(auto task :_end_task_names){
 			freq_layer[task]={0,0,0};
 		}
