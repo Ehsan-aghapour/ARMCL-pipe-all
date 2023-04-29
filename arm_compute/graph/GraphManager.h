@@ -131,6 +131,7 @@ public:
 	static std::mutex mmtx;
     static bool First_time;
     static int last_graph_id;
+    static int Frame_Number;
 
 
 private:

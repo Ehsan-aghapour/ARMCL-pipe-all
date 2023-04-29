@@ -110,6 +110,7 @@ public:
     }
 
     cpu_set_t* set_cores(cpu_set_t *set,bool _one_master_core, int _core){
+    	//std::cerr<<"setting core in graph file, one master core: "<<one_master_core<<" _core: "<<_core<<std::endl;
 		if(one_master_core){
 			CPU_SET(_core,set);
 		}
@@ -797,8 +798,8 @@ public:
 		CPU_ZERO(&set);
 		//NPU:
 		//
-		std::cerr<<"----------------->"<<gr_layer[Layer]<<std::endl;
-		if(gr_layer[Layer]>0){
+		//std::cerr<<"----------------->"<<gr_layer[Layer]<<std::endl;
+		if(gr_layer[Layer]>=0){
 			//CPU_SET(host_core[classes[gr_layer[Layer]]],&set);
 			set_cores(&set,one_master_core,host_core[classes[gr_layer[Layer]]]);
 			std::cerr<<"cpu cores for first subgraph:\n";
@@ -836,11 +837,13 @@ public:
 
 		}
 		//If subgraph is real
+
 		else{
+			std::cerr<<"Target was : "<<common_params.target<<std::endl;
 			sub_graph=(graphs[gr_layer[Layer]]);
 			common_params.target=targets[gr_layer[Layer]];
 		}
-
+		std::cerr<<"target is: "<<common_params.target<<std::endl;
         //***************************************************************
 
 
@@ -1079,9 +1082,9 @@ public:
         			g->set_tasks_freq(freq_layer);
         		}
         		//std::cerr<<"\n\n\n\nnnnnnnnn\n";
-        		for(int i=0;i<graphs.size();i++){
+        		/*for(int i=0;i<graphs.size();i++){
     				graphs[i]->print_config();
-    			}
+    			}*/
         		do_run();
         	}
 
@@ -1089,6 +1092,7 @@ public:
         	//std::cerr<<"setup finished now start running\n";
     		int cl=classes[graph_id];
     		int core_id=host_core[cl];
+    		//PrintThread{}<<"graph "<<graph_id<<" class: "<<cl<<" core_id:"<<core_id<<std::endl;
     		cpu_set_t set;
     		CPU_ZERO(&set);
     		//CPU_SET(core_id,&set);
@@ -1529,7 +1533,7 @@ public:
         int Layers=0;
         bool			   annotate{false};
         bool one_master_core=false;
-        std::map<int, int> host_core = {{0, 1}, {1, 5}, {2, 4}};
+        std::map<int, int> host_core = {{0, 0}, {1, 5}, {2, 4}};
         ImageAccessor *im_acc=NULL;
         Stream *dump_graph=NULL;
         std::map<int,int> gr_layer;

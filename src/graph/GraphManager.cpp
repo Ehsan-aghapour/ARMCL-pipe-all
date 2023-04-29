@@ -181,7 +181,7 @@ void GraphManager::finalize_graph(Graph &graph, GraphContext &ctx, PassManager &
 
     ss.seekp(-2, std::ios_base::end);
     ss<<" };\n";
-    std::cerr<<ss.str();
+    //std::cerr<<ss.str();
     std::cerr<<"number of tasks: "<<ccc<<std::endl;
 
     ss2.seekp(-2, std::ios_base::end);
@@ -347,17 +347,17 @@ void GraphManager::finalize_graph(Graph &graph, GraphContext &ctx, PassManager &
 
     ss.seekp(-2, std::ios_base::end);
     ss<<" };\n";
-    std::cerr<<ss.str();
+    //std::cerr<<ss.str();
     std::cerr<<"number of tasks: "<<ccc<<std::endl;
 
     ss2.seekp(-2, std::ios_base::end);
 	ss2<<" };\n";
-	std::cerr<<ss2.str();
+	//std::cerr<<ss2.str();
 	std::cerr<<"number of end tasks: "<<eccc<<std::endl;
 
 	ss3.seekp(-2, std::ios_base::end);
 	ss3<<" };\n";
-	std::cerr<<ss3.str();
+	//std::cerr<<ss3.str();
 	std::cerr<<"number of start tasks: "<<eccc<<std::endl;
 
 #if My_print > 0
@@ -387,7 +387,7 @@ void GraphManager::finalize_graph(Graph &graph, GraphContext &ctx, PassManager &
     // Register graph
     _workloads.insert(std::make_pair(graph.id(), std::move(workload)));
     ARM_COMPUTE_LOG_GRAPH_VERBOSE("Created workload for graph with ID : " << graph.id() << std::endl);
-    std::cerr<<"after pass graph "<<graph.id()<<std::endl;
+    //std::cerr<<"after pass graph "<<graph.id()<<std::endl;
     //print_times(graph,1);
 }
 //Ehsan
@@ -464,6 +464,7 @@ void GraphManager::reset(Graph &graph)
 	task_time=0;
 	output_time=0;
 	transfer_time=0;
+	Frame_Number=0;
 }
 
 void GraphManager::set_tasks_freqs(Graph &graph,std::map<std::string, std::array<int, 3>> freq_layer){
@@ -525,6 +526,7 @@ void GraphManager::execute_graph(Graph &graph)
 */
 std::mutex GraphManager::mmtx; // create a mutex
 bool GraphManager::First_time=new bool(true);
+int GraphManager::Frame_Number=0;
 //std::chrono::time_point<std::chrono::high_resolution_clock>* GraphManager::Task_finish_time;
 //std::chrono::time_point<std::chrono::high_resolution_clock>* GraphManager::Output_finish_time;
 std::atomic<std::chrono::time_point<std::chrono::high_resolution_clock>> GraphManager::Task_finish_time;
@@ -565,6 +567,13 @@ void GraphManager::execute_graph(Graph &graph, int nn)
 		auto tstart=std::chrono::high_resolution_clock::now();
 		//std::cerr<<"graph_id:"<<graph.id()<<"last id: "<<last_graph_id <<std::endl;
 		//std::cerr<<graph.id()<<" heye1\n\n";
+		if (graph.id()==0){
+			//The first time tstart should be started with first subgraph itself(rather than with output of last subgraph)
+			if(Frame_Number==0){
+				GraphManager::Output_finish_time.store(tstart);
+			}
+			Frame_Number++;
+		}
 		if(!detail::call_all_input_node_accessors(it->second))
 		{
 			return;
@@ -579,8 +588,9 @@ void GraphManager::execute_graph(Graph &graph, int nn)
 		if(graph.id()){
 			//double xt=std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - Task_finish_time.load()).count();
 			double xt=calc_task(tfinish);
-			//std::cerr<<graph.id()<<" tplus:"<<x1<<std::endl;
 			transfer_time+=xt;
+			//std::cerr<<graph.id()<<" transferplus:"<<xt<<" total:"<<transfer_time<<std::endl;
+
 			//trans[frame]=xt;
 			//Input of next graphs reach to the measurement point sooner then output of previous graph
 			if (x1>xt){
@@ -589,6 +599,7 @@ void GraphManager::execute_graph(Graph &graph, int nn)
 		}
 		//in[frame]=x1;
 		input_time +=x1;
+		//std::cerr<<graph.id()<<" inputrplus:"<<x1<<" total:"<<input_time<<std::endl;
 		//std::cerr<<graph.id()<<" before\n\n";
 		detail::call_all_tasks(it->second,nn,graph.id()==last_graph_id, graph.name());
 		tstart=std::chrono::high_resolution_clock::now();
@@ -605,6 +616,8 @@ void GraphManager::execute_graph(Graph &graph, int nn)
 		//ANNOTATE_CHANNEL_COLOR(3,ANNOTATE_BLACK,"output");
 		double x2=std::chrono::duration_cast<std::chrono::duration<double>>(tstart-tfinish).count();
 		task_time += x2;
+		//std::cerr<<graph.id()<<" taskplus:"<<x2<<" total:"<<task_time<<std::endl;
+
 		double x3=0;
 		if(!detail::call_all_output_node_accessors(it->second))
 		{
@@ -614,6 +627,7 @@ void GraphManager::execute_graph(Graph &graph, int nn)
 			auto &task=it->second.tasks[it->second.tasks.size()-1];
 			//Just the last layer apply freqs and GPIO after output
 			if(graph.id()==last_graph_id ){
+				//std::cerr<<graph.id()<<" last task apply freq"<<std::endl;
 				task.apply_freq(task.node->name());
 				if(nn){
 					if (-1 == GPIOWrite(POUT, 1)){
@@ -649,6 +663,8 @@ void GraphManager::execute_graph(Graph &graph, int nn)
 			x3=std::chrono::duration_cast<std::chrono::duration<double>>(tfinish - tstart).count();
 			//out[frame]=x3;
 			output_time += x3;
+			//std::cerr<<graph.id()<<" outplus:"<<x3<<" total:"<<output_time<<std::endl;
+
 			//frame++;
 			//ANNOTATE_CHANNEL_END(3);
 			return;

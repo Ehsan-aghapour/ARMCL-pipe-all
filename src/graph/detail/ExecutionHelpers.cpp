@@ -64,7 +64,7 @@ namespace detail
 #define AOA 5
 
 //#define PROFILE_MODE PROFILE_MODE_WHOLE_NETWORK
-#define PROFILE_MODE PROFILE_MODE_WHOLE_NETWORK
+#define PROFILE_MODE PROFILE_MODE_LAYERS
 
 #define DL0 0
 #define DL1 1
@@ -362,9 +362,9 @@ ExecutionWorkload configure_all_nodes(Graph &g, GraphContext &ctx, const std::ve
     {
         auto node = g.node(node_id);
         //Ehsan
-        /*
-        std::cout<<"\n*******************************\nnode name: "<<node->name()<<" ID: "<<node->id()<<" num inputs: "<<node->num_inputs()<<std::endl<<std::flush;
-        for(int k=0; k < node->num_inputs(); k++){
+
+        //std::cerr<<"\n*******************************\nnode name: "<<node->name()<<" ID: "<<node->id()<<" num inputs: "<<node->num_inputs()<<std::endl<<std::flush;
+        /*for(int k=0; k < node->num_inputs(); k++){
         	INode *cc=node->input_edge(k)->producer();
         	std::cout<<"\ninput "<<k<<" node_name: "<<cc->name()<<" ID: "<<cc->id()<<std::endl<<std::flush;
         	TensorShape shape=node->input(k)->desc().shape;
@@ -387,8 +387,8 @@ ExecutionWorkload configure_all_nodes(Graph &g, GraphContext &ctx, const std::ve
                                << " Output2 shape: " << output2->info()->tensor_shape()
                                << " Output3 shape: " << output3->info()->tensor_shape()
                                << " DetectionPostProcessLayer info: " << detect_info
-                               << std::endl);
-         */
+                               << std::endl);*/
+
 
 
         if(node != nullptr)
@@ -500,8 +500,10 @@ bool call_all_input_node_accessors(ExecutionWorkload &workload)
 void prepare_all_tasks(ExecutionWorkload &workload)
 {
     ARM_COMPUTE_ERROR_ON(workload.graph == nullptr);
+    //int i=0;
     for(auto &task : workload.tasks)
     {
+    	//std::cerr<<i++<<task.node->name()<<std::endl;
         task.prepare();
         release_unused_tensors(*workload.graph);
     }
@@ -529,8 +531,14 @@ void call_all_tasks(ExecutionWorkload &workload,int nn,bool last_graph,std::stri
     static int c=0;
 #endif
     std::string last_task_name=workload.tasks[workload.tasks.size()-1].node->name();
+    /*if (workload.graph->id()==3 || true){
+		std::string s;
+		std::cerr<<"start of proceesing graph "<< workload.graph->id()<<" with last_task_name: "<<last_task_name<<std::endl;
+		std::cin>>s;
+	}*/
     for(auto &task : workload.tasks)
     {
+
     	if(nn==0){
     		task();
 #if PROFILE_MODE == AOA
@@ -760,6 +768,11 @@ void call_all_tasks(ExecutionWorkload &workload,int nn,bool last_graph,std::stri
         std::cout<<"Executionhelpers, tasks() time: "<<nanosec.count()<<std::endl;
 #endif
     }
+    /*if (workload.graph->id()==3 || true){
+		std::string s;
+		std::cerr<<"end of proceesing graph "<< workload.graph->id()<<" with last_task_name: "<<last_task_name<<std::endl;
+		std::cin>>s;
+	}*/
 
     // Release memory for the transition buffers
     for(auto &mm_ctx : workload.ctx->memory_managers())

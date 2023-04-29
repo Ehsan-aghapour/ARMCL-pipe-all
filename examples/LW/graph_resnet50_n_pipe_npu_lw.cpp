@@ -840,7 +840,7 @@ public:
 		CPU_ZERO(&set);
 		//NPU:
 		//
-		if(gr_layer[Layer]>0){
+		if(gr_layer[Layer]>=0){
 			//CPU_SET(host_core[classes[gr_layer[Layer]]],&set);
 			set_cores(&set,one_master_core,host_core[classes[gr_layer[Layer]]]);
 			ARM_COMPUTE_EXIT_ON_MSG(sched_setaffinity(0, sizeof(set), &set), "Error setting thread affinity");
@@ -1083,9 +1083,9 @@ private:
         		for(auto &g: graphs){
         			g->set_tasks_freq(freq_layer);
         		}
-        		for(int i=0;i<graphs.size();i++){
+        		/*for(int i=0;i<graphs.size();i++){
     				graphs[i]->print_config();
-    			}
+    			}*/
         		do_run();
         	}
         void run(int graph_id){
@@ -1535,7 +1535,7 @@ private:
     int Layers=0;
     bool			   annotate{false};
     bool one_master_core=false;
-    std::map<int, int> host_core = {{0, 1}, {1, 5}, {2, 4}};
+    std::map<int, int> host_core = {{0, 0}, {1, 5}, {2, 4}};
     ImageAccessor *im_acc=NULL;
     Stream *dump_graph=NULL;
     std::map<int,int> gr_layer;

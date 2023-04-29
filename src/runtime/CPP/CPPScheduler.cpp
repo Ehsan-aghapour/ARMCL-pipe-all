@@ -41,6 +41,7 @@
 #include <system_error>
 #include <thread>
 
+
 namespace arm_compute
 {
 namespace
@@ -142,6 +143,9 @@ public:
 
     /** Function ran by the worker thread. */
     void worker_thread();
+    int get_core_pin(){
+    	return _core_pin;
+    }
 
 private:
     std::thread                        _thread{};
@@ -156,10 +160,15 @@ private:
     int                                _core_pin{ -1 };
 };
 
+
+
 Thread::Thread(int core_pin)
     : _core_pin(core_pin)
 {
+	//std::cerr<<"Thread:: thread created with core_pin: "<<_core_pin<<std::endl;
+
     _thread = std::thread(&Thread::worker_thread, this);
+
 }
 
 Thread::~Thread()
@@ -245,6 +254,7 @@ struct CPPScheduler::Impl final
     }
     void set_num_threads(unsigned int num_threads, unsigned int thread_hint)
     {
+    	//std::cerr<<"****************************\n\n\n********************\n";
         _num_threads = num_threads == 0 ? thread_hint : num_threads;
         _threads.resize(_num_threads - 1);
     }
@@ -253,7 +263,11 @@ struct CPPScheduler::Impl final
         _num_threads = num_threads == 0 ? thread_hint : num_threads;
 
         // Set affinity on main thread
+        //set_thread_affinity(func(0, thread_hint, cfg));
+        //std::cerr<<"Here in cppscheduler cluster is: "<<cfg.cluster<<std::endl;
+
         set_thread_affinity(func(0, thread_hint, cfg));
+
 
         // Set affinity on worked threads
         _threads.clear();
@@ -265,6 +279,12 @@ struct CPPScheduler::Impl final
     unsigned int num_threads() const
     {
         return _num_threads;
+    }
+    void print_threads(){
+    	std::cerr<<"Num_threads: "<<_num_threads<<std::endl;
+    	for(auto &t :_threads){
+    		std::cerr<<"core_pin: "<<t.get_core_pin()<<std::endl;
+    	}
     }
 
     void run_workloads(std::vector<IScheduler::Workload> &workloads);
@@ -309,6 +329,10 @@ void CPPScheduler::set_num_threads_with_affinity(unsigned int num_threads, arm_c
 unsigned int CPPScheduler::num_threads() const
 {
     return _impl->num_threads();
+}
+
+void CPPScheduler::print_threads(){
+	_impl->print_threads();
 }
 
 #ifndef DOXYGEN_SKIP_THIS

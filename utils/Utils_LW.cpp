@@ -183,9 +183,9 @@ static void set_freq_map(std::string freqs, std::string _order,std::string graph
 		i=i+1;
 		i=i%(_order.size());
 	}
-	for(auto it: _end_task_names){
+	/*for(auto it: _end_task_names){
 		std::cout<<"layer:"<<it<<"\tLittle:"<<freq_layer[it][0]<<"\tbig:"<<freq_layer[it][1]<<"\tGPU:"<<freq_layer[it][2]<<std::endl;
-	}
+	}*/
 }
 
 
