@@ -27,6 +27,9 @@
 #include "arm_compute/graph/ITensorHandle.h"
 #include "arm_compute/graph/nodes/PrintLayerNode.h"
 
+//Ehsan
+#include "arm_compute/runtime/CL/CLScheduler.h"
+
 namespace arm_compute
 {
 namespace graph
@@ -42,6 +45,9 @@ void execute_task(ExecutionTask &task)
     {
         task.task->run();
     }
+    if(task.ending){
+		arm_compute::CLScheduler::get().queue().finish();
+	}
 #ifdef ARM_COMPUTE_ASSERTS_ENABLED
     // COMPMID-3012 - Hide the printing logic from the execute_task method in the graph API
     else if(task.node->type() == NodeType::PrintLayer)

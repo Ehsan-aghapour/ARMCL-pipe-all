@@ -21,6 +21,13 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+#define Power_Measurement 0
+#define Frequency_Setting 0
+
+#if Power_Measurement == 1
+#include "power.h"
+#endif
+
 #include "Utils.h"
 
 #ifdef ARM_COMPUTE_CL
@@ -91,16 +98,94 @@ int run_example(int argc, char **argv, std::unique_ptr<Example> example)
     std::cout << "\n"
               << argv[0] << "\n\n";
 
+    std::string cmd="";
     try
     {
+#if Frequency_Setting == 1
+        system("echo performance > /sys/devices/system/cpu/cpufreq/policy0/scaling_governor");
+        system("echo performance > /sys/devices/system/cpu/cpufreq/policy2/scaling_governor");
+        int f_i=1;
+#endif
+#if Power_Measurement == 1
+		cmd="echo " + std::to_string(POUT) + " > /sys/class/gpio/export";
+        system(cmd.c_str());
+		if (-1 == GPIOExport(POUT))
+				return(1);
+		if (-1 == GPIODirection(POUT, OUT))
+				return(2);
+		if (-1 == GPIOWrite(POUT, 0))
+			std::cerr<<"Could not write 0 to GPIO\n";
+#endif
         bool status = example->do_setup(argc, argv);
         if(!status)
         {
             return 1;
         }
-        example->do_run();
-        example->do_teardown();
 
+
+#if Frequency_Setting
+        //Min
+        int LFreq=408000, BFreq=408000;
+        //Max
+        //int LFreq=1416000, BFreq=1800000, GFreq=800000000;
+
+
+        /*
+        //Set Little CPU Frequency
+		cmd="echo " + to_string(LFreq) + " > /sys/devices/system/cpu/cpufreq/policy0/scaling_setspeed";
+		system(cmd.c_str());
+
+		//Set Big CPU Frequency
+		cmd="echo " + to_string(BFreq) + " > /sys/devices/system/cpu/cpufreq/policy4/scaling_setspeed";
+		system(cmd.c_str());
+
+		//Set GPU Frequency
+		cmd="echo " + to_string(GFreq) + " > /sys/devices/platform/ff9a0000.gpu/devfreq/ff9a0000.gpu/userspace/set_freq";
+		system(cmd.c_str());
+		*/
+        std::cin>>LFreq;
+		std::cin>>BFreq;
+
+        while (BFreq && LFreq ){
+        	std::cerr<<f_i++<<" Running Graph with Frequency: "<<LFreq<<','<<BFreq<<std::endl;
+			//Set Little CPU Frequency
+			cmd="echo " + std::to_string(LFreq) + " > /sys/devices/system/cpu/cpufreq/policy0/scaling_max_freq";
+			system(cmd.c_str());
+			//Set Big CPU Frequency
+			cmd="echo " + std::to_string(BFreq) + " > /sys/devices/system/cpu/cpufreq/policy2/scaling_max_freq";
+			system(cmd.c_str());
+
+        	sleep(2);
+#if Power_Measurement
+		if (-1 == GPIOWrite(POUT, 1))
+			std::cerr<<"Could not write 1 to GPIO\n";
+#endif
+        	example->do_run();
+#if Power_Measurement
+		if (-1 == GPIOWrite(POUT, 0))
+		    std::cerr<<"could not write 0\n";
+#endif
+        	std::cin>>LFreq;
+        	std::cin>>BFreq;
+        }
+
+#else
+#if Power_Measurement
+		if (-1 == GPIOWrite(POUT, 1))
+			std::cerr<<"Could not write 1 to GPIO\n";
+#endif
+        example->do_run();
+#if Power_Measurement
+		if (-1 == GPIOWrite(POUT, 0))
+		    std::cerr<<"could not write 0\n";
+#endif
+#endif
+		//example->do_finish();
+        example->do_teardown();
+#if Power_Measurement
+    	if (-1 == GPIOUnexport(POUT))
+    			std::cerr<<"could not unexport\n";
+#endif
         std::cout << "\nTest passed\n";
         return 0;
     }

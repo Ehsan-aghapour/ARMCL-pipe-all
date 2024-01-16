@@ -92,6 +92,7 @@ struct ExecutionTask
 
     /** Prepare execution task */
     void prepare();
+    bool ending=false;
 };
 
 /** Execution workload */

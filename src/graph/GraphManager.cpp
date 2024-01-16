@@ -94,6 +94,11 @@ void GraphManager::finalize_graph(Graph &graph, GraphContext &ctx, PassManager &
     // Prepare graph
     detail::prepare_all_tasks(workload);
 
+    //Ehsan
+    if(target==arm_compute::graph::Target ::CL){
+		workload.tasks[workload.tasks.size()-1].ending=1;
+	}
+
     // Setup tensor memory (Allocate all tensors or setup transition manager)
     if(ctx.config().use_transition_memory_manager)
     {
