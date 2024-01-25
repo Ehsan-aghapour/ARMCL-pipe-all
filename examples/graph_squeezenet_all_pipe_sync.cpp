@@ -1047,7 +1047,7 @@ public:
         process_times[0]=tot;
         //std::cout<<"\n\nCost:"<<Cost<<std::endl;
         //std::cout<<"input_time:"<<in<<"\ntask_time:"<<task<<"\noutput_time:"<<out<<"\ntotal_time:"<<tot<<std::endl;
-        std::cout<<"\n\nstage1_input_time: "<<in<<" ms"<<"\nstage1_inference_time: "<<task+out<<" ms"<<"\nstage1_total_time: "<<tot<<" ms"<<std::endl;
+        std::cerr<<"\n\nstage1_input_time: "<<in<<" ms"<<"\nstage1_inference_time: "<<task+out<<" ms"<<"\nstage1_total_time: "<<tot<<" ms"<<std::endl;
     }
     void do_run_2(int core_id)
     {
@@ -1111,7 +1111,7 @@ public:
         process_times[1]=tot2;
         //std::cout<<"Cost:"<<Cost<<std::endl;
         //std::cout<<"\n\ninput2_time:"<<in2<<"\ntask2_time:"<<task2<<"\noutput2_time:"<<out2<<"\ntotal2_time:"<<tot2<<std::endl;
-        std::cout<<"\n\nstage2_input_time: "<<in2<<" ms"<<"\nstage2_inference_time: "<<task2+out2<<" ms"<<"\nstage2_total_time: "<<tot2<<" ms"<<std::endl;
+        std::cerr<<"\n\nstage2_input_time: "<<in2<<" ms"<<"\nstage2_inference_time: "<<task2+out2<<" ms"<<"\nstage2_total_time: "<<tot2<<" ms"<<std::endl;
     }
     void do_run_3(int core_id)
         {
@@ -1174,7 +1174,7 @@ public:
             process_times[2]=tot3;
             //std::cout<<"Cost:"<<Cost<<std::endl;
             //std::cout<<"\n\ninput3_time:"<<in3<<"\ntask3_time:"<<task3<<"\noutput3_time:"<<out3<<"\ntotal3_time:"<<tot3<<std::endl;
-            std::cout<<"\n\nstage3_input_time: "<<in3<<" ms"<<"\nstage3_inference_time: "<<task3+out3<<" ms"<<"\nstage3_total_time: "<<tot3<<" ms"<<std::endl;
+            std::cerr<<"\n\nstage3_input_time: "<<in3<<" ms"<<"\nstage3_inference_time: "<<task3+out3<<" ms"<<"\nstage3_total_time: "<<tot3<<" ms"<<std::endl;
         }
 
 
